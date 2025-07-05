@@ -322,6 +322,12 @@ class HexGrid:
             return self.get_tile(q + 1, r)
         elif direction == "S":
             return self.get_tile(q, r + 1)
+        elif direction == "SW":
+            return self.get_tile(q - 1, r + 1)
+        elif direction == "NW":
+            return self.get_tile(q - 1, r)
+        else:
+            return None
 
     def determine_terrain_type(self, elevation, moisture, temperature):
         # Add noise to thresholds

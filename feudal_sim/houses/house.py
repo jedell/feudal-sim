@@ -3,11 +3,13 @@ import math
 from feudal_sim.map.types import Color
 from feudal_sim.map.hex_tile import HexTile
 from feudal_sim.houses.observations.scout import gather_scout_data, make_scout
-from feudal_sim.core.events import event_bus, EventType
-from feudal_sim.core.config import config
 from feudal_sim.components.ai import AIComponent
 from feudal_sim.components.rookery import RookeryComponent
+from feudal_sim.components.resource import ResourceComponent
+from feudal_sim.components.population import PopulationComponent
+from feudal_sim.components.territory import TerritoryComponent
 from feudal_sim.core.entities import Entity
+from feudal_sim.ai.prompts import HOUSE_LEADER_INSTRUCTIONS
 
 class House(Entity):
     def default_attributes(self):
@@ -34,14 +36,11 @@ class House(Entity):
         super().__init__(entity_id=name, name=name)
         
         self.color = color
-        self.territory = set()
-        self.border_tiles = set()
+        # Territory now handled by TerritoryComponent
         starting_attributes = self.default_attributes()
-        self.resources = starting_attributes["resources"]
-        self.population = starting_attributes["population"]
-        self.military_power = starting_attributes["military_power"]
-        self.population_capacity = self.get_population_capacity()
-        self.population_loyalty = starting_attributes["population_loyalty"] 
+        # Resources now handled by ResourceComponent
+        # Population now handled by PopulationComponent
+        self.military_power = starting_attributes["military_power"] 
 
         # observations per step
         self.observations = []
@@ -53,18 +52,74 @@ class House(Entity):
         # Add components using Entity system
         self._setup_components()
     
+    @property
+    def resources(self):
+        """Backward compatibility property for accessing resources."""
+        resource_component = self.get_component(ResourceComponent)
+        return resource_component.resources.to_dict() if resource_component else {}
+    
+    @property
+    def population(self):
+        """Backward compatibility property for accessing population."""
+        population_component = self.get_component(PopulationComponent)
+        return population_component.population if population_component else 0
+    
+    @property
+    def population_capacity(self):
+        """Backward compatibility property for accessing population capacity."""
+        population_component = self.get_component(PopulationComponent)
+        return population_component.population_capacity if population_component else 0
+    
+    @property
+    def population_loyalty(self):
+        """Backward compatibility property for accessing population loyalty."""
+        population_component = self.get_component(PopulationComponent)
+        return population_component.population_loyalty if population_component else 0
+    
+    @property
+    def territory(self):
+        """Backward compatibility property for accessing territory."""
+        territory_component = self.get_component(TerritoryComponent)
+        return territory_component.territory if territory_component else set()
+    
+    @property
+    def border_tiles(self):
+        """Backward compatibility property for accessing border tiles."""
+        territory_component = self.get_component(TerritoryComponent)
+        return territory_component.border_tiles if territory_component else set()
+    
     def _setup_components(self):
         """Set up all components for this house entity."""
-        # Add Rookery Component FIRST so it's available when AI component is initialized
+        starting_attributes = self.default_attributes()
+        
+        # Add Resource Component FIRST
+        resource_component = ResourceComponent(entity_id=self.id, starting_resources=starting_attributes["resources"])
+        self.add_component(resource_component)
+        
+        # Add Territory Component
+        territory_component = TerritoryComponent(entity_id=self.id)
+        self.add_component(territory_component)
+        
+        # Add Population Component
+        population_component = PopulationComponent(
+            entity_id=self.id, 
+            starting_population=starting_attributes["population"],
+            starting_loyalty=starting_attributes["population_loyalty"]
+        )
+        self.add_component(population_component)
+        
+        # Note: Population capacity will be calculated after territory is assigned
+        
+        # Add Rookery Component so it's available when AI component is initialized
         rookery_component = RookeryComponent(entity_id=self.id)
         self.add_component(rookery_component)
         
-        # Set up known recipients immediately
+        # Set up known recipients immediately (without discovery observations)
         for recipient_name in self.known_recipients:
             if recipient_name != self.name:  # Don't add self as recipient
-                rookery_component.add_known_recipient(recipient_name, recipient_name)
+                rookery_component.add_known_recipient(recipient_name, recipient_name, discovered=False)
         
-        # AI Component for intelligent decision making (added after rookery so tools work)
+        # AI Component for intelligent decision making (added after other components so tools work)
         ai_component = self._create_ai_component()
         self.add_component(ai_component)
     
@@ -81,7 +136,7 @@ class House(Entity):
         
         return AIComponent(
             name=f"Lord/Lady of House {self.name}",
-            instructions=personality,
+            instructions=HOUSE_LEADER_INSTRUCTIONS + personality,
             entity_id=self.id
         )
     
@@ -99,129 +154,90 @@ class House(Entity):
 
     def manage_population(self):
         """Manage population based on resource availability."""
-        # Store old values
-        old_population = self.population
-        old_loyalty = self.population_loyalty
+        population_component = self.get_component(PopulationComponent)
+        resource_component = self.get_component(ResourceComponent)
         
-        # Calculate total food production
-        total_food = self.resources['food']
+        if not population_component or not resource_component:
+            return
         
-        # Calculate population growth based on food availability
-        population_growth = min(total_food // 2, self.population_capacity - self.population)
+        # Get total food available
+        total_food = resource_component.resources.food
         
-        # Update population
-        self.population = min(self.population + population_growth, self.population_capacity)
+        # Use PopulationComponent to manage population
+        population_component.manage_population_turn(total_food)
         
-        # Ensure population doesn't exceed capacity
-        if self.population > self.population_capacity:
-            self.population = self.population_capacity
-
-        # Update population loyalty, grows slowly over time, decreases when resources are low
-        self.population_loyalty = min(self.population_loyalty + 1, 100)
-        if self.resources['food'] < 100:
-            self.population_loyalty = max(self.population_loyalty - 1, 0)
-
         # Add observations for AI component
         ai_component = self.get_component(AIComponent)
-        if ai_component:
-            if self.population != old_population:
-                change = self.population - old_population
-                if change > 0:
-                    ai_component.add_observation(f"Your population grew by {change} people (now {self.population})", "Production")
-                elif change < 0:
-                    ai_component.add_observation(f"Your population decreased by {abs(change)} people (now {self.population})", "Production")
-            
-            if abs(self.population_loyalty - old_loyalty) > 0:
-                if self.population_loyalty > old_loyalty:
-                    ai_component.add_observation(f"Population loyalty increased to {self.population_loyalty}", "Production")
-                else:
-                    ai_component.add_observation(f"Population loyalty decreased to {self.population_loyalty}", "Production")
-
-        # Check if population loyalty is low
-        if self.population_loyalty < 50:
-            # Implement population revolt logic here
+        population_component.add_observation_for_changes(ai_component, "Production")
+        
+        # Check for revolt and print warning
+        if population_component.check_revolt_risk():
             print(f"{self.name} is experiencing a population revolt!")
-            if ai_component:
-                ai_component.add_observation("Your people are on the brink of revolt due to low loyalty!", "Production")
-            # Additional logic can be added, such as reducing military power, changing territory, etc.
 
-    def population_efficiency(self, population_ratio):
-        # as pop nears capacity, resources efficiency decreases
-        return 1 + 1/math.exp(population_ratio)
         
 
     def gather_resources(self, seasonal_modifier=1.0):
         """Gather resources based on the current population and territory outputs,
         enforcing a production cap based on population."""
-        # Store old values for event emission
-        old_resources = dict(self.resources)
+        resource_component = self.get_component(ResourceComponent)
+        if not resource_component:
+            return
         
-        population_ratio = self.population / self.population_capacity
-        efficiency = self.population_efficiency(population_ratio)
-        for hex_tile in self.territory:
-            # Apply seasonal modifier to farming output
-            food_modifier = seasonal_modifier if 'food' in ['food'] else 1.0
-            gathering_multiplier = config.get('simulation.resources.gathering_multiplier')
-            self.resources['food'] += math.ceil(hex_tile.food_output * gathering_multiplier * efficiency * food_modifier)
-            self.resources['material'] += math.ceil(hex_tile.material_output * gathering_multiplier * efficiency)
-            self.resources['metal'] += math.ceil(hex_tile.metal_output * gathering_multiplier * efficiency)
+        population_ratio = self.population / self.population_capacity if self.population_capacity > 0 else 1.0
+        
+        # Get territory from TerritoryComponent
+        territory_component = self.get_component(TerritoryComponent)
+        territory = territory_component.territory if territory_component else set()
+        
+        # Use ResourceComponent to gather resources
+        resource_component.gather_resources_from_territories(
+            territory, 
+            population_ratio, 
+            seasonal_modifier
+        )
         
         # Add observations for AI component
-        resource_changes = {}
-        for resource_type in ['food', 'material', 'metal']:
-            old_value = old_resources[resource_type]
-            new_value = self.resources[resource_type]
-            change = new_value - old_value
-            if change > 0:
-                resource_changes[resource_type] = change
+        ai_component = self.get_component(AIComponent)
+        resource_component.add_observation_for_changes(ai_component, "Production")
         
-        if resource_changes:
-            # Create natural language observation for AI
-            changes_text = ", ".join([f"+{amount} {resource}" for resource, amount in resource_changes.items()])
-            ai_component = self.get_component(AIComponent)
-            if ai_component:
-                ai_component.add_observation(f"Your territories produced {changes_text} this turn", "Production")
-        
-        # Emit events for resource changes (makes system extensible)
-        for resource_type in ['food', 'material', 'metal']:
-            old_value = old_resources[resource_type]
-            new_value = self.resources[resource_type]
-            if new_value != old_value:
-                event_bus.emit(
-                    EventType.VALUE_CHANGED,
-                    self,
-                    entity_type='house',
-                    entity_name=self.name,
-                    property='resources',
-                    resource_type=resource_type,
-                    old_value=old_value,
-                    new_value=new_value,
-                    change=new_value - old_value
-                )
+        # Add in-transit raven observations
+        rookery_component = self.get_component(RookeryComponent)
+        if rookery_component:
+            rookery_component.add_in_transit_observations(ai_component, "Production")
 
     def get_population_capacity(self):
-        return sum([tile.population_capacity for tile in self.territory])
+        """Backward compatibility method."""
+        population_component = self.get_component(PopulationComponent)
+        return population_component.population_capacity if population_component else 0
 
     def expand_territory(self, new_territory: list[HexTile], hex_grid):
-        # Add new territory to the house's control
-        self.territory.update(new_territory)
-        self.population_capacity = self.get_population_capacity()
-        for tile in new_territory:
-            tile.set_owner(self)
-            tile.owner_color = self.color
-            neighbors = hex_grid.get_neighbors(tile.q, tile.r)
-            for neighbor, _ in neighbors:
-                if neighbor not in self.territory:
-                    self.border_tiles.add(neighbor)
+        # Use TerritoryComponent to expand territory
+        territory_component = self.get_component(TerritoryComponent)
+        if not territory_component:
+            return
+        
+        territory_component.expand_territory(new_territory, hex_grid, self.color)
+        
+        # Update population capacity using PopulationComponent
+        population_component = self.get_component(PopulationComponent)
+        if population_component:
+            population_component.calculate_capacity_from_territories(territory_component.territory)
 
     def collect_taxes(self, tax_rate):
-        if not (0 < tax_rate < 1):
+        resource_component = self.get_component(ResourceComponent)
+        if not resource_component:
+            return 0
+        
+        if not (0 < tax_rate <= 1):
             raise ValueError("Tax rate must be between 0 and 1")
-        tax_collected = math.ceil(self.population * tax_rate)
-        self.resources['gold'] += tax_collected
+        
+        tax_collected = resource_component.collect_taxes(self.population, tax_rate)
+        
         # loyalty decreases with higher tax rate
         loyalty_decrease = math.ceil(tax_rate * 80)  # Higher tax rate leads to more loyalty decrease
         self.population_loyalty = max(0, self.population_loyalty - loyalty_decrease)
+        
+        return tax_collected
 
     def send_message(self, message: str, recipient: str):
         print(f"{self.name} sends a message to {recipient}: {message}")
@@ -248,15 +264,20 @@ class House(Entity):
         total_food_cost = cost['food'] * quantity
         total_material_cost = cost['material'] * quantity
 
-        if self.resources['food'] >= total_food_cost and self.resources['material'] >= total_material_cost:
-            self.resources['food'] -= total_food_cost
-            self.resources['material'] -= total_material_cost
+        resource_component = self.get_component(ResourceComponent)
+        if not resource_component:
+            print(f"{self.name} has no resource component to raise troops.")
+            return
+        
+        costs = {'food': total_food_cost, 'material': total_material_cost}
+        
+        if resource_component.consume_for_action(costs, f"raise_{troop_type}_army"):
             self.military_power += quantity  # Simplistic scaling
             print(f"{self.name} has raised {quantity} {troop_type} troops.")
         else:
             print(f"{self.name} does not have enough resources to raise {quantity} {troop_type} troops.")
     
-    def make_ai_decisions(self, current_turn: int, current_phase: str, current_season: str, current_year: int):
+    def make_ai_decisions(self, current_turn: int, current_phase: str, current_season: str, current_year: int, hex_grid=None, entity_manager=None, simulation=None):
         """
         Have the AI component make decisions for this house.
         Called during the Actions phase.
@@ -272,12 +293,12 @@ class House(Entity):
         """
         # Update AI context with current simulation state
         game_state = {
-            'population': self.population,
-            'population_capacity': self.population_capacity,
-            'population_loyalty': self.population_loyalty,
-            'resources': dict(self.resources),
+            'population': self.get_component(PopulationComponent).population if self.get_component(PopulationComponent) else 0,
+            'population_capacity': self.get_component(PopulationComponent).population_capacity if self.get_component(PopulationComponent) else 0,
+            'population_loyalty': self.get_component(PopulationComponent).population_loyalty if self.get_component(PopulationComponent) else 0,
+            'resources': self.get_component(ResourceComponent).resources.to_dict() if self.get_component(ResourceComponent) else {},
             'military_power': self.military_power,
-            'territory_size': len(self.territory)
+            'territory_size': self.get_component(TerritoryComponent).get_territory_size() if self.get_component(TerritoryComponent) else 0
         }
         
         ai_component = self.get_component(AIComponent)
@@ -289,7 +310,10 @@ class House(Entity):
             current_phase=current_phase,
             current_season=current_season,
             current_year=current_year,
-            game_state=game_state
+            game_state=game_state,
+            hex_grid=hex_grid,
+            entity_manager=entity_manager,
+            simulation=simulation
         )
         
         # Make AI decisions

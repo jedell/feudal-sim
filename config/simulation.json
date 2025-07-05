@@ -1,4 +1,9 @@
 {
+  "ai": {
+    "enabled": true,
+    "model": "gpt-4o-mini",
+    "disable_tools": ["assess_border", "expand_territory"]
+  },
   "population": {
     "birth_rate": 0.035,
     "death_rate": 0.030,

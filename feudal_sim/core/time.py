@@ -64,7 +64,11 @@ class GameTime:
         return config.get(config_path, 1.0)
     
     def __str__(self):
-        return f"Year {self.year}, {self.season.value.title()}, Turn {self.turn}, {self.phase.value.title()} Phase"
+        return f"Year {self.year}, {self.season.value.title()}, Week {self.turn}, {self.phase.value.title()} Phase"
+    
+    def get_date_string(self):
+        """Get a formatted date string for messaging (e.g., 'Week 3, Spring, Year 1')."""
+        return f"Week {self.turn}, {self.season.value.title()}, Year {self.year}"
 
 
 class TimeManager:
@@ -131,3 +135,7 @@ class TimeManager:
             'turn': self.game_time.turn,
             'phase': self.game_time.phase.value
         }
+    
+    def get_current_date_string(self) -> str:
+        """Get current date as formatted string for messaging."""
+        return self.game_time.get_date_string()

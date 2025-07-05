@@ -22,6 +22,8 @@ class RavenMessage:
     message: str
     sent_turn: int
     arrival_turn: int
+    sent_date: str = ""  # Full date string (e.g., "Week 3, Spring, Year 1")
+    arrival_date: str = ""  # Full arrival date string
     delivered: bool = False
 
 
@@ -32,6 +34,7 @@ class ReceivedMessage:
     sender_name: str
     message: str
     turn_received: int
+    sent_date: str = ""  # When the message was originally sent
 
 
 class RookeryComponent(Component):
@@ -64,23 +67,30 @@ class RookeryComponent(Component):
         # Observations generated for AI this turn
         self.current_observations: List[str] = []
     
-    def add_known_recipient(self, entity_id: str, entity_name: str = None):
+    def add_known_recipient(self, entity_id: str, entity_name: str = None, discovered: bool = True):
         """
         Add an entity to the list of known recipients.
         
         Args:
             entity_id: The ID of the entity to add
             entity_name: Optional display name (defaults to entity_id)
+            discovered: Whether to generate a "discovery" observation (False for initial setup)
         """
         self.known_recipients.add(entity_id)
         
-        # Generate observation about learning of new entity
-        name = entity_name or entity_id
-        self.current_observations.append(f"📍 Learned about {name} - can now send ravens")
+        # Generate observation about learning of new entity (only if discovered during gameplay)
+        if discovered:
+            name = entity_name or entity_id
+            self.current_observations.append(f"📍 Learned about {name} - can now send ravens")
     
     def can_send_to(self, recipient_id: str) -> bool:
         """Check if this entity can send ravens to the specified recipient."""
         return recipient_id in self.known_recipients
+    
+    def set_current_date_context(self, turn: int, date_string: str):
+        """Set the current turn and date context for raven messaging."""
+        self._current_turn = turn
+        self._current_date = date_string
     
     def send_raven(self, recipient_id: str, message: str) -> bool:
         """
@@ -97,10 +107,13 @@ class RookeryComponent(Component):
             self.current_observations.append(f"❌ Cannot send raven to unknown recipient: {recipient_id}")
             return False
         
-        # Calculate arrival time (1-2 turns from now)
-        from feudal_sim.core.time import GameTime
+        # Calculate arrival time (1-2 weeks from now)
         current_turn = getattr(self, '_current_turn', 1)  # Fallback for testing
-        arrival_turn = current_turn + random.choice([1, 2])
+        current_date = getattr(self, '_current_date', "Week 1, Spring, Year 1")  # Fallback
+        arrival_turn = current_turn + 1 # 2 weeks total
+
+        # For now, just update the week number (could be enhanced with proper date calculation)
+        arrival_date = current_date.replace(f"Week {current_turn}", f"Week {arrival_turn}") # 2 weeks
         
         # Get recipient name for display
         recipient_name = recipient_id  # Could be enhanced with entity lookup
@@ -113,15 +126,12 @@ class RookeryComponent(Component):
             recipient_name=recipient_name,
             message=message,
             sent_turn=current_turn,
-            arrival_turn=arrival_turn
+            arrival_turn=arrival_turn,
+            sent_date=current_date,
+            arrival_date=arrival_date
         )
         
         self.outgoing_ravens.append(raven)
-        
-        # Generate observation for sender
-        self.current_observations.append(
-            f"🐦 Sent raven to {recipient_name}: '{message}' (arriving turn {arrival_turn})"
-        )
         
         # Emit event for global raven tracking
         if event_bus:
@@ -148,7 +158,8 @@ class RookeryComponent(Component):
             sender_id=raven_message.sender_id,
             sender_name=raven_message.sender_name,
             message=raven_message.message,
-            turn_received=raven_message.arrival_turn
+            turn_received=raven_message.arrival_turn,
+            sent_date=raven_message.sent_date
         )
         
         self.inbox.append(received)
@@ -156,8 +167,11 @@ class RookeryComponent(Component):
         
         # Generate observation for AI
         self.current_observations.append(
-            f"📜 Raven arrived from {raven_message.sender_name}: '{raven_message.message}'"
+            f"📜 A raven arrived from {raven_message.sender_name} (sent {raven_message.sent_date}): '{raven_message.message}'"
         )
+        
+        # Store reference for delivery notification
+        self._delivered_raven = raven_message
         
         # Emit event for global message tracking
         if event_bus:
@@ -206,6 +220,40 @@ class RookeryComponent(Component):
                 observations.append("📬 No ravens received this turn")
         
         return observations
+    
+    def get_in_transit_ravens(self) -> List[RavenMessage]:
+        """
+        Get all ravens currently in transit (sent but not yet delivered).
+        
+        Returns:
+            List of ravens currently flying
+        """
+        return [raven for raven in self.outgoing_ravens if not raven.delivered]
+    
+    def add_in_transit_observations(self, ai_component=None, phase: str = "Production"):
+        """
+        Add observations about ravens currently in transit.
+        
+        Args:
+            ai_component: AI component to add observations to
+            phase: Current phase name for observation context
+        """
+        if not ai_component:
+            return
+        
+        in_transit = self.get_in_transit_ravens()
+        
+        if in_transit:
+            # Create observation for each in-transit raven
+            for raven in in_transit:
+                weeks_remaining = raven.arrival_turn - getattr(self, '_current_turn', 1)
+                if weeks_remaining <= 0:
+                    status = "arriving this week"
+                else:
+                    status = f"arriving in {weeks_remaining} week{'s' if weeks_remaining != 1 else ''}"
+                
+                observation = f"🐦 Raven in transit to {raven.recipient_name}: '{raven.message[:30]}...' ({status})"
+                ai_component.add_observation(observation, phase)
     
     def clear_turn_data(self):
         """Clear turn-specific data at end of turn."""
@@ -279,6 +327,13 @@ class RavenDeliverySystem:
                 recipient_rookery.deliver_raven(raven)
                 # Mark as delivered
                 raven.delivered = True
+                
+                # Add delivery notification to sender
+                sender_entity = entity_manager.get_entity(raven.sender_id)
+                if sender_entity and sender_entity.has_component(RookeryComponent):
+                    sender_rookery = sender_entity.get_component(RookeryComponent)
+                    delivery_notification = f"📜 Your raven to {raven.recipient_name} was delivered: '{raven.message[:30]}...'"
+                    sender_rookery.current_observations.append(delivery_notification)
         
         return len(ravens_to_deliver)
     

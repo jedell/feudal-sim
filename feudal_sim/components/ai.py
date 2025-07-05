@@ -12,12 +12,13 @@ from dataclasses import dataclass, field
 from agents import Agent, Runner, ModelSettings
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
-
+from feudal_sim.core.config import config
 
 @dataclass
 class SimulationContext:
     """
     Context object passed to OpenAI agents containing current simulation state.
+    This context is accessible to AI tools via the Agents SDK context system.
     """
     entity_id: str
     entity_name: str
@@ -26,6 +27,11 @@ class SimulationContext:
     current_season: str
     current_year: int
     game_state: Dict[str, Any] = field(default_factory=dict)
+    
+    # Simulation objects for tool access
+    hex_grid: Any = None  # HexGrid instance for map operations
+    entity_manager: Any = None  # EntityManager for inter-entity operations
+    simulation: Any = None  # Reference to main simulation object
 
 
 class AIComponent(Component):
@@ -94,14 +100,17 @@ class AIComponent(Component):
             tools = self._get_available_tools()
             
             # Create the agent with tools
-            self.agent = Agent(
+            self.agent = Agent[SimulationContext](
                 name=self.agent_name,
                 instructions=self.instructions,
                 tools=tools,
-                model="gpt-4o-mini",
+                model=config.get("simulation.ai.model", "gpt-4o-mini"),
+                # DEBUG TOOLS
                 model_settings=ModelSettings(
                     tool_choice="required"
-                )
+                ),
+                # tool_use_behavior="stop_on_first_tool",
+                # reset_tool_choice=False
             )
             
             print(f"🤖 Initialized AI agent: {self.agent_name} with {len(tools)} tools")
@@ -141,6 +150,18 @@ class AIComponent(Component):
         else:
             print(f"   {self.agent_name}: No RookeryComponent found")
         
+        # Check for TerritoryComponent and add territory expansion tools
+        from feudal_sim.components.territory import TerritoryComponent
+        if self.entity.has_component(TerritoryComponent):
+            print(f"   {self.agent_name}: Found TerritoryComponent, creating territory tools")
+            from feudal_sim.ai.tools import create_assess_border_tool, create_expand_territory_tool
+            assess_tool = create_assess_border_tool(self.entity)
+            expand_tool = create_expand_territory_tool(self.entity)
+            tools.extend([assess_tool, expand_tool])
+            print(f"   {self.agent_name}: Created territory tools: assess_border, expand_territory")
+        else:
+            print(f"   {self.agent_name}: No TerritoryComponent found")
+        
         # Future: Check for other components and add relevant tools
         # if self.entity.has_component(MilitaryComponent):
         #     tools.append(create_dispatch_army_tool(self.entity))
@@ -148,9 +169,16 @@ class AIComponent(Component):
         #     tools.append(create_collect_taxes_tool(self.entity))
         
         print(f"   {self.agent_name}: Total tools created: {len(tools)}")
+
+        # disable tools if enabled in config
+        if config.get("simulation.ai.disable_tools", []):
+            for tool in tools:
+                if tool.name in config.get("simulation.ai.disable_tools", []):
+                    tools.remove(tool)
+
         return tools
     
-    def add_observation(self, observation: str, phase: str = None):
+    def add_observation(self, observation: str, phase: str = None, pending: bool = True):
         """
         Add an observation from the current phase.
         These will be processed into the message history during Actions phase.
@@ -163,7 +191,13 @@ class AIComponent(Component):
         if phase:
             formatted_obs = f"[{phase.title()}] {observation}"
             
-        self.pending_observations.append(formatted_obs)
+        if pending:
+            self.pending_observations.append(formatted_obs)
+        else:
+            self.messages.append({
+                "role": "user",
+                "content": formatted_obs
+            })
         
         # Emit event for tracking
         if event_bus:
@@ -178,7 +212,8 @@ class AIComponent(Component):
     
     def update_context(self, current_turn: int, current_phase: str, 
                       current_season: str, current_year: int, 
-                      game_state: Dict[str, Any] = None):
+                      game_state: Dict[str, Any] = None, hex_grid=None, 
+                      entity_manager=None, simulation=None):
         """
         Update the simulation context for the agent.
         
@@ -188,6 +223,9 @@ class AIComponent(Component):
             current_season: Current season name
             current_year: Current year
             game_state: Additional game state information
+            hex_grid: HexGrid instance for map operations
+            entity_manager: EntityManager for inter-entity operations
+            simulation: Reference to main simulation object
         """
         self.context = SimulationContext(
             entity_id=self.entity_id,
@@ -196,7 +234,10 @@ class AIComponent(Component):
             current_phase=current_phase,
             current_season=current_season,
             current_year=current_year,
-            game_state=game_state or {}
+            game_state=game_state or {},
+            hex_grid=hex_grid,
+            entity_manager=entity_manager,
+            simulation=simulation
         )
     
     def make_decisions(self) -> str:
@@ -223,21 +264,34 @@ class AIComponent(Component):
                 "role": "user", 
                 "content": turn_message
             })
+            print(f"👀 [{self.agent_name}] {turn_message}")
             
             # Run the agent with full message history
-            result = Runner.run_sync(
-                starting_agent=self.agent,
-                input=self.messages,  # Pass the message list directly
-                context=self.context
-            )
+            if config.get("simulation.ai.enabled", True):
+                result = Runner.run_sync(
+                    starting_agent=self.agent,
+                    input=self.messages,  # Pass the message list directly
+                    context=self.context
+                )
             
-            # Add the AI's decision to message history
-            self.messages = result.to_input_list()
-
-            print(f"🤖 {self.agent_name} messages: {self.messages}")
+                # Add the AI's decision to message history
+                self.messages = result.to_input_list()
+            else:
+                print(f"🤖 {self.agent_name} is disabled, skipping decision making")
+                return "AI is disabled"
             
-            # Clear pending observations since they're now in history
-            self.pending_observations.clear()
+            # Show only new messages from this turn
+            if hasattr(result, 'new_items') and result.new_items:
+                for item in result.new_items:
+                    # check if has attr
+                    if hasattr(item, 'output'):
+                        print(f"🤖 {self.agent_name} {item.output}")
+                    if hasattr(item.raw_item, 'content'):
+                        print(f"🤖 {self.agent_name} {item.raw_item.content[0].text}")
+                    if hasattr(item.raw_item, 'arguments'):
+                        print(f"🤖 {self.agent_name} {item.raw_item.name} {item.raw_item.arguments}")
+            else:
+                print(f"🤖 {self.agent_name} decision: {result.final_output}")
             
             # Emit event for decision made
             if event_bus:
@@ -270,6 +324,12 @@ class AIComponent(Component):
                 "role": "user",
                 "content": obs
             })
+
+        # print observations
+        for obs in self.pending_observations:
+            print(f"👀 {self.agent_name} {obs}")
+
+        self.pending_observations.clear()
     
     def _generate_turn_context_message(self) -> str:
         """
@@ -281,11 +341,44 @@ class AIComponent(Component):
         if not self.context:
             return "No context available."
         
-        return (
-            f"Turn {self.context.current_turn} - {self.context.current_phase.title()} Phase\n"
-            f"{self.context.current_season.title()}, Year {self.context.current_year}\n\n"
-            f"What actions do you take this turn?"
-        )
+        # Base turn information
+        context_parts = [
+            f"Week {self.context.current_turn} - {self.context.current_phase.title()} Phase",
+            f"{self.context.current_season.title()}, Year {self.context.current_year}",
+            ""
+        ]
+        
+        # Add current resource and population status
+        if self.entity:
+            # Get resource status
+            from feudal_sim.components.resource import ResourceComponent
+            resource_component = self.entity.get_component(ResourceComponent)
+            if resource_component:
+                resources = resource_component.resources.to_dict()
+                context_parts.append(f"Resources: {resources['food']:.1f} food, {resources['material']:.1f} material, {resources['metal']:.1f} metal, {resources['gold']:.1f} gold")
+            
+            # Get population status
+            from feudal_sim.components.population import PopulationComponent
+            population_component = self.entity.get_component(PopulationComponent)
+            if population_component:
+                context_parts.append(f"Population: {population_component.population}, Loyalty: {population_component.loyalty:.1f}")
+            
+            # Get territory status
+            from feudal_sim.components.territory import TerritoryComponent
+            territory_component = self.entity.get_component(TerritoryComponent)
+            if territory_component:
+                territory_status = territory_component.get_territory_status()
+                context_parts.append(f"Territory: {territory_status['territory_size']} tiles, {territory_status['pending_expansions']} pending expansions")
+                
+                # Add resource output from territory
+                resource_output = territory_status['resource_output']
+                context_parts.append(f"Territory Output: {resource_output['food']:.1f} food, {resource_output['material']:.1f} material, {resource_output['metal']:.1f} metal")
+            
+            context_parts.append("")  # Empty line before question
+        
+        context_parts.append("What actions do you take this turn?")
+        
+        return "\n".join(context_parts)
     
     def get_recent_messages(self, last_n: int = 10) -> List[Dict[str, str]]:
         """
