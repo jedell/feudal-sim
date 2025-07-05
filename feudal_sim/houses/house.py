@@ -3,6 +3,7 @@ import math
 from feudal_sim.map.types import Color
 from feudal_sim.map.hex_tile import HexTile
 from feudal_sim.houses.observations.scout import gather_scout_data, make_scout
+from feudal_sim.core.events import event_bus, EventType
 class House:
     def default_attributes(self):
         return {
@@ -85,6 +86,9 @@ class House:
     def gather_resources(self, seasonal_modifier=1.0):
         """Gather resources based on the current population and territory outputs,
         enforcing a production cap based on population."""
+        # Store old values for event emission
+        old_resources = dict(self.resources)
+        
         population_ratio = self.population / self.population_capacity
         efficiency = self.population_efficiency(population_ratio)
         for hex_tile in self.territory:
@@ -93,6 +97,23 @@ class House:
             self.resources['food'] += math.ceil(hex_tile.food_output * 10 * efficiency * food_modifier)
             self.resources['material'] += math.ceil(hex_tile.material_output * 10 * efficiency)
             self.resources['metal'] += math.ceil(hex_tile.metal_output * 10 * efficiency)
+        
+        # Emit events for resource changes (makes system extensible)
+        for resource_type in ['food', 'material', 'metal']:
+            old_value = old_resources[resource_type]
+            new_value = self.resources[resource_type]
+            if new_value != old_value:
+                event_bus.emit(
+                    EventType.VALUE_CHANGED,
+                    self,
+                    entity_type='house',
+                    entity_name=self.name,
+                    property='resources',
+                    resource_type=resource_type,
+                    old_value=old_value,
+                    new_value=new_value,
+                    change=new_value - old_value
+                )
 
     def get_population_capacity(self):
         return sum([tile.population_capacity for tile in self.territory])

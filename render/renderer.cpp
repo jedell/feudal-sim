@@ -102,6 +102,31 @@ std::map<HexTileType, Color> terrain_colors = {
     {HexTileType::ICE_CAP, Color{139, 137, 137, 255}}        // Dark gray
 };
 
+// Resource node types (matching Python enum)
+enum class ResourceNodeType {
+    NONE = 0,
+    GOLD_MINE = 1,
+    IRON_DEPOSIT = 2,
+    STONE_QUARRY = 3,
+    RARE_HERBS = 4
+};
+
+// Resource node colors
+std::map<ResourceNodeType, Color> resource_colors = {
+    {ResourceNodeType::GOLD_MINE, Color{255, 215, 0, 200}},      // Gold
+    {ResourceNodeType::IRON_DEPOSIT, Color{169, 169, 169, 200}}, // Silver/Gray
+    {ResourceNodeType::STONE_QUARRY, Color{105, 105, 105, 200}}, // Dim Gray
+    {ResourceNodeType::RARE_HERBS, Color{0, 255, 127, 200}}      // Spring Green
+};
+
+// Resource node symbols
+std::map<ResourceNodeType, std::string> resource_symbols = {
+    {ResourceNodeType::GOLD_MINE, "Au"},
+    {ResourceNodeType::IRON_DEPOSIT, "Fe"},
+    {ResourceNodeType::STONE_QUARRY, "St"},
+    {ResourceNodeType::RARE_HERBS, "Hb"}
+};
+
 #pragma pack(push, 1)
 struct HexTile {
     int q, r;
@@ -194,6 +219,7 @@ class HexGridRenderer {
 
     // flags
     bool show_territory = false;
+    bool show_resources = true;
 public:
     HexGridRenderer(int width = 800, int height = 600, const std::string& title = "Hex Grid Renderer")
         : width(width), height(height), title(title) {
@@ -319,6 +345,10 @@ public:
 
             draw_house_info(house_data, num_houses);
             
+            // Draw controls/status
+            std::string controls = "WASD: Move  Mouse Wheel: Zoom  T: Territory  R: Resources";
+            DrawText(controls.c_str(), 20, height - 20, 10, DARKGRAY);
+            
             EndDrawing();
         }
         munmap(tile_data, memory_size);
@@ -370,6 +400,28 @@ public:
         return std::string(owner1.data()) == std::string(owner2.data());
     }
 
+    // Resource node helper functions (matching Python logic)
+    ResourceNodeType get_resource_node_type(const HexTile& tile) {
+        if (tile.metal_output > 100) {
+            int resource_code = static_cast<int>(tile.metal_output) - 100;
+            if (resource_code >= 1 && resource_code <= 4) {
+                return static_cast<ResourceNodeType>(resource_code);
+            }
+        }
+        return ResourceNodeType::NONE;
+    }
+
+    float get_base_metal_output(const HexTile& tile) {
+        if (tile.metal_output > 100) {
+            return fmod(tile.metal_output, 100.0f);
+        }
+        return tile.metal_output;
+    }
+
+    bool has_special_resource(const HexTile& tile) {
+        return get_resource_node_type(tile) != ResourceNodeType::NONE;
+    }
+
     void draw_tile(const HexTile& tile) {
         auto [x, y] = get_tile_position(tile);
         Color color = terrain_colors[tile.terrain_type];
@@ -380,6 +432,34 @@ public:
             if (!compare_owner(tile.owner, std::array<char, 50>{'N', 'o', 'n', 'e', '\0'})) {
                 DrawPoly({x, y}, 6, tile_size, 0, {tile.owner_color[0], tile.owner_color[1], tile.owner_color[2], tile.owner_color[3]});
             }
+        }
+
+        // Draw resource nodes if enabled
+        if (show_resources && has_special_resource(tile)) {
+            draw_resource_node(tile, x, y);
+        }
+   }
+
+   void draw_resource_node(const HexTile& tile, float x, float y) {
+        ResourceNodeType resource_type = get_resource_node_type(tile);
+        if (resource_type == ResourceNodeType::NONE) return;
+
+        // Draw resource indicator circle
+        Color resource_color = resource_colors[resource_type];
+        float resource_radius = tile_size * 0.3f;
+        DrawCircle(x, y, resource_radius, resource_color);
+
+        // Draw resource symbol if tile is large enough
+        if (tile_size > 20) {
+            std::string symbol = resource_symbols[resource_type];
+            int font_size = static_cast<int>(tile_size * 0.25f);
+            font_size = std::max(8, std::min(font_size, 16)); // Clamp font size
+            
+            Vector2 text_size = MeasureTextEx(GetFontDefault(), symbol.c_str(), font_size, 1);
+            float text_x = x - text_size.x / 2;
+            float text_y = y - text_size.y / 2;
+            
+            DrawText(symbol.c_str(), text_x, text_y, font_size, BLACK);
         }
    }
 
@@ -460,10 +540,25 @@ private:
                            "\nTemperature: " + std::to_string(tile->temperature) +
                            "\nFood Output: " + std::to_string(tile->food_output) +
                            "\nMaterial Output: " + std::to_string(tile->material_output) +
-                           "\nMetal Output: " + std::to_string(tile->metal_output) +
+                           "\nMetal Output: " + std::to_string(get_base_metal_output(*tile)) +
                            "\nPopulation Capacity: " + std::to_string(tile->population_capacity) +
                            "\nOwner: " + std::string(tile->owner.data());
-        DrawText(info.c_str(), 20, height - 150, 9, BLACK);
+        
+        // Add resource node information
+        if (has_special_resource(*tile)) {
+            ResourceNodeType resource_type = get_resource_node_type(*tile);
+            std::string resource_name;
+            switch (resource_type) {
+                case ResourceNodeType::GOLD_MINE: resource_name = "Gold Mine"; break;
+                case ResourceNodeType::IRON_DEPOSIT: resource_name = "Iron Deposit"; break;
+                case ResourceNodeType::STONE_QUARRY: resource_name = "Stone Quarry"; break;
+                case ResourceNodeType::RARE_HERBS: resource_name = "Rare Herbs"; break;
+                default: resource_name = "Unknown Resource"; break;
+            }
+            info += "\nSpecial Resource: " + resource_name;
+        }
+        
+        DrawText(info.c_str(), 20, height - 180, 9, BLACK);
     }
 
     void draw_house_info(House* house_data, int num_houses) {
@@ -491,6 +586,10 @@ private:
 
         if (IsKeyPressed(KEY_T)) {
             show_territory = !show_territory;
+        }
+
+        if (IsKeyPressed(KEY_R)) {
+            show_resources = !show_resources;
         }
 
         float wheel = GetMouseWheelMove();
