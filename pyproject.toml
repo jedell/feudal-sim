@@ -10,12 +10,13 @@ authors = [
     {name = "Feudal Sim Team"}
 ]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "pybind11>=2.10.0",
     "numpy>=1.20.0",
     "noise>=1.2.2",
     "click>=8.1.8",
+    "openai-agents>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -33,8 +34,8 @@ path = "build_hook.py"
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py39']
 
 [tool.ruff]
 line-length = 88
-target-version = "py38"
+target-version = "py39"
