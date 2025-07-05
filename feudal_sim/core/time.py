@@ -15,7 +15,9 @@ class GameTime:
     
     def advance_turn(self):
         self.turn += 1
-        if self.turn > 4:  # 4 turns per year (one per season)
+        from feudal_sim.core.config import config
+        turns_per_season = config.get('simulation.time.turns_per_season', 4)
+        if self.turn > turns_per_season:
             self.turn = 1
             self.year += 1
         
@@ -25,13 +27,12 @@ class GameTime:
     
     def get_seasonal_modifier(self, activity: str) -> float:
         """Get seasonal modifiers for different activities"""
-        modifiers = {
-            Season.SPRING: {'farming': 1.1, 'trade': 1.0, 'military': 1.0},
-            Season.SUMMER: {'farming': 1.2, 'trade': 1.1, 'military': 1.1}, 
-            Season.AUTUMN: {'farming': 1.3, 'trade': 1.0, 'military': 1.0},
-            Season.WINTER: {'farming': 0.5, 'trade': 0.8, 'military': 0.8}
-        }
-        return modifiers.get(self.season, {}).get(activity, 1.0)
+        from feudal_sim.core.config import config
+        
+        # Get modifiers from config with fallback to defaults
+        season_name = self.season.value
+        config_path = f'simulation.resources.seasonal_modifiers.{season_name}.{activity}'
+        return config.get(config_path, 1.0)
     
     def __str__(self):
         return f"Year {self.year}, {self.season.value.title()}, Turn {self.turn}"

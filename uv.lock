@@ -152,6 +152,8 @@ name = "feudal-sim"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "click", version = "8.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "noise" },
     { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
@@ -172,6 +174,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=22.0" },
+    { name = "click", specifier = ">=8.1.8" },
     { name = "noise", specifier = ">=1.2.2" },
     { name = "numpy", specifier = ">=1.20.0" },
     { name = "pybind11", specifier = ">=2.10.0" },

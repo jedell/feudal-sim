@@ -4,6 +4,7 @@ from feudal_sim.map.types import Color
 from feudal_sim.map.hex_tile import HexTile
 from feudal_sim.houses.observations.scout import gather_scout_data, make_scout
 from feudal_sim.core.events import event_bus, EventType
+from feudal_sim.core.config import config
 class House:
     def default_attributes(self):
         return {
@@ -94,9 +95,10 @@ class House:
         for hex_tile in self.territory:
             # Apply seasonal modifier to farming output
             food_modifier = seasonal_modifier if 'food' in ['food'] else 1.0
-            self.resources['food'] += math.ceil(hex_tile.food_output * 10 * efficiency * food_modifier)
-            self.resources['material'] += math.ceil(hex_tile.material_output * 10 * efficiency)
-            self.resources['metal'] += math.ceil(hex_tile.metal_output * 10 * efficiency)
+            gathering_multiplier = config.get('simulation.resources.gathering_multiplier')
+            self.resources['food'] += math.ceil(hex_tile.food_output * gathering_multiplier * efficiency * food_modifier)
+            self.resources['material'] += math.ceil(hex_tile.material_output * gathering_multiplier * efficiency)
+            self.resources['metal'] += math.ceil(hex_tile.metal_output * gathering_multiplier * efficiency)
         
         # Emit events for resource changes (makes system extensible)
         for resource_type in ['food', 'material', 'metal']:

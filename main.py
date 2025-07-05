@@ -1,18 +1,24 @@
+import random
+import click
+
 from feudal_sim.map.hex_grid import HexGrid
 from feudal_sim.houses.house import House
 from feudal_sim.map.types import HexTileType, Color
 from feudal_sim.core.time import GameTime
 from feudal_sim.core.events import event_bus, EventType
+from feudal_sim.core.config import config
 from feudal_sim.map.tile_extensions import add_gold_mine, add_iron_deposit
-# Import extension to demonstrate extensibility (no core code changes needed!)
 from feudal_sim.extensions.resource_monitor import resource_monitor
-import random
 
 ALPHA = 120
 
 class Simulation:
     def __init__(self):
-        self.hex_grid = HexGrid(num_houses=2)
+        # Use config for world generation
+        map_size = config.get('simulation.world_generation.map_size', 80)
+        num_houses = config.get('simulation.world_generation.num_houses', 2)
+        
+        self.hex_grid = HexGrid(size=map_size, num_houses=num_houses)
         self.houses = self.create_houses()
         self.game_time = GameTime()
         self.step_count = 0
@@ -71,12 +77,16 @@ class Simulation:
         land_tiles = [tile for tile in self.hex_grid.tiles 
                       if self.hex_grid.is_land(tile)]
         
-        # Add 8-10 resource nodes
-        num_resources = min(10, len(land_tiles) // 20)  # About 5% of land tiles
+        # Use config for resource node generation
+        count_multiplier = config.get('simulation.world_generation.resource_nodes.count_multiplier', 0.05)
+        gold_ratio = config.get('simulation.world_generation.resource_nodes.gold_mine_ratio', 0.5)
+        
+        num_resources = max(1, int(len(land_tiles) * count_multiplier))
         selected_tiles = random.sample(land_tiles, num_resources)
         
         for i, tile in enumerate(selected_tiles):
-            if i % 2 == 0:
+            # Use configured ratio to determine resource type
+            if i / len(selected_tiles) < gold_ratio:
                 add_gold_mine(tile)
                 print(f"   💰 Added gold mine at ({tile.q}, {tile.r})")
             else:
@@ -126,9 +136,12 @@ class Simulation:
         self.step_count += 1
         self.game_time.advance_turn()
             
-        
-    
-def main():
+@click.command()
+@click.option('--simulation_config', type=str, default='simulation', help='Name of simulation config json file (in config folder)')
+@click.option('--world_config', type=str, default='world', help='Name of world config json file (in config folder)')
+def main(simulation_config, world_config):
+    config.load_config(simulation_config)
+    config.load_config(world_config)
     simulation = Simulation()
     try:
         while True:
