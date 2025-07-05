@@ -82,15 +82,17 @@ class House:
         return 1 + 1/math.exp(population_ratio)
         
 
-    def gather_resources(self):
+    def gather_resources(self, seasonal_modifier=1.0):
         """Gather resources based on the current population and territory outputs,
         enforcing a production cap based on population."""
         population_ratio = self.population / self.population_capacity
         efficiency = self.population_efficiency(population_ratio)
         for hex_tile in self.territory:
-            self.resources['food'] = math.ceil(hex_tile.food_output * 10 * efficiency)
-            self.resources['material'] = math.ceil(hex_tile.material_output * 10 * efficiency)
-            self.resources['metal'] = math.ceil(hex_tile.metal_output * 10 * efficiency)
+            # Apply seasonal modifier to farming output
+            food_modifier = seasonal_modifier if 'food' in ['food'] else 1.0
+            self.resources['food'] += math.ceil(hex_tile.food_output * 10 * efficiency * food_modifier)
+            self.resources['material'] += math.ceil(hex_tile.material_output * 10 * efficiency)
+            self.resources['metal'] += math.ceil(hex_tile.metal_output * 10 * efficiency)
 
     def get_population_capacity(self):
         return sum([tile.population_capacity for tile in self.territory])

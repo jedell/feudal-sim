@@ -91,6 +91,8 @@ class RendererWrapper:
     def close(self):
         self.shared_memory.close()
         self.shared_memory.unlink()
+        self.house_shared_memory.close()
+        self.house_shared_memory.unlink()
 
 class HexGrid:
     def __init__(self, size: int = 80, num_houses: int = 10):

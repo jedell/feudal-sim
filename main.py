@@ -1,6 +1,7 @@
 from feudal_sim.map.hex_grid import HexGrid
 from feudal_sim.houses.house import House
 from feudal_sim.map.types import HexTileType, Color
+from feudal_sim.core.time import GameTime
 
 ALPHA = 120
 
@@ -8,6 +9,7 @@ class Simulation:
     def __init__(self):
         self.hex_grid = HexGrid(num_houses=2)
         self.houses = self.create_houses()
+        self.game_time = GameTime()
         self.step_count = 0
 
     def create_houses(self) -> list[House]:
@@ -52,26 +54,39 @@ class Simulation:
 
     def step(self):
         # simulate
+        farming_modifier = self.game_time.get_seasonal_modifier('farming')
         for house in self.houses:
+            house.gather_resources(farming_modifier)  # Add seasonal modifier
             house.manage_population()
 
         # observe
         for house in self.houses:
             house.collect_observations(self.hex_grid, self.step_count)
 
-        print(self.houses[0].observations)
-        # act
+        print(f"\n{self.game_time}")
+        print(f"House {self.houses[0].name} Resources: {self.houses[0].resources}")
+        print(f"House {self.houses[1].name} Resources: {self.houses[1].resources}")
+        
+        # act (placeholder for now)
 
         self.step_count += 1
+        self.game_time.advance_turn()
             
         
     
 def main():
     simulation = Simulation()
-    while True:
-        simulation.step()
-        simulation.render()
-        input("Press Enter to continue...")
+    try:
+        while True:
+            simulation.step()
+            simulation.render()
+            input("Press Enter to continue...")
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    finally:
+        # Clean up shared memory resources
+        simulation.hex_grid.terminate_renderer()
+        print("Cleanup complete.")
 
 if __name__ == "__main__":
     main()

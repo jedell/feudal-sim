@@ -1,25 +1,22 @@
 import random
-import dspy
-
-lm = dspy.LM(model="openai/gpt-4o-mini", cache=False)
-dspy.configure(lm=lm)
 
 SCOUT_STEPS = 10
 NUM_SCOUTS = 3
 
-def make_scout(house_name: str):
+class ScoutReport:
+    def __init__(self, raw_data):
+        self.raw_data = raw_data
+        self.report = self._generate_report()
+    
+    def _generate_report(self):
+        # TODO: Replace with actual AI/LLM integration
+        # For now, return a simple summary of the raw data
+        return f"Scout report: Explored {len(self.raw_data)} tiles"
 
-    scout = dspy.make_signature(
-        signature="raw_data -> report",
-        instructions="""
-        You are a scout for House {house_name}.
-        You are tasked with exploring the surrounding area and reporting on the state of the land.
-        You will be given raw data collected from a series of tiles you have scouted.
-        You must parse this data and summarize your findings into a concise report for your lord.
-        """.format(house_name=house_name),
-        signature_name="House {house_name} Scout".format(house_name=house_name)
-    )
-    return dspy.Predict(scout)
+def make_scout(house_name: str):
+    def scout_function(raw_data):
+        return ScoutReport(raw_data)
+    return scout_function
 
 # utils
 
