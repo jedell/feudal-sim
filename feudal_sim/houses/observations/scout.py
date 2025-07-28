@@ -87,7 +87,7 @@ def gather_scout_data(house, hex_grid):
 
     for i in range(NUM_SCOUTS):
         if not border_tiles:
-            print(f"{house.name} has no border tiles to deploy scouts from.")
+            print(f"{house.get_name()} has no border tiles to deploy scouts from.")
             break
 
         # Randomly select a border tile as the starting point

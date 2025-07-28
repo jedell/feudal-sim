@@ -5,6 +5,8 @@
 #include <vector>
 #include <unordered_map>
 #include <cmath>
+#include <cstdlib>
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <map>
@@ -13,6 +15,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <filesystem>
 
 namespace py = pybind11;
 
@@ -100,6 +103,16 @@ std::map<HexTileType, Color> terrain_colors = {
     {HexTileType::STEPPE, Color{173, 185, 107, 255}},        // Greenish yellow
     {HexTileType::RAINFOREST, Color{0, 128, 0, 255}},        // Dark green
     {HexTileType::ICE_CAP, Color{139, 137, 137, 255}}        // Dark gray
+};
+
+// Sprite rendering structure for depth sorting
+struct SpriteRenderInfo {
+    std::string sprite_sheet;
+    int sprite_index;
+    Vector2 position;
+    float scale;
+    float depth_y;  // Y position for depth sorting
+    Color tint;
 };
 
 // Resource node types (matching Python enum)
@@ -196,10 +209,192 @@ struct House {
     float food;
     float material;
     float metal;
+    float gold;
     int population;
+    int population_loyalty;
     int military_power;
 };
 #pragma pack(pop)
+
+#pragma pack(push, 1)
+struct PositionedEntity {
+    int q, r;                                    // Position coordinates
+    std::array<char, 50> name;                   // Entity name (e.g., "General Snow")
+    std::array<char, 50> house_name;            // Parent house name
+    std::array<unsigned char, 4> color;          // Display color (from house)
+    int entity_type;                             // 0=general, 1=scout, 2=army, etc.
+    int assigned_soldiers;                       // Military strength
+    int movement_points;                         // Current movement points
+    int max_movement;                           // Maximum movement per turn
+    int operational_range;                      // Operational range in tiles
+};
+#pragma pack(pop)
+
+// City types for tile-based city rendering
+enum class CityType {
+    NONE = 0,
+    CAPITAL = 1,
+    TRADE = 2,
+    MILITARY = 3,
+    AGRICULTURAL = 4
+};
+
+// Positioned entity types
+enum class EntityType {
+    GENERAL = 0,
+    SCOUT = 1,
+    ARMY = 2,
+    MERCHANT = 3
+};
+
+struct CityInfo {
+    CityType type;
+    int development_level;
+    int house_id;
+};
+
+// Sprite management system
+struct SpriteSheet {
+    Texture2D texture;
+    int sprite_width;
+    int sprite_height;
+    int cols;
+    int rows;
+    
+    Rectangle get_sprite_rect(int index) const {
+        int col = index % cols;
+        int row = index / cols;
+        return {
+            static_cast<float>(col * sprite_width),
+            static_cast<float>(row * sprite_height),
+            static_cast<float>(sprite_width),
+            static_cast<float>(sprite_height)
+        };
+    }
+};
+
+class SpriteManager {
+private:
+    std::unordered_map<std::string, SpriteSheet> sprite_sheets;
+    std::unordered_map<std::string, Texture2D> single_textures;
+    
+public:
+    bool load_sprite_sheet(const std::string& name, const std::string& path, int sprite_width, int sprite_height) {
+        // Check if already loaded
+        if (sprite_sheets.find(name) != sprite_sheets.end()) {
+            std::cout << "Sprite sheet " << name << " already loaded, skipping" << std::endl;
+            return true;
+        }
+        
+        if (!std::filesystem::exists(path)) {
+            std::cout << "WARNING: Sprite file not found: " << path << std::endl;
+            return false;
+        }
+        
+        // Use raylib's texture loading
+        Texture2D texture = LoadTexture(path.c_str());
+        if (texture.id == 0 || texture.width == 0 || texture.height == 0) {
+            std::cout << "ERROR: Failed to load sprite sheet: " << path << std::endl;
+            return false;
+        }
+        
+        // Set texture filter to nearest neighbor for pixel-perfect rendering
+        SetTextureFilter(texture, TEXTURE_FILTER_POINT);
+        
+        // Validate sprite dimensions
+        if (sprite_width <= 0 || sprite_height <= 0 || 
+            sprite_width > texture.width || sprite_height > texture.height) {
+            std::cout << "ERROR: Invalid sprite dimensions for " << path 
+                     << " (sprite: " << sprite_width << "x" << sprite_height 
+                     << ", texture: " << texture.width << "x" << texture.height << ")" << std::endl;
+            UnloadTexture(texture);
+            return false;
+        }
+        
+        SpriteSheet sheet;
+        sheet.texture = texture;
+        sheet.sprite_width = sprite_width;
+        sheet.sprite_height = sprite_height;
+        sheet.cols = texture.width / sprite_width;
+        sheet.rows = texture.height / sprite_height;
+        
+        // Ensure we have at least one sprite
+        if (sheet.cols == 0 || sheet.rows == 0) {
+            std::cout << "ERROR: No sprites found in " << path << std::endl;
+            UnloadTexture(texture);
+            return false;
+        }
+        
+        sprite_sheets[name] = sheet;
+        std::cout << "Loaded sprite sheet: " << name << " (" << sheet.cols << "x" << sheet.rows << " sprites, " 
+                 << texture.width << "x" << texture.height << " texture)" << std::endl;
+        return true;
+    }
+    
+    void draw_sprite(const std::string& sheet_name, int sprite_index, Vector2 position, float scale = 1.0f, Color tint = WHITE) {
+        auto it = sprite_sheets.find(sheet_name);
+        if (it != sprite_sheets.end()) {
+            const SpriteSheet& sheet = it->second;
+            
+            // Bounds check sprite index
+            int max_sprites = sheet.cols * sheet.rows;
+            if (sprite_index < 0 || sprite_index >= max_sprites) {
+                // Use sprite 0 as fallback for invalid indices
+                sprite_index = 0;
+            }
+            
+            Rectangle source = sheet.get_sprite_rect(sprite_index);
+            Rectangle dest = {
+                position.x, position.y,
+                sheet.sprite_width * scale,
+                sheet.sprite_height * scale
+            };
+            
+            // Use raylib's DrawTexturePro for proper sprite rendering
+            DrawTexturePro(sheet.texture, source, dest, {0, 0}, 0.0f, tint);
+        }
+    }
+    
+    bool has_sprite_sheet(const std::string& name) const {
+        return sprite_sheets.find(name) != sprite_sheets.end();
+    }
+    
+    void draw_animated_sprite(const std::string& sheet_name, Vector2 position, float tile_size, float scale = 1.0f, Color tint = WHITE) {
+        auto it = sprite_sheets.find(sheet_name);
+        if (it != sprite_sheets.end()) {
+            const SpriteSheet& sheet = it->second;
+            
+            // Animation: cycle through first row (walking down animation)
+            // Use raylib's GetTime() for reliable timing
+            float current_time = GetTime();
+            
+            // Animation speed: change frame every 0.4 seconds
+            // First row has 4 sprites (columns 0-3 of row 0)
+            int frame_count = 4; // Only use first 4 sprites from first row
+            int current_frame = (int)(current_time / 0.4f) % frame_count;
+            
+            Rectangle source = sheet.get_sprite_rect(current_frame);
+            
+            // Knight sprites are 32x32 pixels - position is already centered by the caller
+            Rectangle dest = {
+                position.x, position.y,
+                sheet.sprite_width * scale,
+                sheet.sprite_height * scale
+            };
+            
+            DrawTexturePro(sheet.texture, source, dest, {0, 0}, 0.0f, tint);
+        }
+    }
+    
+    ~SpriteManager() {
+        for (auto& pair : sprite_sheets) {
+            UnloadTexture(pair.second.texture);
+        }
+        for (auto& pair : single_textures) {
+            UnloadTexture(pair.second);
+        }
+    }
+};
 
 class HexGridRenderer {
     int width, height;
@@ -220,6 +415,8 @@ class HexGridRenderer {
     // flags
     bool show_territory = false;
     bool show_resources = true;
+    std::vector<bool> house_panels_expanded; // Track which house panels are expanded
+    SpriteManager sprite_manager; // Sprite management system
 public:
     HexGridRenderer(int width = 800, int height = 600, const std::string& title = "Hex Grid Renderer")
         : width(width), height(height), title(title) {
@@ -253,6 +450,34 @@ public:
     std::shared_ptr<std::vector<HexTile>> get_tiles() {
         return tiles;
     }
+    
+private:
+    void load_sprites() {
+        std::cout << "Loading sprite assets..." << std::endl;
+        
+        // Load sprites one by one with error checking
+        // Start with just Trees.png to test
+        if (sprite_manager.load_sprite_sheet("trees", "render/assets/Trees.png", 16, 16)) {
+            std::cout << "Successfully loaded trees sprites" << std::endl;
+        }
+        
+        // If trees work, try keeps with a larger sprite size
+        if (sprite_manager.load_sprite_sheet("keeps", "render/assets/Keep.png", 32, 32)) {
+            std::cout << "Successfully loaded keep sprites" << std::endl;
+        }
+        
+        // Try knight sprites
+        // RedKnight sprite sheet - try 32x32 pixels per sprite
+        if (sprite_manager.load_sprite_sheet("red_knights", "render/assets/Soliders/Mounted/RedKnight.png", 32, 32)) {
+            std::cout << "Successfully loaded red knight sprites" << std::endl;
+        } else {
+            std::cout << "Failed to load red knight sprites" << std::endl;
+        }
+        
+        std::cout << "Sprite loading completed." << std::endl;
+    }
+    
+public:
 
     // func to init shared memory for house data, similar to tile shared memory
     House* init_house_shared_memory(
@@ -274,12 +499,35 @@ public:
         return static_cast<House*>(mapped_memory);
     }
 
+    // func to init shared memory for positioned entity data
+    PositionedEntity* init_positioned_entities_shared_memory(
+        const char* shared_memory_name, size_t memory_size, int num_entities
+    ) {
+        int fd = shm_open(shared_memory_name, O_CREAT | O_RDWR, 0666);
+        if (fd == -1) {
+            perror("shm_open positioned entities failed");
+            close(fd);
+            return nullptr;
+        }
+        ftruncate(fd, memory_size);
+        void* mapped_memory = mmap(nullptr, memory_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (mapped_memory == MAP_FAILED) {
+            perror("mmap positioned entities failed");
+            close(fd);
+            return nullptr;
+        }
+        return static_cast<PositionedEntity*>(mapped_memory);
+    }
+
+
     void run(
         const char* shared_memory_name, size_t memory_size, int num_tiles, 
-        const char* house_shared_memory_name, size_t house_memory_size, int num_houses
+        const char* house_shared_memory_name, size_t house_memory_size, int num_houses,
+        const char* entities_shared_memory_name = nullptr, size_t entities_memory_size = 0, int num_entities = 0
     ) {
         std::cout << "DEBUG: Tile size: " << sizeof(HexTile) << std::endl;
         std::cout << "DEBUG: House size: " << sizeof(House) << std::endl;
+        std::cout << "DEBUG: PositionedEntity size: " << sizeof(PositionedEntity) << std::endl;
         usleep(500000);
         int fd = shm_open(shared_memory_name, O_RDONLY, 0666);
         if (fd == -1) {
@@ -317,8 +565,26 @@ public:
             return;
         }
 
+        // Initialize positioned entities shared memory (optional)
+        PositionedEntity* entity_data = nullptr;
+        if (entities_shared_memory_name && num_entities > 0) {
+            entity_data = init_positioned_entities_shared_memory(entities_shared_memory_name, entities_memory_size, num_entities);
+            if (!entity_data) {
+                std::cerr << "Warning: Failed to initialize positioned entities shared memory" << std::endl;
+                // Continue without entities - not fatal
+            } else {
+                std::cout << "DEBUG: Initialized positioned entities shared memory for " << num_entities << " entities" << std::endl;
+            }
+        }
+
+        // Initialize house panel expansion state
+        house_panels_expanded.resize(num_houses, false);
+
         InitWindow(width, height, title.c_str());
         SetTargetFPS(60);
+        
+        // Load sprites after raylib is fully initialized
+        load_sprites();
 
         while (!WindowShouldClose()) {
             handle_input();
@@ -330,6 +596,19 @@ public:
             for (int i = 0; i < memory_size / sizeof(HexTile); ++i) {
                 HexTile* tile = &tile_data[i];
                 draw_tile(*tile);
+            }
+
+            // Collect all sprites with depth information and draw in Y-sorted order
+            draw_sprites_depth_sorted(tile_data, memory_size / sizeof(HexTile));
+
+            // Draw positioned entities (generals, scouts, etc.)
+            if (entity_data && num_entities > 0) {
+                for (int i = 0; i < num_entities; ++i) {
+                    PositionedEntity* entity = &entity_data[i];
+                    if (entity->q != -1 && entity->r != -1) { // Check for valid position
+                        draw_positioned_entity(*entity);
+                    }
+                }
             }
 
             on_mouse_hover(shared_tile_map);
@@ -345,9 +624,34 @@ public:
 
             draw_house_info(house_data, num_houses);
             
-            // Draw controls/status
-            std::string controls = "WASD: Move  Mouse Wheel: Zoom  T: Territory  R: Resources";
-            DrawText(controls.c_str(), 20, height - 20, 10, DARKGRAY);
+            // Draw status indicators (top right)
+            int status_x = width - 150;
+            int status_y = 15;
+            
+            std::string territory_status = show_territory ? "Territory: ON" : "Territory: OFF";
+            Color territory_color = show_territory ? GREEN : RED;
+            DrawTextEx(GetFontDefault(), territory_status.c_str(), {(float)status_x, (float)status_y}, 10, 1, territory_color);
+            
+            std::string resources_status = show_resources ? "Resources: ON" : "Resources: OFF";
+            Color resources_color = show_resources ? GREEN : RED;
+            DrawTextEx(GetFontDefault(), resources_status.c_str(), {(float)status_x, (float)(status_y + 15)}, 10, 1, resources_color);
+            
+            // Draw controls panel
+            int controls_panel_width = 520;
+            int controls_panel_height = 25;
+            int controls_x = (width - controls_panel_width) / 2; // Center horizontally
+            int controls_y = height - controls_panel_height - 10;
+            
+            // Controls background
+            Color controls_bg = {30, 30, 30, 180};
+            Color controls_border = {80, 80, 80, 255};
+            DrawRectangle(controls_x, controls_y, controls_panel_width, controls_panel_height, controls_bg);
+            DrawRectangleLines(controls_x, controls_y, controls_panel_width, controls_panel_height, controls_border);
+            
+            std::string controls = "WASD: Move | Wheel: Zoom | T: Territory | R: Resources | Click: House Info";
+            Vector2 text_size = MeasureTextEx(GetFontDefault(), controls.c_str(), 10, 1);
+            float text_x = controls_x + (controls_panel_width - text_size.x) / 2;
+            DrawTextEx(GetFontDefault(), controls.c_str(), {text_x, (float)(controls_y + 6)}, 10, 1, WHITE);
             
             EndDrawing();
         }
@@ -438,7 +742,72 @@ public:
         if (show_resources && has_special_resource(tile)) {
             draw_resource_node(tile, x, y);
         }
+
+        // Trees will be drawn in a separate pass after all tiles
+        
+        // Draw cities if present
+        CityInfo city = get_city_info(tile);
+        if (city.type != CityType::NONE) {
+            draw_city_on_tile(tile, city, x, y);
+        }
    }
+
+   void draw_terrain_sprites(const HexTile& tile) {
+        // Draw tree sprites on forest tiles
+        if (tile.terrain_type == HexTileType::TEMPERATE_FOREST ||
+            tile.terrain_type == HexTileType::BOREAL_FOREST ||
+            tile.terrain_type == HexTileType::RAINFOREST) {
+            
+            if (sprite_manager.has_sprite_sheet("trees")) {
+                auto [x, y] = get_tile_position(tile);
+                
+                // Use different tree sprites based on forest type
+                int tree_sprite_index = 1; // Skip the stump (index 0)
+                
+                if (tile.terrain_type == HexTileType::TEMPERATE_FOREST) {
+                    tree_sprite_index = 1; // Green tree
+                } else if (tile.terrain_type == HexTileType::BOREAL_FOREST) {
+                    tree_sprite_index = 2; // Pine-like tree
+                } else if (tile.terrain_type == HexTileType::RAINFOREST) {
+                    tree_sprite_index = 3; // Dense canopy tree
+                }
+                
+                // Tree layout constants
+                const float TREE_SCALE_RATIO = 40.0f;           // Tile size to tree size ratio
+                const int TREE_SPRITE_SIZE = 16;                // Tree sprite dimensions (pixels)
+                const float CORNER_TREE_DISTANCE = 0.4f;        // Distance from center to corner trees
+                const float EDGE_TREE_DISTANCE = 0.50f;         // Distance from center to edge trees
+                const int TREES_PER_TILE = 7;                   // Number of trees per forest tile
+                
+                // Calculate tree sprite scale and centering
+                float sprite_scale = tile_size / TREE_SCALE_RATIO;
+                float half_sprite_size = (TREE_SPRITE_SIZE * sprite_scale) / 2.0f;
+                
+                // Uniform grid pattern positions (centered sprites)
+                Vector2 tree_positions[] = {
+                    {x - tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y - tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Top left
+                    {x + tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y - tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Top right
+                    {x - tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y + tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Bottom left  
+                    {x + tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y + tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Bottom right
+                    {x - half_sprite_size, y - half_sprite_size},                                                                         // Center
+                    {x - half_sprite_size, y - tile_size * EDGE_TREE_DISTANCE - half_sprite_size},                                       // Top center
+                    {x - half_sprite_size, y + tile_size * EDGE_TREE_DISTANCE - half_sprite_size}                                        // Bottom center
+                };
+                
+                // Draw trees in uniform pattern
+                int num_trees = TREES_PER_TILE;
+                for (int i = 0; i < num_trees; i++) {
+                    // Alternate tree types for variety
+                    int varied_tree_index = tree_sprite_index;
+                    if (i % 2 == 1 && tree_sprite_index < 3) {
+                        varied_tree_index = tree_sprite_index + (i % 2); // Systematic variation
+                    }
+                    
+                    sprite_manager.draw_sprite("trees", varied_tree_index, tree_positions[i], sprite_scale);
+                }
+            }
+        }
+    }
 
    void draw_resource_node(const HexTile& tile, float x, float y) {
         ResourceNodeType resource_type = get_resource_node_type(tile);
@@ -459,8 +828,381 @@ public:
             float text_x = x - text_size.x / 2;
             float text_y = y - text_size.y / 2;
             
-            DrawText(symbol.c_str(), text_x, text_y, font_size, BLACK);
+            DrawTextEx(GetFontDefault(), symbol.c_str(), {text_x, text_y}, font_size, 1, BLACK);
         }
+   }
+
+   // City detection and rendering functions
+   CityInfo get_city_info(const HexTile& tile) {
+        if (tile.population_capacity < 1000) {
+            return {CityType::NONE, 0, 0};
+        }
+        
+        // Decode city information from population_capacity field
+        int encoded = static_cast<int>(tile.population_capacity) - 1000;
+        
+        int city_type_value = (encoded / 100) % 10;
+        int development_level = (encoded / 10) % 10;
+        int house_id = encoded % 10;
+        
+        CityType city_type = CityType::NONE;
+        if (city_type_value >= 1 && city_type_value <= 4) {
+            city_type = static_cast<CityType>(city_type_value);
+        }
+        
+        // Debug output (uncomment to debug city type issues)
+        // std::cout << "City decode: pop_cap=" << tile.population_capacity 
+        //           << " encoded=" << encoded << " type_val=" << city_type_value 
+        //           << " dev_level=" << development_level << " house_id=" << house_id << std::endl;
+        
+        return {city_type, development_level, house_id};
+   }
+
+   void draw_city_on_tile(const HexTile& tile, const CityInfo& city, float x, float y) {
+        // Get city color from tile owner color
+        Color city_color = {tile.owner_color[0], tile.owner_color[1], 
+                           tile.owner_color[2], tile.owner_color[3]};
+        
+        // Use keep sprite if available, otherwise fall back to circles
+        if (sprite_manager.has_sprite_sheet("keeps")) {
+            // Choose keep sprite based on development level (0-5 for 6 keep variants in 3x2 grid)
+            int keep_sprite_index = std::min(city.development_level - 1, 5);
+            keep_sprite_index = std::max(keep_sprite_index, 0); // Ensure >= 0
+            
+            // Keep sprites are 32x32 pixels - scale them to fit hex tiles properly
+            // For hex tiles, we want the sprite to be about 70% of the tile size to look good
+            float sprite_scale = (tile_size * 0.7f) / 32.0f; // 32px sprite scaled to 70% of tile
+            
+            // Center the sprite on the hex tile
+            Vector2 sprite_pos = {
+                x - (32 * sprite_scale / 2),  // 32px is the actual sprite width
+                y - (32 * sprite_scale / 2)   // 32px is the actual sprite height
+            };
+            
+            // Draw a subtle glow behind the city that scales with the sprite
+            float glow_radius = (32 * sprite_scale) * 0.6f;
+            Color glow_color = {city_color.r, city_color.g, city_color.b, 60};
+            DrawCircle(x, y, glow_radius, glow_color);
+            
+            // Draw keep sprite without any tinting
+            sprite_manager.draw_sprite("keeps", keep_sprite_index, sprite_pos, sprite_scale);
+        } else {
+            // Fallback to original circle rendering
+            float base_radius = tile_size * 0.25f;
+            float city_radius = base_radius + (city.development_level * 3);
+            
+            // Draw glow effect behind city
+            float glow_radius = city_radius + 4;
+            Color glow_color = {city_color.r, city_color.g, city_color.b, 60};
+            DrawCircle(x, y, glow_radius, glow_color);
+            
+            // Draw multiple rings for higher development levels
+            for (int i = 1; i <= city.development_level; i++) {
+                float ring_radius = base_radius + (i * 2);
+                int alpha = 255 - (i * 30); // Fade outer rings
+                Color ring_color = {city_color.r, city_color.g, city_color.b, (unsigned char)std::max(80, alpha)};
+                DrawCircle(x, y, ring_radius, ring_color);
+                DrawCircleLines(x, y, ring_radius, BLACK);
+            }
+            
+            // Draw white background circle for symbol visibility  
+            float symbol_bg_radius = base_radius * 0.7f;
+            DrawCircle(x, y, symbol_bg_radius, {255, 255, 255, 200});
+            DrawCircleLines(x, y, symbol_bg_radius, BLACK);
+            
+            // Draw city symbol based on type
+            int codepoint = get_city_codepoint(city.type);
+            if (tile_size > 10) {
+                // Scale font size with development level
+                int base_font_size = static_cast<int>(tile_size * 0.25f);
+                int font_size = base_font_size + (city.development_level * 1);
+                font_size = std::max(8, std::min(font_size, 16));
+                
+                // Get glyph info for positioning
+                int utf8Size;
+                const char* utf8_text = CodepointToUTF8(codepoint, &utf8Size);
+                Vector2 glyph_size = MeasureTextEx(GetFontDefault(), utf8_text, font_size, 1);
+                float text_x = x - glyph_size.x / 2;
+                float text_y = y - glyph_size.y / 2;
+                
+                // Use dark text on white background for better visibility
+                DrawTextCodepoint(GetFontDefault(), codepoint, {text_x + 1, text_y + 1}, font_size, DARKGRAY); // Slight shadow
+                DrawTextCodepoint(GetFontDefault(), codepoint, {text_x, text_y}, font_size, BLACK);
+            }
+        }
+   }
+
+   int get_city_codepoint(CityType city_type) {
+        switch (city_type) {
+            case CityType::CAPITAL: return 0x265A;      // ♚ Black King (Capital)
+            case CityType::TRADE: return 0x2666;        // ♦ Black Diamond (Trade)
+            case CityType::MILITARY: return 0x2694;     // ⚔ Crossed Swords (Military)
+            case CityType::AGRICULTURAL: return 0x2660; // ♠ Black Spade (Agricultural)
+            default: return 0x25CF;                     // ● Black Circle
+        }
+   }
+
+   std::string get_city_type_name(CityType city_type) {
+        switch (city_type) {
+            case CityType::CAPITAL: return "Capital";
+            case CityType::TRADE: return "Trade City";
+            case CityType::MILITARY: return "Military Fortress";
+            case CityType::AGRICULTURAL: return "Agricultural Center";
+            default: return "Unknown";
+        }
+   }
+
+   std::string get_city_development_name(int level) {
+        switch (level) {
+            case 1: return "Village";
+            case 2: return "Town";
+            case 3: return "City";
+            case 4: return "Metropolis";
+            default: return "Unknown";
+        }
+   }
+
+    void collect_tree_sprites(const HexTile& tile, std::vector<SpriteRenderInfo>& sprites) {
+        // Only collect from forest tiles
+        if (!(tile.terrain_type == HexTileType::TEMPERATE_FOREST ||
+              tile.terrain_type == HexTileType::BOREAL_FOREST ||
+              tile.terrain_type == HexTileType::RAINFOREST)) {
+            return;
+        }
+        
+        if (!sprite_manager.has_sprite_sheet("trees")) return;
+        
+        auto [x, y] = get_tile_position(tile);
+        
+        // Use same tree selection logic as before
+        int tree_sprite_index = 1; // Skip the stump (index 0)
+        if (tile.terrain_type == HexTileType::TEMPERATE_FOREST) {
+            tree_sprite_index = 1; // Green tree
+        } else if (tile.terrain_type == HexTileType::BOREAL_FOREST) {
+            tree_sprite_index = 2; // Pine-like tree
+        } else if (tile.terrain_type == HexTileType::RAINFOREST) {
+            tree_sprite_index = 3; // Dense canopy tree
+        }
+        
+        // Same constants as before
+        const float TREE_SCALE_RATIO = 40.0f;
+        const int TREE_SPRITE_SIZE = 16;
+        const float CORNER_TREE_DISTANCE = 0.4f;
+        const float EDGE_TREE_DISTANCE = 0.50f;
+        const int TREES_PER_TILE = 7;
+        
+        float sprite_scale = tile_size / TREE_SCALE_RATIO;
+        float half_sprite_size = (TREE_SPRITE_SIZE * sprite_scale) / 2.0f;
+        
+        // Same tree positions as before
+        Vector2 tree_positions[] = {
+            {x - tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y - tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Top left
+            {x + tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y - tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Top right
+            {x - tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y + tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Bottom left  
+            {x + tile_size * CORNER_TREE_DISTANCE - half_sprite_size, y + tile_size * CORNER_TREE_DISTANCE - half_sprite_size},  // Bottom right
+            {x - half_sprite_size, y - half_sprite_size},                                                                         // Center
+            {x - half_sprite_size, y - tile_size * EDGE_TREE_DISTANCE - half_sprite_size},                                       // Top center
+            {x - half_sprite_size, y + tile_size * EDGE_TREE_DISTANCE - half_sprite_size}                                        // Bottom center
+        };
+        
+        // Add all trees to sprite collection
+        for (int i = 0; i < TREES_PER_TILE; i++) {
+            int varied_tree_index = tree_sprite_index;
+            if (i % 2 == 1 && tree_sprite_index < 3) {
+                varied_tree_index = tree_sprite_index + (i % 2);
+            }
+            
+            sprites.push_back({
+                "trees",
+                varied_tree_index,
+                tree_positions[i],
+                sprite_scale,
+                tree_positions[i].y,  // Use Y position for depth
+                WHITE
+            });
+        }
+    }
+
+    void collect_city_sprites(const HexTile& tile, std::vector<SpriteRenderInfo>& sprites) {
+        CityInfo city = get_city_info(tile);
+        if (city.type == CityType::NONE) return;
+        
+        if (!sprite_manager.has_sprite_sheet("keeps")) return;
+        
+        auto [x, y] = get_tile_position(tile);
+        
+        // Same keep sprite logic as before
+        int keep_sprite_index = std::min(city.development_level - 1, 5);
+        keep_sprite_index = std::max(keep_sprite_index, 0);
+        
+        float sprite_scale = (tile_size * 0.7f) / 32.0f;
+        Vector2 sprite_pos = {
+            x - (32 * sprite_scale / 2),
+            y - (32 * sprite_scale / 2)
+        };
+        
+        sprites.push_back({
+            "keeps",
+            keep_sprite_index,
+            sprite_pos,
+            sprite_scale,
+            y,  // Use tile center Y for depth
+            WHITE
+        });
+    }
+
+    void draw_sprites_depth_sorted(HexTile* tiles, int num_tiles) {
+        std::vector<SpriteRenderInfo> sprites_to_draw;
+        
+        // Collect all sprites from trees and cities
+        for (int i = 0; i < num_tiles; ++i) {
+            HexTile* tile = &tiles[i];
+            collect_tree_sprites(*tile, sprites_to_draw);
+            collect_city_sprites(*tile, sprites_to_draw);
+        }
+        
+        // Sort sprites by Y position (higher Y = drawn later = appears in front)
+        std::sort(sprites_to_draw.begin(), sprites_to_draw.end(), 
+                  [](const SpriteRenderInfo& a, const SpriteRenderInfo& b) {
+                      return a.depth_y < b.depth_y;
+                  });
+        
+        // Draw all sprites in depth order
+        for (const auto& sprite : sprites_to_draw) {
+            sprite_manager.draw_sprite(sprite.sprite_sheet, sprite.sprite_index, 
+                                     sprite.position, sprite.scale, sprite.tint);
+        }
+    }
+
+   void draw_positioned_entity(const PositionedEntity& entity) {
+        auto [x, y] = get_tile_position_from_coords(entity.q, entity.r);
+        
+        // Get entity color
+        Color entity_color = {entity.color[0], entity.color[1], entity.color[2], entity.color[3]};
+        
+        // Define entity radius for use in troop text positioning
+        float entity_radius = tile_size * 0.4f;
+        
+        // Try to use knight sprites for generals
+        std::string knight_sprite_sheet = "red_knights"; // Default
+        
+        // Choose knight sprite color based on entity color (simple color matching)
+        if (entity_color.r > 200 && entity_color.g < 100 && entity_color.b < 100) {
+            knight_sprite_sheet = "red_knights";
+        } else if (entity_color.g > 200 && entity_color.r < 100 && entity_color.b < 100) {
+            knight_sprite_sheet = "lime_knights";
+        } else if (entity_color.b > 200 && entity_color.r < 100 && entity_color.g < 100) {
+            knight_sprite_sheet = "cyan_knights";
+        } else if (entity_color.r > 150 && entity_color.b > 150 && entity_color.g < 100) {
+            knight_sprite_sheet = "purple_knights";
+        }
+        
+        // Use knight sprite if available, otherwise fallback to circles
+        if (sprite_manager.has_sprite_sheet(knight_sprite_sheet) && entity.entity_type == 0) { // GENERAL
+            // Calculate sprite scale based on tile size
+            float sprite_scale = tile_size / 40.0f; // 16x24 sprite scaled to fit tile
+            
+            // Center the sprite on the tile (32x32 sprite dimensions)
+            Vector2 sprite_pos = {
+                x - (32 * sprite_scale / 2),
+                y - (32 * sprite_scale / 2)
+            };
+            
+            // Skip glow circle for cleaner sprite appearance
+            
+            // Draw the animated knight sprite
+            sprite_manager.draw_animated_sprite(knight_sprite_sheet, sprite_pos, tile_size, sprite_scale);
+        } else {
+            // Fallback to original circle rendering
+            
+            // Draw glow effect behind entity
+            float glow_radius = entity_radius + 3;
+            Color glow_color = {entity_color.r, entity_color.g, entity_color.b, 80};
+            DrawCircle(x, y, glow_radius, glow_color);
+            
+            // Draw main entity circle
+            DrawCircle(x, y, entity_radius, entity_color);
+            DrawCircleLines(x, y, entity_radius, BLACK);
+            
+            // Draw white background for symbol visibility
+            float symbol_bg_radius = entity_radius * 0.7f;
+            DrawCircle(x, y, symbol_bg_radius, {255, 255, 255, 200});
+            
+            // Draw entity symbol based on type
+            int codepoint = get_entity_codepoint(static_cast<EntityType>(entity.entity_type));
+            if (tile_size > 15) {
+                int font_size = static_cast<int>(tile_size * 0.3f);
+                font_size = std::max(10, std::min(font_size, 20));
+                
+                // Get glyph info for positioning
+                int utf8Size;
+                const char* utf8_text = CodepointToUTF8(codepoint, &utf8Size);
+                Vector2 glyph_size = MeasureTextEx(GetFontDefault(), utf8_text, font_size, 1);
+                float text_x = x - glyph_size.x / 2;
+                float text_y = y - glyph_size.y / 2;
+                
+                // Draw symbol with shadow for visibility
+                DrawTextCodepoint(GetFontDefault(), codepoint, {text_x + 1, text_y + 1}, font_size, DARKGRAY);
+                DrawTextCodepoint(GetFontDefault(), codepoint, {text_x, text_y}, font_size, BLACK);
+            }
+        }
+        
+        // Draw troop count if it's a military unit and tile is large enough
+        if (entity.assigned_soldiers > 0 && tile_size > 25) {
+            std::string troop_text = std::to_string(entity.assigned_soldiers);
+            int troop_font_size = static_cast<int>(tile_size * 0.15f);
+            troop_font_size = std::max(8, std::min(troop_font_size, 12));
+            
+            Vector2 troop_size = MeasureTextEx(GetFontDefault(), troop_text.c_str(), troop_font_size, 1);
+            float troop_x = x - troop_size.x / 2;
+            float troop_y = y + entity_radius + 2; // Position below entity
+            
+            // Draw background for troop count
+            DrawRectangle(troop_x - 2, troop_y - 1, troop_size.x + 4, troop_size.y + 2, {0, 0, 0, 150});
+            DrawTextEx(GetFontDefault(), troop_text.c_str(), {troop_x, troop_y}, troop_font_size, 1, WHITE);
+        }
+   }
+
+   int get_entity_codepoint(EntityType entity_type) {
+        switch (entity_type) {
+            case EntityType::GENERAL: return 0x2694;    // ⚔ Crossed Swords
+            case EntityType::SCOUT: return 0x1F441;     // 👁 Eye
+            case EntityType::ARMY: return 0x1F6E1;      // 🛡 Shield
+            case EntityType::MERCHANT: return 0x1F4B0;  // 💰 Money Bag
+            default: return 0x25CF;                     // ● Black Circle
+        }
+   }
+
+   std::pair<float, float> get_tile_position_from_coords(int q, int r) {
+        float x = center_x + (q * hex_width);
+        float y = center_y + (r * hex_height * 2) + (q * hex_height);
+        return {x, y};
+   }
+
+   // City name parsing functions
+   std::string extract_city_name(const std::string& owner_field) {
+        if (owner_field.find("CITY:") == 0) {
+            size_t start = 5; // Skip "CITY:"
+            size_t end = owner_field.find('#');
+            if (end != std::string::npos) {
+                return owner_field.substr(start, end - start);
+            }
+        }
+        return "";
+   }
+
+   std::string extract_original_owner(const std::string& owner_field) {
+        if (owner_field.find("CITY:") == 0) {
+            size_t hash_pos = owner_field.find('#');
+            if (hash_pos != std::string::npos) {
+                return owner_field.substr(hash_pos + 1);
+            }
+        }
+        return owner_field;
+   }
+
+   bool has_encoded_city_name(const std::string& owner_field) {
+        return owner_field.find("CITY:") == 0;
    }
 
 private:
@@ -533,48 +1275,203 @@ private:
     }
 
     void draw_tile_info(HexTile* tile) {
-        std::string info = "Tile: " + std::to_string(tile->q) + ", " + std::to_string(tile->r) +
-                           "\nTerrain: " + hex_tile_type_to_string[tile->terrain_type] +
-                           "\nHeight: " + std::to_string(tile->elevation) +
-                           "\nMoisture: " + std::to_string(tile->moisture) +
-                           "\nTemperature: " + std::to_string(tile->temperature) +
-                           "\nFood Output: " + std::to_string(tile->food_output) +
-                           "\nMaterial Output: " + std::to_string(tile->material_output) +
-                           "\nMetal Output: " + std::to_string(get_base_metal_output(*tile)) +
-                           "\nPopulation Capacity: " + std::to_string(tile->population_capacity) +
-                           "\nOwner: " + std::string(tile->owner.data());
+        std::string owner_field = std::string(tile->owner.data());
         
-        // Add resource node information
+        // Panel dimensions and styling - smaller and more compact
+        int panel_width = 200;
+        int panel_height = 120;
+        int panel_x = width - panel_width - 10; // Right side of screen
+        int panel_y = height - panel_height - 40; // Bottom right
+        int header_font_size = 11;
+        int body_font_size = 9;
+        
+        // Background panel
+        Color panel_bg = {50, 50, 50, 200}; // Dark semi-transparent
+        Color panel_border = {100, 100, 100, 255}; // Gray border
+        DrawRectangle(panel_x, panel_y, panel_width, panel_height, panel_bg);
+        DrawRectangleLines(panel_x, panel_y, panel_width, panel_height, panel_border);
+        
+        // Header
+        std::string header = "Tile (" + std::to_string(tile->q) + ", " + std::to_string(tile->r) + ")";
+        DrawRectangle(panel_x, panel_y, panel_width, 20, panel_border);
+        DrawTextEx(GetFontDefault(), header.c_str(), {(float)(panel_x + 8), (float)(panel_y + 4)}, header_font_size, 1, WHITE);
+        
+        int text_y = panel_y + 25;
+        int line_height = 12;
+        
+        // Basic info
+        std::string terrain = "Terrain: " + hex_tile_type_to_string[tile->terrain_type];
+        DrawTextEx(GetFontDefault(), terrain.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, WHITE);
+        text_y += line_height;
+        
+        // Environmental stats (abbreviated for space)
+        std::string env_stats = "E:" + std::to_string(static_cast<int>(tile->elevation * 100)) + 
+                               " T:" + std::to_string(static_cast<int>(tile->temperature * 100)) +
+                               " M:" + std::to_string(static_cast<int>(tile->moisture * 100));
+        DrawTextEx(GetFontDefault(), env_stats.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, LIGHTGRAY);
+        text_y += line_height;
+        
+        // Resource outputs
+        std::string resources = "Resources: F:" + std::to_string(static_cast<int>(tile->food_output)) +
+                               " M:" + std::to_string(static_cast<int>(tile->material_output)) +
+                               " I:" + std::to_string(static_cast<int>(get_base_metal_output(*tile)));
+        DrawTextEx(GetFontDefault(), resources.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, WHITE);
+        text_y += line_height;
+        
+        std::string pop_cap = "Pop Cap: " + std::to_string(tile->population_capacity);
+        DrawTextEx(GetFontDefault(), pop_cap.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, WHITE);
+        text_y += line_height + 3;
+        
+        // Owner and city information
+        // Only show city name if this tile actually has a city (population_capacity >= 1000)
+        CityInfo city = get_city_info(*tile);
+        if (city.type != CityType::NONE && has_encoded_city_name(owner_field)) {
+            std::string city_name = extract_city_name(owner_field);
+            if (!city_name.empty()) {
+                DrawTextEx(GetFontDefault(), ("City: " + city_name).c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, YELLOW);
+                text_y += line_height;
+            }
+        }
+        
+        // Always show owner (extract from city encoding if present)
+        if (has_encoded_city_name(owner_field)) {
+            std::string original_owner = extract_original_owner(owner_field);
+            if (!original_owner.empty() && original_owner != "None") {
+                DrawTextEx(GetFontDefault(), ("Owner: " + original_owner).c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, SKYBLUE);
+                text_y += line_height;
+            }
+        } else if (owner_field != "None") {
+            DrawTextEx(GetFontDefault(), ("Owner: " + owner_field).c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, SKYBLUE);
+            text_y += line_height;
+        }
+        
+        // Special resource information
         if (has_special_resource(*tile)) {
             ResourceNodeType resource_type = get_resource_node_type(*tile);
             std::string resource_name;
+            Color resource_color = YELLOW;
             switch (resource_type) {
-                case ResourceNodeType::GOLD_MINE: resource_name = "Gold Mine"; break;
-                case ResourceNodeType::IRON_DEPOSIT: resource_name = "Iron Deposit"; break;
-                case ResourceNodeType::STONE_QUARRY: resource_name = "Stone Quarry"; break;
-                case ResourceNodeType::RARE_HERBS: resource_name = "Rare Herbs"; break;
+                case ResourceNodeType::GOLD_MINE: resource_name = "Gold Mine"; resource_color = YELLOW; break;
+                case ResourceNodeType::IRON_DEPOSIT: resource_name = "Iron Deposit"; resource_color = GRAY; break;
+                case ResourceNodeType::STONE_QUARRY: resource_name = "Stone Quarry"; resource_color = BROWN; break;
+                case ResourceNodeType::RARE_HERBS: resource_name = "Rare Herbs"; resource_color = GREEN; break;
                 default: resource_name = "Unknown Resource"; break;
             }
-            info += "\nSpecial Resource: " + resource_name;
+            DrawTextEx(GetFontDefault(), ("Special: " + resource_name).c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, resource_color);
+            text_y += line_height;
         }
         
-        DrawText(info.c_str(), 20, height - 180, 9, BLACK);
+        // City type information (using city variable declared above)
+        if (city.type != CityType::NONE) {
+            std::string city_type_name = get_city_type_name(city.type);
+            std::string development_name = get_city_development_name(city.development_level);
+            DrawTextEx(GetFontDefault(), (city_type_name + " (" + development_name + ")").c_str(), 
+                      {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, ORANGE);
+        }
+    }
+
+    void check_house_panel_click(float mouse_x, float mouse_y) {
+        int panel_width = 200;
+        int collapsed_height = 30;
+        int expanded_height = 120;
+        int margin = 10;
+        
+        for (int i = 0; i < (int)house_panels_expanded.size(); ++i) {
+            // Calculate panel position (same logic as in draw_house_info)
+            int panel_x = margin;
+            int panel_y = margin + i * (collapsed_height + margin);
+            if (i > 0) {
+                // Adjust for expanded panels above
+                for (int j = 0; j < i; ++j) {
+                    if (house_panels_expanded[j]) {
+                        panel_y += (expanded_height - collapsed_height);
+                    }
+                }
+            }
+            
+            // Check if click is within the header area of this panel
+            if (mouse_x >= panel_x && mouse_x <= panel_x + panel_width &&
+                mouse_y >= panel_y && mouse_y <= panel_y + 25) {
+                house_panels_expanded[i] = !house_panels_expanded[i];
+                break;
+            }
+        }
     }
 
     void draw_house_info(House* house_data, int num_houses) {
-        // Draw a colored box representing the house color
-        // Color house_color = {house->color[0], house->color[1], house->color[2], house->color[3]};
-        // DrawRectangle(20, height - 100, 10, 10, house_color);
+        int panel_width = 200;
+        int collapsed_height = 30;
+        int expanded_height = 120;
+        int margin = 10;
+        int header_font_size = 12;
+        int body_font_size = 10;
+        
         for (int i = 0; i < num_houses; ++i) {
             House* house = &house_data[i];
-            // offset text by 20, 20 + i * 10
-            std::string info = "House: " + std::string(house->name.data()) +
-                               "\nPopulation: " + std::to_string(house->population) +
-                               "\nMilitary Power: " + std::to_string(house->military_power) +
-                               "\nResources: " + std::to_string(static_cast<int>(house->food)) + ", " 
-                                               + std::to_string(static_cast<int>(house->material)) + ", " 
-                                               + std::to_string(static_cast<int>(house->metal));
-            DrawText(info.c_str(), 20, 20 + i * 70, 9, BLACK);
+            
+            // Parse house name properly (in case it contains encoded city info)
+            std::string house_name_field = std::string(house->name.data());
+            std::string display_name;
+            
+            if (has_encoded_city_name(house_name_field)) {
+                display_name = extract_original_owner(house_name_field);
+            } else {
+                display_name = house_name_field;
+            }
+            
+            // Calculate panel position and size
+            int panel_x = margin;
+            int panel_height = house_panels_expanded[i] ? expanded_height : collapsed_height;
+            int panel_y = margin + i * (collapsed_height + margin);
+            if (i > 0) {
+                // Adjust for expanded panels above
+                for (int j = 0; j < i; ++j) {
+                    if (house_panels_expanded[j]) {
+                        panel_y += (expanded_height - collapsed_height);
+                    }
+                }
+            }
+            
+            // Draw background panel with house color
+            Color house_color = {house->color[0], house->color[1], house->color[2], house->color[3]};
+            Color panel_bg = {house_color.r, house_color.g, house_color.b, 40}; // Semi-transparent
+            Color panel_border = {house_color.r, house_color.g, house_color.b, 180};
+            
+            // Background panel
+            DrawRectangle(panel_x, panel_y, panel_width, panel_height, panel_bg);
+            DrawRectangleLines(panel_x, panel_y, panel_width, panel_height, panel_border);
+            
+            // House name header with colored background (always visible)
+            DrawRectangle(panel_x, panel_y, panel_width, 25, panel_border);
+            std::string header_text = "House " + display_name + (house_panels_expanded[i] ? " ▼" : " ▶");
+            DrawTextEx(GetFontDefault(), header_text.c_str(), 
+                      {(float)(panel_x + 8), (float)(panel_y + 5)}, header_font_size, 1, WHITE);
+            
+            // Only draw detailed info if expanded
+            if (house_panels_expanded[i]) {
+                // Population and loyalty section
+                int text_y = panel_y + 30;
+                std::string pop_info = "Pop: " + std::to_string(house->population);
+                DrawTextEx(GetFontDefault(), pop_info.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, BLACK);
+                
+                text_y += 12;
+                std::string loyalty_info = "Loyalty: " + std::to_string(house->population_loyalty) + "%";
+                Color loyalty_color = house->population_loyalty >= 80 ? GREEN : 
+                                     house->population_loyalty >= 50 ? ORANGE : RED;
+                DrawTextEx(GetFontDefault(), loyalty_info.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, loyalty_color);
+                
+                text_y += 12;
+                std::string military_info = "Military: " + std::to_string(house->military_power);
+                DrawTextEx(GetFontDefault(), military_info.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, BLACK);
+                
+                // Resources section
+                text_y += 15;
+                std::string resources = "F:" + std::to_string(static_cast<int>(house->food)) + 
+                                       " M:" + std::to_string(static_cast<int>(house->material)) +
+                                       " I:" + std::to_string(static_cast<int>(house->metal)) +
+                                       " G:" + std::to_string(static_cast<int>(house->gold));
+                DrawTextEx(GetFontDefault(), resources.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, BLACK);
+            }
         }
     }
 
@@ -590,6 +1487,12 @@ private:
 
         if (IsKeyPressed(KEY_R)) {
             show_resources = !show_resources;
+        }
+
+        // Handle mouse clicks on house panels
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            Vector2 mouse_pos = GetMousePosition();
+            check_house_panel_click(mouse_pos.x, mouse_pos.y);
         }
 
         float wheel = GetMouseWheelMove();
@@ -695,7 +1598,11 @@ PYBIND11_MODULE(renderer, m) {
     pybind11::class_<HexGridRenderer>(m, "Renderer")
         .def(pybind11::init<>())
         .def("setup", &HexGridRenderer::setup)
-        .def("run", &HexGridRenderer::run, py::call_guard<py::gil_scoped_release>()) 
+        .def("run", &HexGridRenderer::run, py::call_guard<py::gil_scoped_release>(), 
+             py::arg("shared_memory_name"), py::arg("memory_size"), py::arg("num_tiles"),
+             py::arg("house_shared_memory_name"), py::arg("house_memory_size"), py::arg("num_houses"),
+             py::arg("entities_shared_memory_name") = nullptr, py::arg("entities_memory_size") = 0, 
+             py::arg("num_entities") = 0) 
         .def("render_tile", &HexGridRenderer::draw_tile)
         .def(py::pickle(
             [](const HexGridRenderer &r) { // __getstate__

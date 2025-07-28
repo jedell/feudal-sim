@@ -7,10 +7,12 @@ and tile ownership management.
 
 from typing import Set, List, Dict, Any
 from dataclasses import dataclass
+from feudal_sim.core.config import config
+
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
-
-
+from feudal_sim.components.population import PopulationComponent
+    
 @dataclass
 class ExpansionOrder:
     """Represents a pending territory expansion order."""
@@ -339,6 +341,15 @@ class TerritoryComponent(Component):
                 if neighbor_tile not in self.territory:
                     self.border_tiles.add(neighbor_tile)
     
+    def get_lore_section(self) -> str:
+        """Return lore explanation of territory mechanics for AI prompts."""
+        return """
+**Territorial Dominion:**
+Expansion requires both coin and conviction. Material wealth and gold fund your ambitions, but success depends greatly on your military readiness. A lord with many soldiers at arms finds expansion far more reliable than one who relies on workers alone. 
+
+Territory expansion takes time - orders given this week resolve next week based on your preparation and the gods' favor. Each new territory brings resources and population capacity, but expansion comes at a cost as your people's loyalty may waver when you demand sacrifice for glory.
+"""
+
     def update(self, dt: float, event_bus=None):
         """
         Component update method - not used for main territory logic.
@@ -358,10 +369,11 @@ class TerritoryComponent(Component):
         Returns:
             Dictionary with estimated costs
         """
-        # Base costs per tile
-        base_material_cost = 30
-        base_gold_cost = 20
-        base_population_cost = 5  # Population loyalty impact
+        
+        # Get costs from config with fallback to original values
+        base_material_cost = config.get('simulation.territory.expansion.base_material_cost', 30)
+        base_gold_cost = config.get('simulation.territory.expansion.base_gold_cost', 20)
+        base_population_cost = config.get('simulation.territory.expansion.base_population_cost', 5)
         
         return {
             'material': base_material_cost * num_tiles,
@@ -535,6 +547,13 @@ class TerritoryComponent(Component):
         # Base success probability
         base_probability = 0.8
         
+        # Get soldier bonus from population component
+        soldier_bonus = 0.0
+        if self.entity:
+            population_component = self.entity.get_component(PopulationComponent)
+            if population_component:
+                soldier_bonus = population_component.calculate_soldier_expansion_bonus()
+        
         # Factors that affect success
         # More tiles = slightly lower success rate
         tile_penalty = min(0.1, len(opportunities) * 0.02)
@@ -550,5 +569,6 @@ class TerritoryComponent(Component):
         
         terrain_penalty = min(0.2, terrain_penalty)  # Cap at 20%
         
-        final_probability = base_probability - tile_penalty - terrain_penalty
+        # Calculate final probability with soldier bonus
+        final_probability = base_probability + soldier_bonus - tile_penalty - terrain_penalty
         return max(0.1, min(1.0, final_probability))  # Clamp between 10% and 100%

@@ -2,14 +2,16 @@
 PopulationComponent - Core population management for entities.
 
 Handles basic population count, capacity, loyalty, and growth mechanics
-extracted from the House class.
+extracted from the House class. Also handles population revolts that can
+cause territory loss when loyalty falls too low.
 """
 
 import math
+import random
 from typing import Dict, Any, Set
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
-
+from feudal_sim.core.config import config
 
 class PopulationComponent(Component):
     """
@@ -29,9 +31,22 @@ class PopulationComponent(Component):
         self.population_capacity = 0  # Calculated from territories
         self.population_loyalty = starting_loyalty
         
+        # Population ratio system - workers vs soldiers
+        default_worker_ratio = config.get('simulation.population.ratios.default_worker_ratio', 0.7)
+        default_soldier_ratio = config.get('simulation.population.ratios.default_soldier_ratio', 0.3)
+        
+        self.worker_ratio = default_worker_ratio
+        self.soldier_ratio = default_soldier_ratio
+        
         # Track previous values for observations
         self._previous_population = self.population
         self._previous_loyalty = self.population_loyalty
+        self._previous_worker_ratio = self.worker_ratio
+        self._previous_soldier_ratio = self.soldier_ratio
+        
+        # Revolt mechanics
+        self.last_revolt_turn = -999  # Track when last revolt occurred for cooldown
+        self.consecutive_low_loyalty_turns = 0  # Track how long loyalty has been low
 
     @property
     def loyalty(self) -> int:
@@ -82,7 +97,159 @@ class PopulationComponent(Component):
     
     def check_revolt_risk(self) -> bool:
         """Check if population loyalty is low enough for revolt risk."""
-        return self.population_loyalty < 50
+        loyalty_threshold = config.get('simulation.population.revolt.loyalty_threshold', 30)
+        return self.population_loyalty < loyalty_threshold
+    
+    def check_for_revolt(self, current_turn: int) -> bool:
+        """
+        Check if a revolt should occur this turn.
+        
+        Args:
+            current_turn: Current turn number for cooldown tracking
+            
+        Returns:
+            True if a revolt occurs, False otherwise
+        """
+        # Get revolt configuration
+        loyalty_threshold = config.get('simulation.population.revolt.loyalty_threshold', 30)
+        chance_per_turn = config.get('simulation.population.revolt.chance_per_turn', 0.25)
+        cooldown_turns = config.get('simulation.population.revolt.cooldown_turns', 2)
+        
+        # Check if loyalty is below threshold
+        if self.population_loyalty >= loyalty_threshold:
+            self.consecutive_low_loyalty_turns = 0
+            return False
+        
+        # Track consecutive turns of low loyalty
+        self.consecutive_low_loyalty_turns += 1
+        
+        # Check cooldown - can't revolt if recently revolted
+        if current_turn - self.last_revolt_turn < cooldown_turns:
+            return False
+        
+        # Roll for revolt chance
+        if random.random() < chance_per_turn:
+            self.last_revolt_turn = current_turn
+            return True
+        
+        return False
+    
+    def execute_revolt(self, hex_grid) -> Dict[str, Any]:
+        """
+        Execute a population revolt, causing territory loss and resource damage.
+        
+        Args:
+            hex_grid: Hex grid for territory operations
+            
+        Returns:
+            Dictionary with revolt results
+        """
+        from feudal_sim.components.territory import TerritoryComponent
+        
+        # Get territory component
+        territory_component: TerritoryComponent = self.entity.get_component(TerritoryComponent) if self.entity else None
+        if not territory_component:
+            return {
+                'success': False,
+                'message': 'No territory component found',
+                'tiles_lost': 0
+            }
+        
+        # Check if there are border tiles to lose
+        if not territory_component.border_tiles:
+            return {
+                'success': False, 
+                'message': 'No border tiles available to lose',
+                'tiles_lost': 0
+            }
+        
+        # Get number of tiles to lose from config
+        tiles_to_lose = config.get('simulation.population.revolt.tiles_lost_per_revolt', 1)
+        tiles_to_lose = min(tiles_to_lose, len(territory_component.territory))  # Can't lose more than we have
+        
+        if tiles_to_lose <= 0:
+            return {
+                'success': False,
+                'message': 'No territory tiles to lose',
+                'tiles_lost': 0
+            }
+        
+        # Choose random border tiles from territory (not border_tiles which are uncontrolled)
+        # We want to lose actual territory tiles that are on the border
+        border_territory_tiles = []
+        for tile in territory_component.territory:
+            # Check if this territory tile has neighbors that are not controlled
+            neighbors = hex_grid.get_neighbors(tile.q, tile.r)
+            for neighbor_tile, _ in neighbors:
+                if neighbor_tile not in territory_component.territory:
+                    border_territory_tiles.append(tile)
+                    break  # This tile is on the border
+        
+        if not border_territory_tiles:
+            # Fallback: lose any territory tile if no clear border
+            border_territory_tiles = list(territory_component.territory)
+        
+        # Randomly select tiles to lose
+        tiles_to_remove = random.sample(border_territory_tiles, min(tiles_to_lose, len(border_territory_tiles)))
+        
+        # Remove the territory
+        territory_component.remove_territory(tiles_to_remove, hex_grid)
+        
+        # Apply resource losses due to revolt
+        resource_losses = {}
+        if self.entity:
+            # Get resource loss configuration
+            food_loss_percent = config.get('simulation.population.revolt.resource_loss.food_percent', 0.2)
+            material_loss_percent = config.get('simulation.population.revolt.resource_loss.material_percent', 0.15)
+            metal_loss_percent = config.get('simulation.population.revolt.resource_loss.metal_percent', 0.1)
+            gold_loss_percent = config.get('simulation.population.revolt.resource_loss.gold_percent', 0.25)
+            
+            # Calculate and apply resource losses
+            if hasattr(self.entity, 'resources'):
+                # Store original values for reporting
+                original_resources = self.entity.resources.copy()
+                
+                # Apply losses
+                food_loss = int(self.entity.resources['food'] * food_loss_percent)
+                material_loss = int(self.entity.resources['material'] * material_loss_percent)
+                metal_loss = int(self.entity.resources['metal'] * metal_loss_percent)
+                gold_loss = int(self.entity.resources['gold'] * gold_loss_percent)
+                
+                # Apply the losses
+                self.entity.resources['food'] = max(0, self.entity.resources['food'] - food_loss)
+                self.entity.resources['material'] = max(0, self.entity.resources['material'] - material_loss)
+                self.entity.resources['metal'] = max(0, self.entity.resources['metal'] - metal_loss)
+                self.entity.resources['gold'] = max(0, self.entity.resources['gold'] - gold_loss)
+                
+                # Store losses for reporting
+                resource_losses = {
+                    'food': food_loss,
+                    'material': material_loss,
+                    'metal': metal_loss,
+                    'gold': gold_loss
+                }
+        
+        # Emit revolt event
+        if event_bus:
+            event_bus.emit(
+                EventType.VALUE_CHANGED,
+                self,
+                entity_type='population_component',
+                entity_name=self.entity.name if self.entity else self.entity_id,
+                property='revolt',
+                action_type='territory_and_resource_loss',
+                tiles_lost=len(tiles_to_remove),
+                resource_losses=resource_losses,
+                loyalty=self.population_loyalty
+            )
+        
+        return {
+            'success': True,
+            'message': f'Population revolt! Lost {len(tiles_to_remove)} border territory tile(s) and resources',
+            'tiles_lost': len(tiles_to_remove),
+            'lost_tiles': [(tile.q, tile.r) for tile in tiles_to_remove],
+            'resource_losses': resource_losses
+        }
     
     def adjust_loyalty(self, amount: int):
         """
@@ -129,17 +296,127 @@ class PopulationComponent(Component):
         
         # Revolt warning
         if self.check_revolt_risk():
-            ai_component.add_observation("Your people are on the brink of revolt due to low loyalty!", phase)
+            loyalty_threshold = config.get('simulation.population.revolt.loyalty_threshold', 30)
+            chance_per_turn = config.get('simulation.population.revolt.chance_per_turn', 0.25)
+            food_loss_percent = config.get('simulation.population.revolt.resource_loss.food_percent', 0.2)
+            material_loss_percent = config.get('simulation.population.revolt.resource_loss.material_percent', 0.15)
+            metal_loss_percent = config.get('simulation.population.revolt.resource_loss.metal_percent', 0.1)
+            gold_loss_percent = config.get('simulation.population.revolt.resource_loss.gold_percent', 0.25)
+            
+            ai_component.add_observation(
+                f"⚠️ REVOLT RISK: Population loyalty ({self.population_loyalty}) is below {loyalty_threshold}! "
+                f"There's a {chance_per_turn*100:.0f}% chance of revolt each turn, which could cause territory loss "
+                f"and resource damage ({food_loss_percent*100:.0f}% food, {material_loss_percent*100:.0f}% material, "
+                f"{metal_loss_percent*100:.0f}% metal, {gold_loss_percent*100:.0f}% gold)!", 
+                phase
+            )
     
+    def set_population_ratios(self, worker_ratio: float, soldier_ratio: float) -> bool:
+        """
+        Set the population allocation between workers and soldiers.
+        
+        Args:
+            worker_ratio: Ratio of population working (0.0 to 1.0)
+            soldier_ratio: Ratio of population in military service (0.0 to 1.0)
+            
+        Returns:
+            True if ratios were set successfully, False if invalid
+        """
+        # Validate ratios
+        if worker_ratio < 0 or soldier_ratio < 0:
+            return False
+        if abs((worker_ratio + soldier_ratio) - 1.0) > 0.001:  # Allow small floating point errors
+            return False
+        
+        # Store old values for events
+        old_worker_ratio = self.worker_ratio
+        old_soldier_ratio = self.soldier_ratio
+        
+        # Update ratios
+        self.worker_ratio = worker_ratio
+        self.soldier_ratio = soldier_ratio
+        
+        # Emit event for ratio change
+        if event_bus:
+            event_bus.emit(
+                EventType.VALUE_CHANGED,
+                self,
+                entity_type='population_component',
+                entity_name=self.entity.name if self.entity else self.entity_id,
+                property='population_ratios',
+                old_worker_ratio=old_worker_ratio,
+                old_soldier_ratio=old_soldier_ratio,
+                new_worker_ratio=worker_ratio,
+                new_soldier_ratio=soldier_ratio
+            )
+        
+        return True
+    
+    def get_population_ratios(self) -> Dict[str, float]:
+        """Get the current population ratios."""
+        return {
+            'workers': self.worker_ratio,
+            'soldiers': self.soldier_ratio
+        }
+    
+    def get_worker_count(self) -> int:
+        """Get the number of workers in the population."""
+        return int(self.population * self.worker_ratio)
+    
+    def get_soldier_count(self) -> int:
+        """Get the number of soldiers in the population."""
+        return int(self.population * self.soldier_ratio)
+    
+    def calculate_worker_efficiency(self) -> float:
+        """
+        Calculate resource production efficiency based on worker ratio.
+        
+        Returns:
+            Efficiency multiplier for resource production
+        """
+        worker_efficiency_power = config.get('simulation.population.ratios.worker_efficiency_power', 1.2)
+        return self.worker_ratio ** worker_efficiency_power
+    
+    def calculate_soldier_expansion_bonus(self) -> float:
+        """
+        Calculate expansion success bonus based on soldier ratio.
+        
+        Returns:
+            Expansion success probability bonus (0.0 to max_bonus)
+        """
+        soldier_expansion_bonus_max = config.get('simulation.population.ratios.soldier_expansion_bonus_max', 0.3)
+        soldier_expansion_multiplier = config.get('simulation.population.ratios.soldier_expansion_multiplier', 0.5)
+        
+        bonus = min(soldier_expansion_bonus_max, self.soldier_ratio * soldier_expansion_multiplier)
+        return bonus
+
     def get_population_status(self) -> Dict[str, Any]:
         """Get current population status for AI context or debugging."""
         return {
             'population': self.population,
             'population_capacity': self.population_capacity,
             'population_loyalty': self.population_loyalty,
+            'worker_ratio': self.worker_ratio,
+            'soldier_ratio': self.soldier_ratio,
+            'worker_count': self.get_worker_count(),
+            'soldier_count': self.get_soldier_count(),
+            'worker_efficiency': self.calculate_worker_efficiency(),
+            'soldier_expansion_bonus': self.calculate_soldier_expansion_bonus(),
             'revolt_risk': self.check_revolt_risk()
         }
     
+    def get_lore_section(self) -> str:
+        """Return lore explanation of population mechanics for AI prompts."""
+        return """
+**Managing Your Household:**
+Your people serve in two capacities - as laborers who work your lands and generate wealth, or as soldiers who secure your borders and enable conquest. This balance defines your house's character:
+- **The Merchant's Way**: Many workers, few soldiers - your lands prosper but expansion is perilous
+- **The Warrior's Path**: Many soldiers, few workers - your military conquests are swift but your coffers may suffer  
+- **The Balanced Rule**: Equal measure of both - moderate prosperity with reliable expansion
+
+When your people's loyalty falls too low, they may revolt, seizing territory and destroying resources. Mind their contentment, for a disloyal population is a lord's greatest weakness.
+"""
+
     def update(self, dt: float, event_bus=None):
         """Component update method - not used for main population logic."""
         pass

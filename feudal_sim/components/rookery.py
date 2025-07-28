@@ -281,6 +281,14 @@ class RookeryComponent(Component):
             'current_observations': len(self.current_observations)
         }
     
+    def get_lore_section(self) -> str:
+        """Return lore explanation of raven communication mechanics for AI prompts."""
+        return """
+**The Raven Network:**
+Messages between houses travel by raven, taking two weeks to reach their destination. A wise lord sends missives sparingly and waits patiently for replies. Flooding another lord with ravens marks you as desperate or foolish - patience in correspondence is the hallmark of wisdom and proper breeding.
+
+Ravens can only reach known recipients - houses you have discovered or been introduced to through prior correspondence. Each message takes time to compose, dispatch, and receive response."""
+
     def update(self, dt: float, event_bus=None):
         """
         Component update - currently used for turn tracking.

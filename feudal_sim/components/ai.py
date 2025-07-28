@@ -8,31 +8,23 @@ each phase, then makes decisions during the Actions phase.
 
 import os
 from typing import List, Optional, Dict, Any
-from dataclasses import dataclass, field
-from agents import Agent, Runner, ModelSettings
+from agents import Agent, Runner, ModelSettings, set_trace_processors
+import mlflow
+from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
+from feudal_sim.components.resource import ResourceComponent
+from feudal_sim.components.population import PopulationComponent
+from feudal_sim.components.territory import TerritoryComponent
+from feudal_sim.ai.tools import get_tools_for_entity
+from feudal_sim.ai.context import SimulationContext
+from feudal_sim.ai.prompt_builder import PromptBuilder
+from feudal_sim.ai.prompts import AgentType
+from feudal_sim.ai.persona_generator import generate_agent_identity
 
-@dataclass
-class SimulationContext:
-    """
-    Context object passed to OpenAI agents containing current simulation state.
-    This context is accessible to AI tools via the Agents SDK context system.
-    """
-    entity_id: str
-    entity_name: str
-    current_turn: int
-    current_phase: str
-    current_season: str
-    current_year: int
-    game_state: Dict[str, Any] = field(default_factory=dict)
-    
-    # Simulation objects for tool access
-    hex_grid: Any = None  # HexGrid instance for map operations
-    entity_manager: Any = None  # EntityManager for inter-entity operations
-    simulation: Any = None  # Reference to main simulation object
-
+set_trace_processors([MlflowOpenAgentTracingProcessor()])
+mlflow.set_experiment("feudal_sim")
 
 class AIComponent(Component):
     """
@@ -44,20 +36,28 @@ class AIComponent(Component):
     - Assistant responses with decisions
     """
     
-    def __init__(self, name: str, instructions: str, entity_id: str = None):
+    def __init__(self, name: str = None, agent_type: AgentType = AgentType.HOUSE_LORD, 
+                 instructions: str = None, persona: str = None, entity_id: str = None,
+                 house_name: str = None):
         """
         Initialize the AI component.
         
         Args:
-            name: Display name for the AI agent
-            instructions: System prompt/personality for the agent
+            name: Display name for the AI agent (if None, will be generated)
+            agent_type: Type of AI agent (HOUSE_LORD, SCOUT, GENERAL, etc.)
+            instructions: Optional static system prompt (if provided, overrides dynamic prompt)
+            persona: Optional persona section to include in dynamic prompt (if None, will be generated)
             entity_id: ID of the entity this component belongs to
+            house_name: Optional house name for context in generation
         """
         super().__init__(entity_id)
         
         # Agent configuration
-        self.agent_name = name
-        self.instructions = instructions
+        self.agent_name = name  # May be None initially, will be set during initialization
+        self.agent_type = agent_type
+        self.static_instructions = instructions  # Optional override
+        self.persona = persona  # May be None initially, will be set during initialization
+        self.house_name = house_name  # For generation context
         
         # Message history for LLM context (proper OpenAI format)
         self.messages: List[Dict[str, str]] = []
@@ -77,12 +77,7 @@ class AIComponent(Component):
     
     def _initialize_messages(self):
         """Initialize the message history with the system prompt."""
-        self.messages = [
-            {
-                "role": "system",
-                "content": self.instructions
-            }
-        ]
+        self.messages = []
     
     def _initialize_agent(self):
         """Initialize the OpenAI agent with tools based on available components."""
@@ -92,17 +87,33 @@ class AIComponent(Component):
         try:
             # Check for OpenAI API key
             if not os.getenv('OPENAI_API_KEY'):
-                print(f"⚠️  Warning: OPENAI_API_KEY not set. AI agent '{self.agent_name}' will be disabled.")
+                print(f"⚠️  Warning: OPENAI_API_KEY not set. AI agent will be disabled.")
                 self.is_enabled = False
                 return
+            
+            # Determine house name for generation context
+            house_name = self._get_house_name_context()
+            
+            # Generate name and/or persona if not provided
+            self._ensure_name_and_persona(house_name)
             
             # Get available tools based on entity components
             tools = self._get_available_tools()
             
+            # Generate instructions using PromptBuilder or use static instructions
+            if self.static_instructions:
+                instructions = self.static_instructions
+                print(f"🤖 Using static instructions for {self.agent_name}")
+            else:
+                # Use PromptBuilder to generate dynamic instructions
+                prompt_builder = PromptBuilder(self.entity, self.agent_type, self.persona)
+                instructions = prompt_builder.build_prompt(tools)
+                print(f"🤖 Generated dynamic instructions for {self.agent_name} ({self.agent_type.value})")
+            
             # Create the agent with tools
             self.agent = Agent[SimulationContext](
                 name=self.agent_name,
-                instructions=self.instructions,
+                instructions=instructions,
                 tools=tools,
                 model=config.get("simulation.ai.model", "gpt-4o-mini"),
                 # DEBUG TOOLS
@@ -127,56 +138,107 @@ class AIComponent(Component):
     
     def _get_available_tools(self):
         """
-        Get available tools based on the entity's components.
+        Get available tools using the unified toolset registry from tools.py.
         
         Returns:
             List of tool functions available to this AI agent
         """
-        tools = []
-        
-        # Only add tools if we have an entity to work with
         if not self.entity:
             print(f"   No entity available for {self.agent_name}")
-            return tools
+            return []
         
-        # Check for RookeryComponent and add send_raven tool
-        from feudal_sim.components.rookery import RookeryComponent
-        if self.entity.has_component(RookeryComponent):
-            print(f"   {self.agent_name}: Found RookeryComponent, creating send_raven tool")
-            from feudal_sim.ai.tools import create_send_raven_tool
-            tool = create_send_raven_tool(self.entity)
-            tools.append(tool)
-            print(f"   {self.agent_name}: Created send_raven tool: {tool}")
-        else:
-            print(f"   {self.agent_name}: No RookeryComponent found")
+        # Determine entity type based on agent type and entity characteristics
+        entity_type = self._determine_entity_type()
         
-        # Check for TerritoryComponent and add territory expansion tools
-        from feudal_sim.components.territory import TerritoryComponent
-        if self.entity.has_component(TerritoryComponent):
-            print(f"   {self.agent_name}: Found TerritoryComponent, creating territory tools")
-            from feudal_sim.ai.tools import create_assess_border_tool, create_expand_territory_tool
-            assess_tool = create_assess_border_tool(self.entity)
-            expand_tool = create_expand_territory_tool(self.entity)
-            tools.extend([assess_tool, expand_tool])
-            print(f"   {self.agent_name}: Created territory tools: assess_border, expand_territory")
-        else:
-            print(f"   {self.agent_name}: No TerritoryComponent found")
+        print(f"   {self.agent_name}: Detected entity type '{entity_type}'")
         
-        # Future: Check for other components and add relevant tools
-        # if self.entity.has_component(MilitaryComponent):
-        #     tools.append(create_dispatch_army_tool(self.entity))
-        # if self.entity.has_component(EconomyComponent):
-        #     tools.append(create_collect_taxes_tool(self.entity))
+        # Get tools using the unified toolset registry
+        tools = get_tools_for_entity(self.entity, entity_type)
         
-        print(f"   {self.agent_name}: Total tools created: {len(tools)}")
-
-        # disable tools if enabled in config
-        if config.get("simulation.ai.disable_tools", []):
-            for tool in tools:
-                if tool.name in config.get("simulation.ai.disable_tools", []):
-                    tools.remove(tool)
+        print(f"   {self.agent_name}: Created {len(tools)} tools via {entity_type} toolset")
+        
+        # Apply tool filtering from config
+        if config.get("simulation.ai.disabled_tools", []):
+            disabled_tools = config.get("simulation.ai.disabled_tools", [])
+            original_count = len(tools)
+            tools = [tool for tool in tools if getattr(tool, 'name', 'unknown') not in disabled_tools]
+            if len(tools) != original_count:
+                print(f"   {self.agent_name}: Filtered out {original_count - len(tools)} disabled tools")
 
         return tools
+    
+    def _determine_entity_type(self) -> str:
+        """
+        Determine the entity type for tool selection based on agent type and components.
+        
+        Returns:
+            String representing the entity type for tool factory lookup
+        """
+        # Use agent type as primary indicator
+        if self.agent_type == AgentType.HOUSE_LORD:
+            return 'house'
+        elif self.agent_type == AgentType.GENERAL:
+            return 'general'
+        elif self.agent_type == AgentType.SCOUT:
+            return 'scout'
+        elif self.agent_type == AgentType.MERCHANT:
+            return 'caravan'  # Map merchant to caravan toolset
+        elif self.agent_type == AgentType.DIPLOMAT:
+            return 'house'    # Diplomats use house-like tools for now
+        
+        # Fallback: try to detect based on components
+        from feudal_sim.components.position import PositionComponent
+        
+        if self.entity.has_component(PositionComponent):
+            # If entity has position, it's likely a mobile unit
+            if (self.entity.has_component(PopulationComponent) and 
+                self.entity.has_component(TerritoryComponent)):
+                return 'house'  # Has territory and population = house
+            else:
+                return 'general'  # Positioned but no territory = general/mobile unit
+        else:
+            # No position component = likely a house
+            return 'house'
+    
+    def _get_house_name_context(self) -> str:
+        """Get house name context for generation."""
+        # Use explicitly provided house name first
+        if self.house_name:
+            return self.house_name
+        
+        # Try to infer from entity name
+        if self.entity and hasattr(self.entity, 'name'):
+            return self.entity.name
+        
+        # Fall back to entity_id
+        return self.entity_id if self.entity_id else None
+    
+    def _ensure_name_and_persona(self, house_name: str):
+        """Generate name and/or persona if not provided."""
+        # Generate both name and persona if neither provided
+        if not self.agent_name and not self.persona:
+            generated_name, generated_persona = generate_agent_identity(self.agent_type, house_name)
+            self.agent_name = generated_name
+            self.persona = generated_persona
+            print(f"🎲 Generated identity: {self.agent_name} with matching persona")
+        
+        # Generate only name if needed (fallback approach)  
+        elif not self.agent_name:
+            from feudal_sim.ai.persona_generator import _get_fallback_name
+            self.agent_name = _get_fallback_name(self.agent_type, house_name)
+            print(f"🎲 Generated fallback name: {self.agent_name}")
+        
+        # Generate only persona if needed (fallback approach)
+        elif not self.persona:
+            from feudal_sim.ai.persona_generator import _get_fallback_persona
+            self.persona = _get_fallback_persona(self.agent_name, self.agent_type, house_name)
+            print(f"🎲 Generated fallback persona for: {self.agent_name}")
+        
+        # Fallback name if generation failed
+        if not self.agent_name:
+            role_name = self.agent_type.value.replace('_', ' ').title()
+            house_context = f" of House {house_name}" if house_name else ""
+            self.agent_name = f"{role_name}{house_context}"
     
     def add_observation(self, observation: str, phase: str = None, pending: bool = True):
         """
@@ -240,7 +302,7 @@ class AIComponent(Component):
             simulation=simulation
         )
     
-    def make_decisions(self) -> str:
+    async def make_decisions(self) -> str:
         """
         Have the AI agent process all pending observations and make decisions.
         Called during the Actions phase.
@@ -268,13 +330,14 @@ class AIComponent(Component):
             
             # Run the agent with full message history
             if config.get("simulation.ai.enabled", True):
-                result = Runner.run_sync(
+                result = await Runner.run(
                     starting_agent=self.agent,
                     input=self.messages,  # Pass the message list directly
                     context=self.context
                 )
             
                 # Add the AI's decision to message history
+                print("Len of new items: ", len(result.new_items))
                 self.messages = result.to_input_list()
             else:
                 print(f"🤖 {self.agent_name} is disabled, skipping decision making")
@@ -351,28 +414,21 @@ class AIComponent(Component):
         # Add current resource and population status
         if self.entity:
             # Get resource status
-            from feudal_sim.components.resource import ResourceComponent
-            resource_component = self.entity.get_component(ResourceComponent)
+            resource_component: ResourceComponent = self.entity.get_component(ResourceComponent)
             if resource_component:
                 resources = resource_component.resources.to_dict()
                 context_parts.append(f"Resources: {resources['food']:.1f} food, {resources['material']:.1f} material, {resources['metal']:.1f} metal, {resources['gold']:.1f} gold")
             
             # Get population status
-            from feudal_sim.components.population import PopulationComponent
-            population_component = self.entity.get_component(PopulationComponent)
+            population_component: PopulationComponent = self.entity.get_component(PopulationComponent)
             if population_component:
                 context_parts.append(f"Population: {population_component.population}, Loyalty: {population_component.loyalty:.1f}")
             
             # Get territory status
-            from feudal_sim.components.territory import TerritoryComponent
-            territory_component = self.entity.get_component(TerritoryComponent)
+            territory_component: TerritoryComponent = self.entity.get_component(TerritoryComponent)
             if territory_component:
                 territory_status = territory_component.get_territory_status()
                 context_parts.append(f"Territory: {territory_status['territory_size']} tiles, {territory_status['pending_expansions']} pending expansions")
-                
-                # Add resource output from territory
-                resource_output = territory_status['resource_output']
-                context_parts.append(f"Territory Output: {resource_output['food']:.1f} food, {resource_output['material']:.1f} material, {resource_output['metal']:.1f} metal")
             
             context_parts.append("")  # Empty line before question
         

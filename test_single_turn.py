@@ -23,7 +23,7 @@ def main():
     for house in simulation.houses:
         rookery = house.get_component(RookeryComponent)
         known = rookery.get_known_recipients_list() if rookery else []
-        print(f"📍 {house.name} knows: {known}")
+        print(f"📍 {house.get_name()} knows: {known}")
     
     # Execute a few phases to get to AI decisions
     print("\n⚙️ Executing Production Phase...")
@@ -43,7 +43,7 @@ def main():
     for house in simulation.houses:
         ai = house.get_component(AIComponent)
         rookery = house.get_component(RookeryComponent)
-        print(f"🏠 {house.name}:")
+        print(f"🏠 {house.get_name()}:")
         print(f"   Resources: {house.resources}")
         print(f"   AI Status: {ai.get_ai_status() if ai else 'No AI'}")
         print(f"   Rookery Status: {rookery.get_communication_status() if rookery else 'No Rookery'}")

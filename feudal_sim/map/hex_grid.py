@@ -30,14 +30,40 @@ def get_tile_dtype():
         ('owner_color', np.uint8, (4,))
     ])
 
+def get_positioned_entity_dtype():
+    return np.dtype([
+        ('q', np.int32),
+        ('r', np.int32),
+        ('name', '|S50'),  # Match C++ struct exactly
+        ('house_name', '|S50'),
+        ('color', np.uint8, (4,)),
+        ('entity_type', np.int32),  # 0=GENERAL, 1=SCOUT, 2=ARMY, 3=MERCHANT
+        ('assigned_soldiers', np.int32),
+        ('movement_points', np.int32),
+        ('max_movement', np.int32),
+        ('operational_range', np.int32)
+    ])
+
 class RendererWrapper:
 
     TILE_SHARED_MEMORY_NAME = "psm_hex_grid"
     HOUSE_SHARED_MEMORY_NAME = "psm_houses"
+    ENTITIES_SHARED_MEMORY_NAME = "psm_entities"
 
-    def __init__(self, memory_size: int, num_tiles: int, house_memory_size: int, num_houses: int):
+    def __init__(self, memory_size: int, num_tiles: int, house_memory_size: int, num_houses: int, entities_memory_size: int = 0, num_entities: int = 0):
         self.shared_memory = shm.SharedMemory(name=self.TILE_SHARED_MEMORY_NAME, create=True, size=memory_size)
         self.house_shared_memory = shm.SharedMemory(name=self.HOUSE_SHARED_MEMORY_NAME, create=True, size=house_memory_size)
+        
+        # Initialize entities shared memory if specified
+        self.entities_shared_memory = None
+        if entities_memory_size > 0 and num_entities > 0:
+            self.entities_shared_memory = shm.SharedMemory(name=self.ENTITIES_SHARED_MEMORY_NAME, create=True, size=entities_memory_size)
+            self.entities_memory_size = entities_memory_size
+            self.num_entities = num_entities
+        else:
+            self.entities_memory_size = 0
+            self.num_entities = 0
+            
         self.memory_size = memory_size
         self.house_memory_size = house_memory_size
         self.renderer = renderer.Renderer()
@@ -48,6 +74,7 @@ class RendererWrapper:
         self.renderer.setup([tile.get_tile() for tile in tiles])
 
     def update_tiles(self, tiles: list[HexTile]):
+        from feudal_sim.map.city_extensions import encode_city_for_rendering
         tile_data = np.array([(
             tile.q,
             tile.r,
@@ -59,8 +86,8 @@ class RendererWrapper:
             tile.material_output,
             tile.metal_output,
             tile.population_capacity,
-            tile.owner.name if tile.owner else "None",
-            [tile.owner_color.r, tile.owner_color.g, tile.owner_color.b, tile.owner_color.a]
+            encode_city_for_rendering(tile),
+            [tile.owner_color.r, tile.owner_color.g, tile.owner_color.b, tile.owner_color.a] if tile.owner_color else [0.5, 0.5, 0.5, 0.0]
         ) for tile in tiles], dtype=get_tile_dtype())
         np_array = np.ndarray((len(tiles),), dtype=get_tile_dtype(), buffer=self.shared_memory.buf)
         np_array[:] = tile_data
@@ -72,48 +99,143 @@ class RendererWrapper:
             house.resources['food'],
             house.resources['material'],
             house.resources['metal'],
+            house.resources['gold'],
             house.population,
+            house.population_loyalty,
             house.military_power
         ) for house in houses], dtype=House.get_dtype())
         np_array = np.ndarray((len(houses),), dtype=House.get_dtype(), buffer=self.house_shared_memory.buf)
         np_array[:] = house_data
 
+    def update_positioned_entities(self, positioned_entities: list):
+        """Update positioned entities (generals, scouts, etc.) in shared memory."""
+        if not self.entities_shared_memory or not positioned_entities:
+            return
+            
+        entity_data = []
+        for entity in positioned_entities:
+            # Get position component
+            from feudal_sim.components.position import PositionComponent
+            pos_comp = entity.get_component(PositionComponent)
+            if not pos_comp:
+                continue
+                
+            # Determine entity type (map from agent type or other indicator)
+            entity_type = 0  # Default to GENERAL
+            if hasattr(entity, 'entity_type'):
+                if entity.entity_type == 'scout':
+                    entity_type = 1
+                elif entity.entity_type == 'army':
+                    entity_type = 2
+                elif entity.entity_type == 'merchant':
+                    entity_type = 3
+            
+            # Get house color if available
+            house_color = [128, 128, 128, 255]  # Default gray
+            if hasattr(entity, 'house_id'):
+                # TODO: Look up house color by house_id
+                pass
+                
+            # Get military count if available
+            military_count = getattr(entity, 'assigned_soldiers', 0)
+            
+            entity_data.append((
+                pos_comp.position[0],  # q
+                pos_comp.position[1],  # r
+                entity.name[:49].encode('utf-8'),  # name (truncated to 49 to fit in 50-byte field)
+                getattr(entity, 'house_id', '')[:49].encode('utf-8'),  # house_name
+                house_color,  # color
+                entity_type,  # entity_type
+                military_count,  # assigned_soldiers
+                pos_comp.remaining_movement,  # movement_points
+                pos_comp.movement_points,  # max_movement
+                pos_comp.operational_range  # operational_range
+            ))
+        
+        # Convert to numpy array and write to shared memory
+        # Always create array for the full capacity, not just actual entities
+        np_array = np.ndarray((self.num_entities,), dtype=get_positioned_entity_dtype(), buffer=self.entities_shared_memory.buf)
+        
+        if entity_data:
+            entities_array = np.array(entity_data, dtype=get_positioned_entity_dtype())
+            np_array[:len(entity_data)] = entities_array
+            
+            # Zero out remaining slots if we have fewer entities than capacity
+            if len(entity_data) < self.num_entities:
+                for i in range(len(entity_data), self.num_entities):
+                    np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0)
+        else:
+            # No entities, zero out entire array
+            for i in range(self.num_entities):
+                np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0)
+
+
     def run(self):
-        self.renderer.run(
-            f"/{self.TILE_SHARED_MEMORY_NAME}",
-            self.memory_size,
-            self.num_tiles,
-            f"/{self.HOUSE_SHARED_MEMORY_NAME}",
-            self.house_memory_size,
-            self.num_houses,
-        )
+        if self.entities_shared_memory:
+            # Pass positioned entities data to renderer
+            self.renderer.run(
+                f"/{self.TILE_SHARED_MEMORY_NAME}",
+                self.memory_size,
+                self.num_tiles,
+                f"/{self.HOUSE_SHARED_MEMORY_NAME}",
+                self.house_memory_size,
+                self.num_houses,
+                f"/{self.ENTITIES_SHARED_MEMORY_NAME}",
+                self.entities_memory_size,
+                self.num_entities
+            )
+        else:
+            # Original call without positioned entities
+            self.renderer.run(
+                f"/{self.TILE_SHARED_MEMORY_NAME}",
+                self.memory_size,
+                self.num_tiles,
+                f"/{self.HOUSE_SHARED_MEMORY_NAME}",
+                self.house_memory_size,
+                self.num_houses
+            )
 
     def close(self):
         self.shared_memory.close()
         self.shared_memory.unlink()
         self.house_shared_memory.close()
         self.house_shared_memory.unlink()
+        
+        if self.entities_shared_memory:
+            self.entities_shared_memory.close()
+            self.entities_shared_memory.unlink()
 
 class HexGrid:
-    def __init__(self, size: int = 80, num_houses: int = 10):
+    def __init__(self, size: int = 80, num_houses: int = 10, debug=False, max_positioned_entities: int = 50):
+        self.debug = debug
         self.size = size
         self.num_houses = num_houses
+        self.max_positioned_entities = max_positioned_entities
         self.tile_map = {}
         for q in range(-size, size + 1):
             for r in range(max(-size, -q-size), min(size, -q+size) + 1):
                 self.tile_map[(q, r)] = None
         self.tiles = self.create_hex_grid(size)
 
-        print("Tile dtype: ", get_tile_dtype().itemsize)
-        memory_size = len(self.tiles) * get_tile_dtype().itemsize
+        if not self.debug: # only render if not in debug mode
+            print("Tile dtype: ", get_tile_dtype().itemsize)
+            memory_size = len(self.tiles) * get_tile_dtype().itemsize
 
-        print("House dtype: ", House.get_dtype().itemsize)
-        house_memory_size = self.num_houses * House.get_dtype().itemsize
+            print("House dtype: ", House.get_dtype().itemsize)
+            house_memory_size = self.num_houses * House.get_dtype().itemsize
+            
+            # Calculate positioned entities memory size
+            print("PositionedEntity dtype: ", get_positioned_entity_dtype().itemsize)
+            entities_memory_size = self.max_positioned_entities * get_positioned_entity_dtype().itemsize
 
-        self.renderer = RendererWrapper(memory_size, len(self.tiles), house_memory_size, self.num_houses)
-        self.renderer.setup(self.tiles)
-        self.renderer_process = Process(target=self.renderer.run)
-        self.renderer_process.start()
+            self.renderer = RendererWrapper(
+                memory_size, len(self.tiles), 
+                house_memory_size, self.num_houses,
+                entities_memory_size, self.max_positioned_entities
+            )
+            self.renderer.setup(self.tiles)
+            self.renderer_process = Process(target=self.renderer.run)
+            self.renderer_process.start()
 
     # function to change tile attributes
     def update_tile_attribute(self, tile: HexTile, attribute: str, value):
@@ -127,9 +249,13 @@ class HexGrid:
         for tile in tiles:
             self.update_tile(tile)
 
-    def render(self, houses: list[House]):
+    def render(self, houses: list[House], positioned_entities: list = None):
         self.renderer.update_tiles(self.tiles)
         self.renderer.update_houses(houses)
+        
+        # Update positioned entities if provided
+        if positioned_entities:
+            self.renderer.update_positioned_entities(positioned_entities)
 
     def terminate_renderer(self):
         self.renderer_process.terminate()

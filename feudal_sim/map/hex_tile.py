@@ -40,8 +40,10 @@ class HexTile:
 
     def get_tile(self) -> _HexTile:
 
-        # convert owner name to array of chars
-        owner_name = self.owner.name if self.owner else "None"
+        # convert owner name to array of chars, using city encoding if applicable
+        from feudal_sim.map.city_extensions import encode_city_for_rendering
+        owner_name = encode_city_for_rendering(self)
+        
         # init array size 50
         owner_name_array = [" "] * 50
         for i, char in enumerate(owner_name):

@@ -6,8 +6,11 @@ different combinations of behaviors through components.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Type, Optional, List
+from typing import Dict, Any, Type, Optional, List, TYPE_CHECKING
 import uuid
+
+if TYPE_CHECKING:
+    from feudal_sim.core.entities import Entity
 
 
 class Component(ABC):
@@ -19,8 +22,8 @@ class Component(ABC):
     """
     
     def __init__(self, entity_id: str = None):
-        self.entity_id = entity_id
-        self.entity = None  # Will be set when component is added to entity
+        self.entity_id: str = entity_id
+        self.entity: Optional['Entity'] = None  # Will be set when component is added to entity
     
     @abstractmethod
     def update(self, dt: float, event_bus=None):
@@ -33,13 +36,22 @@ class Component(ABC):
         """
         pass
     
-    def on_added_to_entity(self, entity):
+    def on_added_to_entity(self, entity: 'Entity'):
         """Called when this component is added to an entity."""
         self.entity = entity
     
     def on_removed_from_entity(self):
         """Called when this component is removed from an entity."""
         self.entity = None
+    
+    def get_lore_section(self) -> Optional[str]:
+        """
+        Return lore-friendly explanation of this component's mechanics for AI prompts.
+        
+        Returns:
+            Medieval-style explanation of how this component works, or None if no lore needed
+        """
+        return None  # Default: no lore contribution
 
 
 class Entity:

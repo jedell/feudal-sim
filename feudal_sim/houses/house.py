@@ -8,8 +8,10 @@ from feudal_sim.components.rookery import RookeryComponent
 from feudal_sim.components.resource import ResourceComponent
 from feudal_sim.components.population import PopulationComponent
 from feudal_sim.components.territory import TerritoryComponent
+from feudal_sim.components.intelligence import IntelligenceComponent
+from feudal_sim.components.city import CityComponent
 from feudal_sim.core.entities import Entity
-from feudal_sim.ai.prompts import HOUSE_LEADER_INSTRUCTIONS
+from feudal_sim.ai.prompts import AgentType
 
 class House(Entity):
     def default_attributes(self):
@@ -27,7 +29,9 @@ class House(Entity):
             ('food', np.float32),
             ('material', np.float32),
             ('metal', np.float32),
+            ('gold', np.float32),
             ('population', np.int32),
+            ('population_loyalty', np.int32),
             ('military_power', np.int32)
         ])
     
@@ -51,6 +55,9 @@ class House(Entity):
         
         # Add components using Entity system
         self._setup_components()
+
+    def get_name(self):
+        return self.name
     
     @property
     def resources(self):
@@ -119,26 +126,49 @@ class House(Entity):
             if recipient_name != self.name:  # Don't add self as recipient
                 rookery_component.add_known_recipient(recipient_name, recipient_name, discovered=False)
         
+        # Add Intelligence Component for neighbor awareness
+        intelligence_component = IntelligenceComponent(entity_id=self.id)
+        self.add_component(intelligence_component)
+        for neighbor_name in self.known_recipients:
+            if neighbor_name != self.name:  # Don't add self as neighbor
+                intelligence_component.add_neighbor(neighbor_name)
+        
+        # Add City Component for urban development
+        city_component = CityComponent(entity_id=self.id)
+        self.add_component(city_component)
+        
         # AI Component for intelligent decision making (added after other components so tools work)
         ai_component = self._create_ai_component()
         self.add_component(ai_component)
     
     def _create_ai_component(self):
-        """Create an AI component with personality based on house name."""
-        personalities = {
-            "Stark": "You are Lord Eddard Stark, honorable ruler of Winterfell. You value honor above all else, protect your family and the North, and are wary of southern politics. You make decisions based on duty and justice.",
-            "Lannister": "You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic, wealthy, and ruthless when necessary. You believe in the power of gold and legacy, making calculated decisions for House Lannister's advantage.",
-            # Default personality for other houses
-            "default": f"You are the Lord/Lady of House {self.name}. You are a capable ruler who must balance the needs of your people, resources, and territory while navigating the complex politics of the realm."
+        """Create an AI component with dynamic name and persona generation."""
+        # Option 1: Use predefined personas for well-known houses
+        predefined_personas = {
+            "Stark": """
+**Your Identity:**
+You are Lord Eddard Stark, honorable ruler of Winterfell. You value honor above all else, protect your family and the North, and are wary of southern politics. You make decisions based on duty and justice, always considering what is right over what is profitable.""",
+            "Lannister": """
+**Your Identity:**
+You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic, wealthy, and ruthless when necessary. You believe in the power of gold and legacy, making calculated decisions for House Lannister's advantage. A Lannister always pays their debts."""
         }
         
-        personality = personalities.get(self.name, personalities["default"])
-        
-        return AIComponent(
-            name=f"Lord/Lady of House {self.name}",
-            instructions=HOUSE_LEADER_INSTRUCTIONS + personality,
-            entity_id=self.id
-        )
+        if self.name in predefined_personas:
+            # Use predefined persona for well-known houses
+            return AIComponent(
+                name=f"Lord/Lady of House {self.name}",
+                agent_type=AgentType.HOUSE_LORD,
+                persona=predefined_personas[self.name],
+                house_name=self.name,
+                entity_id=self.id
+            )
+        else:
+            # Use dynamic generation for other houses
+            return AIComponent(
+                agent_type=AgentType.HOUSE_LORD,
+                house_name=self.name,
+                entity_id=self.id
+            )
     
 
     def collect_observations(self, hex_grid, step_count: int):
@@ -180,20 +210,28 @@ class House(Entity):
         """Gather resources based on the current population and territory outputs,
         enforcing a production cap based on population."""
         resource_component = self.get_component(ResourceComponent)
+        population_component = self.get_component(PopulationComponent)
         if not resource_component:
             return
         
+        # Get worker efficiency from population component
+        worker_efficiency = 1.0
+        if population_component:
+            worker_efficiency = population_component.calculate_worker_efficiency()
+        
+        # Fallback to old population ratio method for backward compatibility
         population_ratio = self.population / self.population_capacity if self.population_capacity > 0 else 1.0
         
         # Get territory from TerritoryComponent
         territory_component = self.get_component(TerritoryComponent)
         territory = territory_component.territory if territory_component else set()
         
-        # Use ResourceComponent to gather resources
+        # Use ResourceComponent to gather resources with worker efficiency
         resource_component.gather_resources_from_territories(
             territory, 
             population_ratio, 
-            seasonal_modifier
+            seasonal_modifier,
+            worker_efficiency
         )
         
         # Add observations for AI component
@@ -218,24 +256,110 @@ class House(Entity):
         
         territory_component.expand_territory(new_territory, hex_grid, self.color)
         
-        # Update population capacity using PopulationComponent
+        # Update population capacity using PopulationComponent (with city bonuses)
         population_component = self.get_component(PopulationComponent)
+        city_component = self.get_component(CityComponent)
         if population_component:
-            population_component.calculate_capacity_from_territories(territory_component.territory)
+            base_capacity = population_component.calculate_capacity_from_territories(territory_component.territory)
+            if city_component:
+                city_bonus = city_component.get_total_population_bonus()
+                population_component.population_capacity = int(base_capacity * city_bonus)
+            else:
+                population_component.population_capacity = base_capacity
+    
+    def establish_capital_city(self, city_name: str = None):
+        """Establish a capital city at the center of current territory."""
+        territory_component = self.get_component(TerritoryComponent)
+        city_component = self.get_component(CityComponent)
+        
+        if not territory_component or not city_component or not territory_component.territory:
+            return False
+        
+        # Use provided name or generate default
+        if not city_name:
+            city_name = f"{self.name} Capital"
+        
+        # Find the center tile of the territory
+        territory_list = list(territory_component.territory)
+        center_q = sum(tile.q for tile in territory_list) / len(territory_list)
+        center_r = sum(tile.r for tile in territory_list) / len(territory_list)
+        
+        # Find the closest actual tile to the center
+        closest_tile = min(territory_list, key=lambda tile: 
+                          abs(tile.q - center_q) + abs(tile.r - center_r))
+        
+        # Establish capital city
+        success = city_component.add_city(
+            name=city_name,
+            position=(closest_tile.q, closest_tile.r),
+            city_type="capital",
+            founded_turn=1
+        )
+        
+        if success:
+            # Encode city onto the tile for rendering
+            self._encode_city_on_tile(closest_tile, "capital", 1, city_name)
+            print(f"🏰 {self.name} established capital city '{city_name}' at ({closest_tile.q}, {closest_tile.r})")
+            # Recalculate population capacity with city bonus
+            self._update_population_capacity()
+        
+        return success
+    
+    def _encode_city_on_tile(self, tile, city_type: str, development_level: int = 1, city_name: str = None):
+        """Encode city information onto a tile for rendering."""
+        from feudal_sim.map.city_extensions import set_city_on_tile, CityType
+        
+        # Map city type string to enum
+        type_mapping = {
+            "capital": CityType.CAPITAL,
+            "trade": CityType.TRADE,
+            "military": CityType.MILITARY,
+            "agricultural": CityType.AGRICULTURAL
+        }
+        
+        city_type_enum = type_mapping.get(city_type, CityType.CAPITAL)
+        
+        # For now, use a simple house ID (could be improved with proper mapping)
+        house_id = hash(self.name) % 10  # Simple hash to get house ID 0-9
+        
+        set_city_on_tile(tile, city_type_enum, development_level, house_id, city_name)
+    
+    def _update_population_capacity(self):
+        """Update population capacity with city bonuses."""
+        territory_component = self.get_component(TerritoryComponent)
+        population_component = self.get_component(PopulationComponent)
+        city_component = self.get_component(CityComponent)
+        
+        if population_component and territory_component:
+            base_capacity = population_component.calculate_capacity_from_territories(territory_component.territory)
+            if city_component:
+                city_bonus = city_component.get_total_population_bonus()
+                population_component.population_capacity = int(base_capacity * city_bonus)
+            else:
+                population_component.population_capacity = base_capacity
 
     def collect_taxes(self, tax_rate):
         resource_component = self.get_component(ResourceComponent)
-        if not resource_component:
+        population_component = self.get_component(PopulationComponent)
+        city_component = self.get_component(CityComponent)
+        
+        if not resource_component or not population_component:
             return 0
         
         if not (0 < tax_rate <= 1):
             raise ValueError("Tax rate must be between 0 and 1")
         
-        tax_collected = resource_component.collect_taxes(self.population, tax_rate)
+        # Apply city tax efficiency bonus
+        effective_tax_rate = tax_rate
+        if city_component:
+            tax_efficiency = city_component.get_total_tax_efficiency()
+            effective_tax_rate = tax_rate * tax_efficiency
         
-        # loyalty decreases with higher tax rate
+        tax_collected = resource_component.collect_taxes(population_component.population, effective_tax_rate)
+        
+        # loyalty decreases with higher tax rate (base rate, not efficiency-modified)
         loyalty_decrease = math.ceil(tax_rate * 80)  # Higher tax rate leads to more loyalty decrease
-        self.population_loyalty = max(0, self.population_loyalty - loyalty_decrease)
+        population_component.adjust_loyalty(-loyalty_decrease)
         
         return tax_collected
 
@@ -277,7 +401,7 @@ class House(Entity):
         else:
             print(f"{self.name} does not have enough resources to raise {quantity} {troop_type} troops.")
     
-    def make_ai_decisions(self, current_turn: int, current_phase: str, current_season: str, current_year: int, hex_grid=None, entity_manager=None, simulation=None):
+    async def make_ai_decisions(self, current_turn: int, current_phase: str, current_season: str, current_year: int, hex_grid=None, entity_manager=None, simulation=None):
         """
         Have the AI component make decisions for this house.
         Called during the Actions phase.
@@ -301,7 +425,7 @@ class House(Entity):
             'territory_size': self.get_component(TerritoryComponent).get_territory_size() if self.get_component(TerritoryComponent) else 0
         }
         
-        ai_component = self.get_component(AIComponent)
+        ai_component: AIComponent = self.get_component(AIComponent)
         if not ai_component:
             return f"House {self.name} has no AI component"
         
@@ -317,4 +441,4 @@ class House(Entity):
         )
         
         # Make AI decisions
-        return ai_component.make_decisions()
+        return await ai_component.make_decisions()

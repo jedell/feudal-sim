@@ -96,20 +96,26 @@ class ResourceComponent(Component):
         # Track resource changes for observations
         self._previous_resources = self.resources.to_dict()
     
-    def gather_resources_from_territories(self, territories: Set, population_ratio: float = 1.0, seasonal_modifier: float = 1.0):
+    def gather_resources_from_territories(self, territories: Set, population_ratio: float = 1.0, seasonal_modifier: float = 1.0, worker_efficiency: float = 1.0):
         """
         Gather resources from controlled territories.
         
         Args:
             territories: Set of hex tiles controlled by this entity
-            population_ratio: Population to capacity ratio for efficiency calculation
+            population_ratio: Population to capacity ratio for efficiency calculation (deprecated, use worker_efficiency)
             seasonal_modifier: Seasonal multiplier for resource production
+            worker_efficiency: Efficiency multiplier based on worker ratio in population
         """
         # Store old values for event emission
         old_resources = self.resources.to_dict()
         
-        # Calculate efficiency based on population ratio
-        efficiency = self._calculate_efficiency(population_ratio)
+        # Use worker efficiency instead of old population ratio method
+        # Keep population_ratio for backward compatibility but prioritize worker_efficiency
+        if worker_efficiency != 1.0:
+            efficiency = self.gathering_efficiency * worker_efficiency
+        else:
+            # Fallback to old method for backward compatibility
+            efficiency = self._calculate_efficiency(population_ratio)
         
         # Gather from each territory
         for hex_tile in territories:
@@ -282,6 +288,15 @@ class ResourceComponent(Component):
                         change=new_value - old_value
                     )
     
+    def get_lore_section(self) -> str:
+        """Return lore explanation of resource mechanics for AI prompts."""
+        return """
+**The Taxman's Burden:**
+When gold runs low, you may levy taxes upon your subjects. Higher rates fill your treasury quickly but breed resentment among your people. A lord who taxes too heavily may face their subjects' loyalty cracking like ice in spring.
+
+Your lands produce four types of wealth: food to sustain your people, materials for construction, metals for arms and trade, and gold for purchasing power. The efficiency of your workers determines how much your territories yield each season.
+"""
+
     def update(self, dt: float, event_bus=None):
         """
         Component update method - not used for main resource logic.

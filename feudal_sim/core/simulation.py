@@ -1,4 +1,5 @@
 import random
+import asyncio
 
 from feudal_sim.map.hex_grid import HexGrid
 from feudal_sim.houses.house import House
@@ -7,13 +8,18 @@ from feudal_sim.core.time import TimeManager, TurnPhase
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
 from feudal_sim.core.entities import EntityManager
-from feudal_sim.components.rookery import RookeryComponent, RavenDeliverySystem
+from feudal_sim.components.rookery import RavenDeliverySystem, RookeryComponent
 from feudal_sim.map.tile_extensions import add_gold_mine, add_iron_deposit
+from feudal_sim.components.population import PopulationComponent
+from feudal_sim.components.territory import TerritoryComponent
+from feudal_sim.components.intelligence import IntelligenceComponent
+from feudal_sim.components.ai import AIComponent
+from feudal_sim.components.resource import ResourceComponent
 
 ALPHA = 120
 
 class Simulation:
-    def __init__(self):
+    def __init__(self, debug=False):
         # Use config for world generation
         map_size = config.get('simulation.world_generation.map_size', 80)
         
@@ -21,12 +27,15 @@ class Simulation:
         house_names = ["Stark", "Lannister", "Baratheon"]
         num_houses = len(house_names)
         
-        self.hex_grid = HexGrid(size=map_size, num_houses=num_houses)
+        self.hex_grid = HexGrid(size=map_size, num_houses=num_houses, debug=debug)
         self.entity_manager = EntityManager()
         self.houses = self.create_houses(house_names)
         self.time_manager = TimeManager(event_bus)
         self.step_count = 0
         self.add_resource_nodes()
+        
+        # Initialize intelligence reports after all houses have territories
+        self.initialize_house_intelligence()
         
         # Houses now set up their own communications during initialization
         # No need for separate setup step
@@ -46,10 +55,15 @@ class Simulation:
         # Create houses with known recipients from the start
         house_stark = House("Stark", color=Color(0, 0, 255, ALPHA), known_recipients=house_names)
         house_stark.expand_territory(starting_territories[0], self.hex_grid)
+        house_stark.establish_capital_city("Winterfell")
+        
         house_lannister = House("Lannister", color=Color(255, 0, 0, ALPHA), known_recipients=house_names)
         house_lannister.expand_territory(starting_territories[1], self.hex_grid)
+        house_lannister.establish_capital_city("Casterly Rock")
+        
         house_baratheon = House("Baratheon", color=Color(0, 255, 0, ALPHA), known_recipients=house_names)
         house_baratheon.expand_territory(starting_territories[2], self.hex_grid)
+        house_baratheon.establish_capital_city("Storm's End")
         # Register houses with entity manager
         self.entity_manager._entities[house_stark.id] = house_stark
         self.entity_manager._entities[house_lannister.id] = house_lannister
@@ -113,6 +127,16 @@ class Simulation:
         
         print(f"✅ Added {len(selected_tiles)} resource nodes")
     
+    def initialize_house_intelligence(self):
+        """Initialize intelligence reports for all houses after territories are assigned."""        
+        print("🔍 Initializing house intelligence reports...")
+        
+        for house in self.houses:
+            intelligence_component: IntelligenceComponent = house.get_component(IntelligenceComponent)
+            if intelligence_component:
+                intelligence_component.generate_initial_intelligence(self.houses)
+                print(f"   📊 {house.get_name()}: Generated intelligence on {len(intelligence_component.intelligence_reports)} other houses")
+    
     def setup_event_listeners(self):
         """Demonstrate extensible event system."""
         # Simple logging system - can be moved to separate file
@@ -138,10 +162,21 @@ class Simulation:
         event_bus.subscribe(EventType.STATE_CHANGED, log_time_changes)
 
     def render(self):
-        # call hex grid render to update the tiles
-        self.hex_grid.render(self.houses)
+        # Collect positioned entities (generals, scouts, etc.) 
+        positioned_entities = []
+        
+        # Add generals
+        generals = self.entity_manager.get_entities_by_type('general')
+        positioned_entities.extend(generals)
+        
+        # Add other positioned entity types as they're implemented
+        # scouts = self.entity_manager.get_entities_by_type('scout')
+        # positioned_entities.extend(scouts)
+        
+        # call hex grid render to update the tiles and entities
+        self.hex_grid.render(self.houses, positioned_entities)
 
-    def step(self):
+    async def step(self):
         """Execute one phase of the simulation."""
         current_phase = self.time_manager.game_time.phase
         
@@ -151,7 +186,7 @@ class Simulation:
         if current_phase == TurnPhase.PRODUCTION:
             self.execute_production_phase()
         elif current_phase == TurnPhase.ACTIONS:
-            self.execute_actions_phase()
+            await self.execute_actions_phase()
         elif current_phase == TurnPhase.EVENTS:
             self.execute_events_phase()
         elif current_phase == TurnPhase.CLEANUP:
@@ -169,31 +204,79 @@ class Simulation:
             house.gather_resources(farming_modifier)
             house.manage_population()
     
-    def execute_actions_phase(self):
+    async def execute_actions_phase(self):
         """Handle AI decisions and actions."""
         status = self.time_manager.get_current_status()
         
+        # Prepare all houses for AI decision making (synchronous setup)
         for house in self.houses:
             house.collect_observations(self.hex_grid, self.step_count)
             
             # Set current date context for rookery component
-            from feudal_sim.components.rookery import RookeryComponent
-            rookery_component = house.get_component(RookeryComponent)
+            rookery_component: RookeryComponent = house.get_component(RookeryComponent)
             if rookery_component:
                 current_date = self.time_manager.get_current_date_string()
                 rookery_component.set_current_date_context(status['turn'], current_date)
+        
+        # Get all generals and prepare them for AI decision making
+        generals = self.entity_manager.get_entities_by_type('general')
+        for general in generals:
+            # Reset movement points for new turn
+            from feudal_sim.components.position import PositionComponent
+            position_comp = general.get_component(PositionComponent)
+            if position_comp:
+                position_comp.reset_movement(status['turn'])
             
-            # AI decision making
-            print(f"🧠 {house.name} AI is making decisions...")
-            _ = house.make_ai_decisions(
-                current_turn=status['turn'],
-                current_phase=status['phase'],
-                current_season=status['season'],
-                current_year=status['year'],
-                hex_grid=self.hex_grid,
-                entity_manager=self.entity_manager,
-                simulation=self
-            )
+            # Add basic observations for generals
+            ai_comp = general.get_component(AIComponent)
+            if ai_comp and position_comp:
+                position_comp.add_movement_observation(ai_comp, "Actions")
+        
+        # Collect all AI entities (houses + generals)
+        all_ai_entities = []
+        all_ai_entities.extend(self.houses)
+        all_ai_entities.extend(generals)
+        
+        # Run all AI decision making concurrently (houses + generals)
+        print(f"🧠 All entities ({len(self.houses)} houses, {len(generals)} generals) making decisions concurrently...")
+        
+        async def make_entity_decision(entity):
+            entity_name = entity.get_name() if hasattr(entity, 'get_name') else entity.name
+            print(f"🧠 {entity_name} AI is thinking...")
+            
+            # Different decision making for houses vs generals
+            if hasattr(entity, 'make_ai_decisions'):  # House entity
+                result = await entity.make_ai_decisions(
+                    current_turn=status['turn'],
+                    current_phase=status['phase'],
+                    current_season=status['season'],
+                    current_year=status['year'],
+                    hex_grid=self.hex_grid,
+                    entity_manager=self.entity_manager,
+                    simulation=self
+                )
+            else:  # General or other sub-agent
+                ai_comp = entity.get_component(AIComponent)
+                if ai_comp:
+                    # Update AI context for general
+                    ai_comp.update_context(
+                        current_turn=status['turn'],
+                        current_phase=status['phase'],
+                        current_season=status['season'],
+                        current_year=status['year'],
+                        hex_grid=self.hex_grid,
+                        entity_manager=self.entity_manager,
+                        simulation=self
+                    )
+                    result = await ai_comp.make_decisions()
+                else:
+                    result = f"{entity_name} has no AI component"
+            
+            print(f"✅ {entity_name} AI finished thinking")
+            return result
+        
+        # Execute all entity decisions concurrently
+        await asyncio.gather(*[make_entity_decision(entity) for entity in all_ai_entities])
     
     def execute_events_phase(self):
         """Handle random events and diplomacy."""
@@ -213,17 +296,17 @@ class Simulation:
         
         # Process expansion orders
         self.process_expansion_orders(status['turn'])
+        
+        # Process population revolts
+        self.process_population_revolts(status['turn'])
             
         # Placeholder for other random events
     
     def collect_rookery_observations(self):
         """Collect rookery observations and pass them to AI components during Events phase."""
-        from feudal_sim.components.rookery import RookeryComponent
-        from feudal_sim.components.ai import AIComponent
-        
         for house in self.houses:
-            rookery_component = house.get_component(RookeryComponent)
-            ai_component = house.get_component(AIComponent)
+            rookery_component: RookeryComponent = house.get_component(RookeryComponent)
+            ai_component: AIComponent = house.get_component(AIComponent)
             
             if rookery_component and ai_component:
                 # Get all rookery observations for this turn
@@ -236,16 +319,11 @@ class Simulation:
     
     def process_expansion_orders(self, current_turn: int):
         """Process expansion orders that are ready for resolution."""
-        from feudal_sim.components.territory import TerritoryComponent
-        from feudal_sim.components.resource import ResourceComponent
-        from feudal_sim.components.population import PopulationComponent
-        from feudal_sim.components.ai import AIComponent
-        
         for house in self.houses:
-            territory_component = house.get_component(TerritoryComponent)
-            resource_component = house.get_component(ResourceComponent)
-            population_component = house.get_component(PopulationComponent)
-            ai_component = house.get_component(AIComponent)
+            territory_component: TerritoryComponent = house.get_component(TerritoryComponent)
+            resource_component: ResourceComponent = house.get_component(ResourceComponent)
+            population_component: PopulationComponent = house.get_component(PopulationComponent)
+            ai_component: AIComponent = house.get_component(AIComponent)
             
             if not territory_component:
                 continue
@@ -254,9 +332,9 @@ class Simulation:
             ready_orders = territory_component.get_expansions_ready_for_resolution(current_turn)
             
             for order in ready_orders:
-                print(f"🏰 Resolving expansion order for {house.name} ({order.direction})")
+                print(f"🏰 Resolving expansion order for {house.get_name()} ({order.direction}) - {order.success_probability:.0%} base chance")
                 
-                # Check if house can afford the expansion
+                # Step 1: Check resource and loyalty requirements
                 can_afford = True
                 insufficient_resources = []
                 
@@ -266,20 +344,18 @@ class Simulation:
                         current_amount = resources.get(resource_type)
                         if current_amount < cost:
                             can_afford = False
-                            insufficient_resources.append(f"{resource_type} (need {cost}, have {current_amount})")
+                            insufficient_resources.append(f"{resource_type} (need {cost}, have {current_amount:.0f})")
                 
                 # Check population loyalty cost
                 population_loyalty_ok = True
                 if population_component and order.population_loyalty_cost > 0:
                     if population_component.loyalty < order.population_loyalty_cost:
                         population_loyalty_ok = False
-                        insufficient_resources.append(f"loyalty (need {order.population_loyalty_cost}, have {population_component.loyalty})")
+                        insufficient_resources.append(f"loyalty (need {order.population_loyalty_cost}, have {population_component.loyalty:.0f})")
                 
-                # Determine expansion success
-                success = can_afford and population_loyalty_ok
-                
-                if success:
-                    # Apply resource costs
+                # Step 2: If resources are available, roll for success based on probability
+                if can_afford and population_loyalty_ok:
+                    # Apply resource costs first
                     if resource_component:
                         resource_component.consume_for_action(order.resource_cost, f"Territory Expansion ({order.direction})")
                     
@@ -287,22 +363,171 @@ class Simulation:
                     if population_component and order.population_loyalty_cost > 0:
                         population_component.adjust_loyalty(-order.population_loyalty_cost)
                     
-                    # Execute the expansion
-                    result = territory_component.resolve_expansion_order(order, True, self.hex_grid)
-                    print(f"✅ {result['message']}")
+                    # Roll for success using the calculated probability
+                    roll = random.random()
+                    success = roll <= order.success_probability
                     
-                    # Add AI observation
-                    if ai_component:
-                        ai_component.add_observation(f"Expansion succeeded! {result['message']}", "Events")
+                    if success:
+                        # Execute successful expansion
+                        result = territory_component.resolve_expansion_order(order, True, self.hex_grid)
+                        print(f"✅ {result['message']} (rolled {roll:.2f} vs {order.success_probability:.2f})")
+                        
+                        # Add detailed AI observation
+                        if ai_component:
+                            observation = f"Expansion {order.direction} succeeded! {result['message']} Your forces proved capable despite the challenges."
+                            ai_component.add_observation(observation, "Events")
+                    else:
+                        # Expansion failed despite having resources
+                        result = territory_component.resolve_expansion_order(order, False, self.hex_grid)
+                        
+                        # Generate detailed failure reasoning
+                        failure_reason = self._generate_expansion_failure_reason(order, roll)
+                        print(f"❌ {result['message']} - {failure_reason} (rolled {roll:.2f} vs {order.success_probability:.2f})")
+                        
+                        # Add detailed AI observation
+                        if ai_component:
+                            observation = f"Expansion {order.direction} failed! {result['message']} {failure_reason}"
+                            ai_component.add_observation(observation, "Events")
                 else:
-                    # Expansion failed due to insufficient resources
+                    # Expansion failed due to insufficient resources - no costs applied
                     result = territory_component.resolve_expansion_order(order, False, self.hex_grid)
                     failure_reason = f"Insufficient resources: {', '.join(insufficient_resources)}"
                     print(f"❌ {result['message']} - {failure_reason}")
                     
                     # Add AI observation
                     if ai_component:
-                        ai_component.add_observation(f"Expansion failed! {result['message']} - {failure_reason}", "Events")
+                        observation = f"Expansion {order.direction} cancelled! {result['message']} {failure_reason}"
+                        ai_component.add_observation(observation, "Events")
+    
+    def _generate_expansion_failure_reason(self, order, roll: float) -> str:
+        """Generate detailed failure reasoning for territorial expansion (non-combat)."""
+        # Since we're expanding into unclaimed territory, failures are logistical/administrative
+        base_reasons = [
+            "Harsh weather conditions disrupted the settlement efforts",
+            "Supply lines proved more difficult to establish than expected", 
+            "Local wildlife and natural hazards impeded progress",
+            "Terrain surveying revealed unsuitable ground for development",
+            "Administrative challenges in organizing the expansion slowed progress",
+            "Seasonal flooding made the territory temporarily inaccessible"
+        ]
+        
+        # Additional factors based on expansion characteristics
+        specific_factors = []
+        
+        # Large expansions are harder to coordinate
+        if len(order.target_tiles) > 3:
+            specific_factors.extend([
+                "the ambitious scope of the expansion overwhelmed your administrative capacity",
+                "coordinating settlement across so many territories proved complex"
+            ])
+        
+        # Terrain-based challenges
+        difficult_terrain = False
+        for tile in order.target_tiles:
+            terrain_str = str(tile.terrain_type) if hasattr(tile, 'terrain_type') else ''
+            if 'MOUNTAIN' in terrain_str:
+                specific_factors.append("the mountainous terrain required specialized equipment you lacked")
+                difficult_terrain = True
+            elif 'HILL' in terrain_str:
+                specific_factors.append("the hilly landscape complicated supply routes")
+                difficult_terrain = True
+            elif 'FOREST' in terrain_str:
+                specific_factors.append("dense forests required extensive clearing work")
+        
+        for house in getattr(self, 'houses', []):
+            territory_component: TerritoryComponent = house.get_component(TerritoryComponent)
+            if territory_component and order in territory_component.expansion_history + territory_component.pending_expansions:
+                population_component: PopulationComponent = house.get_component(PopulationComponent)
+                if population_component:
+                    ratios = population_component.get_population_ratios()
+                    worker_ratio = ratios.get('workers', 0.5)
+                    if worker_ratio < 0.4:
+                        specific_factors.append("insufficient workers to support the expansion effort")
+                    elif worker_ratio < 0.6:
+                        specific_factors.append("your workforce was stretched thin across multiple projects")
+                break
+        
+        # Choose primary reason and add specific factors
+        primary_reason = random.choice(base_reasons)
+        
+        if specific_factors:
+            secondary_factor = random.choice(specific_factors)
+            return f"{primary_reason}, compounded by {secondary_factor}."
+        else:
+            return f"{primary_reason}."
+    
+    def process_population_revolts(self, current_turn: int):
+        """Process population revolts that may cause territory loss."""
+        
+        for house in self.houses:
+            population_component: PopulationComponent = house.get_component(PopulationComponent)
+            ai_component: AIComponent = house.get_component(AIComponent)
+            
+            if not population_component:
+                continue
+            
+            # Check if a revolt should occur
+            if population_component.check_for_revolt(current_turn):
+                print(f"🔥 Population revolt occurring in {house.get_name()}!")
+                
+                # Execute the revolt
+                revolt_result = population_component.execute_revolt(self.hex_grid)
+                
+                if revolt_result['success']:
+                    print(f"💥 {revolt_result['message']}")
+                    
+                    # Display resource losses if any
+                    if revolt_result.get('resource_losses'):
+                        losses = revolt_result['resource_losses']
+                        loss_details = []
+                        for resource, amount in losses.items():
+                            if amount > 0:
+                                loss_details.append(f"{amount} {resource}")
+                        if loss_details:
+                            print(f"🔴 Resource losses: {', '.join(loss_details)}")
+                    
+                    # Add AI observation about the revolt
+                    if ai_component:
+                        revolt_message = f"💥 REVOLT! {revolt_result['message']} Your people's anger has cost you territory!"
+                        
+                        # Add resource loss details to AI observation
+                        if revolt_result.get('resource_losses'):
+                            losses = revolt_result['resource_losses']
+                            loss_details = []
+                            for resource, amount in losses.items():
+                                if amount > 0:
+                                    loss_details.append(f"{amount} {resource}")
+                            if loss_details:
+                                revolt_message += f" You also lost {', '.join(loss_details)} in the chaos."
+                        
+                        revolt_message += " Consider improving loyalty to prevent future revolts."
+                        ai_component.add_observation(revolt_message, "Events")
+                    
+                    # Update population capacity after territory loss
+                    territory_component: TerritoryComponent = house.get_component(TerritoryComponent)
+                    if territory_component:
+                        new_capacity = population_component.calculate_capacity_from_territories(territory_component.territory)
+                        print(f"📉 {house.get_name()} population capacity reduced to {new_capacity}")
+                        
+                        # If population exceeds new capacity, reduce it
+                        if population_component.population > new_capacity:
+                            excess = population_component.population - new_capacity
+                            population_component.population = new_capacity
+                            print(f"👥 {house.get_name()} population reduced by {excess} due to lost territory")
+                            
+                            if ai_component:
+                                ai_component.add_observation(
+                                    f"Population reduced by {excess} due to insufficient territory capacity after revolt.",
+                                    "Events"
+                                )
+                else:
+                    print(f"⚠️ Revolt attempted in {house.get_name()}, but {revolt_result['message']}")
+                    
+                    if ai_component:
+                        ai_component.add_observation(
+                            f"⚠️ Your people attempted to revolt, but {revolt_result['message']}",
+                            "Events"
+                        )
     
     def execute_cleanup_phase(self):
         """Handle end-of-turn cleanup and display."""
@@ -311,8 +536,8 @@ class Simulation:
         
         for house in self.houses:
             resources = house.resources
-            print(f"House {house.name} Resources: {resources}")
-            print(f"House {house.name} Population: {house.population}, Loyalty: {house.population_loyalty}")
+            print(f"House {house.get_name()} Resources: {resources}")
+            print(f"House {house.get_name()} Population: {house.population}, Loyalty: {house.population_loyalty}")
         
         # Clear raven turn data
         RavenDeliverySystem.clear_turn_data_for_all(self.entity_manager)

@@ -131,7 +131,7 @@ def test_ai_decision_with_ravens():
             rookery = house.get_component(RookeryComponent)
             observations = rookery.get_observations_for_ai()
             if observations:
-                print(f"📜 {house.name} raven observations:")
+                print(f"📜 {house.get_name()} raven observations:")
                 for obs in observations:
                     print(f"   {obs}")
         
