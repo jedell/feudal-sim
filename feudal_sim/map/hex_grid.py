@@ -253,9 +253,8 @@ class HexGrid:
         self.renderer.update_tiles(self.tiles)
         self.renderer.update_houses(houses)
         
-        # Update positioned entities if provided
-        if positioned_entities:
-            self.renderer.update_positioned_entities(positioned_entities)
+        # Always update positioned entities; send empty list to clear stale slots
+        self.renderer.update_positioned_entities(positioned_entities or [])
 
     def terminate_renderer(self):
         self.renderer_process.terminate()

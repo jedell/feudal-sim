@@ -35,6 +35,8 @@ class OutpostOrder:
     entity_name: str
     q: int
     r: int
+    required_general_id: str
+    required_general_name: str
     turn_ordered: int
     turn_resolves: int
     resource_cost: Dict[str, int]
@@ -636,13 +638,15 @@ Territory expansion takes time - orders given this week resolve next week based 
         return max(0.1, min(1.0, final_probability))  # Clamp between 10% and 100%
 
     # ---- Outpost order helpers ----
-    def create_outpost_order(self, position: tuple[int, int], current_turn: int, delay_turns: int = 1, resource_cost: Dict[str, int] | None = None) -> OutpostOrder:
+    def create_outpost_order(self, position: tuple[int, int], current_turn: int, delay_turns: int = 1, resource_cost: Dict[str, int] | None = None, required_general_id: str = "", required_general_name: str = "") -> OutpostOrder:
         """Create a delayed outpost construction order."""
         order = OutpostOrder(
             entity_id=self.entity_id,
             entity_name=self.entity.name if self.entity else self.entity_id,
             q=position[0],
             r=position[1],
+            required_general_id=required_general_id,
+            required_general_name=required_general_name,
             turn_ordered=current_turn,
             turn_resolves=current_turn + max(1, delay_turns),
             resource_cost=resource_cost or {},
@@ -658,6 +662,7 @@ Territory expansion takes time - orders given this week resolve next week based 
                 property='outpost_order_created',
                 q=order.q,
                 r=order.r,
+                required_general_id=order.required_general_id,
                 turn_resolves=order.turn_resolves,
             )
         return order

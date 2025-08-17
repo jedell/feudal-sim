@@ -932,27 +932,25 @@ def create_house_toolset(house) -> list:
         if not candidates:
             return f"No general found named '{general_name}'"
         g = candidates[0]
-        # Recall population
-        from feudal_sim.components.population import PopulationComponent
-        from feudal_sim.components.territory import TerritoryComponent
-        pop_comp: PopulationComponent = house.get_component(PopulationComponent)
-        if pop_comp:
-            pop_comp.recall_population_from_agent(g.id)
-        # Remove entity
-        sim_context.entity_manager.destroy_entity(g.id)
-        # Remove tracking entry
-        territory_component = house.get_component(TerritoryComponent)
-        if territory_component:
-            territory_component.unregister_general(g.id)
-        # Add observation to house AI
+        # Schedule disband for Events phase to avoid race conditions via deferred queue
+        if hasattr(sim_context, 'simulation') and sim_context.simulation and hasattr(sim_context.simulation, 'deferred'):
+            current_turn = getattr(sim_context, 'current_turn', 0)
+            sim_context.simulation.deferred.schedule_at(
+                current_turn,
+                'disband_general',
+                {'general_id': g.id, 'general_name': general_name},
+                phase='Events',
+                owner_id=house.id,
+            )
+        # Add observation to house AI (scheduled)
         try:
             from feudal_sim.components.ai import AIComponent
             ai: AIComponent = house.get_component(AIComponent)
             if ai:
-                ai.add_observation(f"General {general_name} has been disbanded and assigned population recalled", phase="Actions")
+                ai.add_observation(f"General {general_name} disband scheduled; will complete this week", phase="Actions")
         except Exception:
             pass
-        return f"Disbanded general '{general_name}' and recalled assigned population"
+        return f"Disband scheduled for '{general_name}'."
     disband_general.action_description = "**Disband General**: Recall a general and return assigned population"
     tools.append(disband_general)
     
@@ -1320,30 +1318,42 @@ def create_general_toolset(general_entity) -> list:
         owner = getattr(center_tile, 'owner', None)
         if not owner or not hasattr(owner, 'id') or owner.id != parent_house.id:
             return "Outpost construction failed - outposts must be built on your controlled land"
-
-        # Spacing constraint: enforce minimum distance from any existing settlement (cities/outposts)
+        # Cannot build over an existing settlement (city/outpost)
+        try:
+            from feudal_sim.map.city_extensions import has_city as _tile_has_city
+            if _tile_has_city(center_tile):
+                return "Outpost construction failed - a settlement already exists on this tile"
+        except Exception:
+            pass
+        
+        # Spacing constraint: enforce minimum distance from this house's settlements (cities/outposts)
         try:
             from feudal_sim.components.city import CityComponent
             from feudal_sim.core.config import config as _cfg
             min_spacing = int(_cfg.get('simulation.settlements.min_spacing_tiles', 3))
-            # Gather all settlement positions across all houses
             nearest_dist = None
             nearest_name = None
-            if hasattr(sim_context, 'entity_manager') and sim_context.entity_manager:
-                all_houses = sim_context.entity_manager.get_entities_by_type('house') or []
-                for h in all_houses:
-                    cc: CityComponent = h.get_component(CityComponent)
-                    if not cc:
-                        continue
-                    for city in cc.get_all_cities().values():
-                        cq, cr = city.position
-                        # Hex distance using axial coords
-                        s1 = -q0 - r0
-                        s2 = -cq - cr
-                        dist = (abs(q0 - cq) + abs(r0 - cr) + abs(s1 - s2)) // 2
-                        if nearest_dist is None or dist < nearest_dist:
-                            nearest_dist = dist
-                            nearest_name = getattr(city, 'name', 'settlement')
+            # Check against this house's existing settlements
+            cc: CityComponent = parent_house.get_component(CityComponent)
+            if cc:
+                for city in cc.get_all_cities().values():
+                    cq, cr = city.position
+                    s1 = -q0 - r0
+                    s2 = -cq - cr
+                    dist = (abs(q0 - cq) + abs(r0 - cr) + abs(s1 - s2)) // 2
+                    if nearest_dist is None or dist < nearest_dist:
+                        nearest_dist = dist
+                        nearest_name = getattr(city, 'name', 'settlement')
+            # Check against this house's pending outpost orders
+            if house_territory and hasattr(house_territory, 'pending_outposts'):
+                for pending in house_territory.pending_outposts:
+                    cq, cr = pending.q, pending.r
+                    s1 = -q0 - r0
+                    s2 = -cq - cr
+                    dist = (abs(q0 - cq) + abs(r0 - cr) + abs(s1 - s2)) // 2
+                    if nearest_dist is None or dist < nearest_dist:
+                        nearest_dist = dist
+                        nearest_name = 'outpost site'
             if nearest_dist is not None and nearest_dist < min_spacing:
                 return (
                     f"Outpost construction failed - too close to existing settlement "
@@ -1392,7 +1402,9 @@ def create_general_toolset(general_entity) -> list:
         current_turn = getattr(sim_context, 'current_turn', 0)
         house_territory: _Terr = parent_house.get_component(_Terr)
         delay = int(config.get('simulation.settlements.outpost_delay_turns', 1))
-        house_territory.create_outpost_order((q0, r0), current_turn, delay_turns=delay, resource_cost=costs)
+        required_general_id = getattr(general_entity, 'id', '')
+        required_general_name = getattr(general_entity, 'name', 'General')
+        house_territory.create_outpost_order((q0, r0), current_turn, delay_turns=delay, resource_cost=costs, required_general_id=required_general_id, required_general_name=required_general_name)
         
         # Group adjustments and observations (order placed)
         try:
@@ -1416,8 +1428,8 @@ def create_general_toolset(general_entity) -> list:
         except Exception:
             pass
         
-        return "Outpost construction ordered; it will complete next week."
-    build_outpost.action_description = "**Build Outpost**: Establish a small camp on controlled land to claim adjacent unowned tiles (costs resources)"
+        return "Outpost construction ordered; remain on this tile until completion next week."
+    build_outpost.action_description = "**Build Outpost**: Establish a small camp on controlled land to claim adjacent unowned tiles (costs resources; the ordering general must remain on the tile until completion)"
     tools.append(build_outpost)
     
     # Shared rookery tools for generals (include send)

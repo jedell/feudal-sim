@@ -15,11 +15,13 @@ from feudal_sim.components.territory import TerritoryComponent
 from feudal_sim.components.intelligence import IntelligenceComponent
 from feudal_sim.components.ai import AIComponent
 from feudal_sim.components.resource import ResourceComponent
+from feudal_sim.core.deferred import DeferredActionQueue
 
 ALPHA = 120
 
 class Simulation:
     def __init__(self, debug=False):
+        self.deferred = DeferredActionQueue()
         # Use config for world generation
         map_size = config.get('simulation.world_generation.map_size', 80)
         
@@ -135,7 +137,6 @@ class Simulation:
             intelligence_component: IntelligenceComponent = house.get_component(IntelligenceComponent)
             if intelligence_component:
                 intelligence_component.generate_initial_intelligence(self.houses)
-                print(f"   📊 {house.get_name()}: Generated intelligence on {len(intelligence_component.intelligence_reports)} other houses")
     
     def setup_event_listeners(self):
         """Demonstrate extensible event system."""
@@ -318,6 +319,13 @@ class Simulation:
         
         # Execute all entity decisions concurrently
         await asyncio.gather(*[make_entity_decision(entity) for entity in all_ai_entities])
+
+        # After actions, refresh positioned entities in the renderer to clear any disbanded units
+        try:
+            positioned = self.entity_manager.get_entities_by_type('general') or []
+            self.hex_grid.render(self.houses, positioned)
+        except Exception:
+            pass
     
     def execute_events_phase(self):
         """Handle random events and diplomacy."""
@@ -341,8 +349,21 @@ class Simulation:
         # Process outpost construction orders
         self.process_outpost_orders(status['turn'])
         
+        # Process scheduled disbands
+        self.process_scheduled_disbands(status['turn'])
+
+        # Process generic deferred actions for Events
+        self.process_deferred_actions(status['turn'], 'Events')
+        
         # Process population revolts
         self.process_population_revolts(status['turn'])
+
+        # After events, refresh positioned entities as well
+        try:
+            positioned = self.entity_manager.get_entities_by_type('general') or []
+            self.hex_grid.render(self.houses, positioned)
+        except Exception:
+            pass
             
         # Placeholder for other random events
     
@@ -606,6 +627,95 @@ class Simulation:
                     # verify still controlled by house
                     owner = getattr(tile, 'owner', None)
                     if owner and hasattr(owner, 'id') and owner.id == house.id:
+                        # Verify required general remains on the site
+                        from feudal_sim.components.position import PositionComponent
+                        general_present = False
+                        try:
+                            req_id = getattr(order, 'required_general_id', '')
+                            if req_id:
+                                gen = self.entity_manager.get_entity(req_id)
+                                if gen:
+                                    pos = gen.get_component(PositionComponent)
+                                    if pos and pos.position == (order.q, order.r):
+                                        general_present = True
+                            else:
+                                # If no id provided, treat as missing
+                                general_present = False
+                        except Exception:
+                            general_present = False
+                        if not general_present:
+                            terr.resolve_outpost_order(order, False)
+                            ai: AIComponent = house.get_component(AIComponent)
+                            if ai:
+                                ai.add_observation(
+                                    f"Outpost cancelled — {getattr(order, 'required_general_name', 'The general')} was not present on the site at completion",
+                                    "Events",
+                                )
+                            continue
+                        # Do not build over existing settlement
+                        try:
+                            from feudal_sim.map.city_extensions import has_city as _tile_has_city
+                            if _tile_has_city(tile):
+                                terr.resolve_outpost_order(order, False)
+                                ai: AIComponent = house.get_component(AIComponent)
+                                if ai:
+                                    ai.add_observation(
+                                        "Outpost cancelled — site already has a settlement",
+                                        "Events",
+                                    )
+                                continue
+                        except Exception:
+                            pass
+                        # Enforce within-house spacing constraint
+                        try:
+                            from feudal_sim.core.config import config
+                            min_spacing = int(config.get('simulation.settlements.min_spacing_tiles', 3))
+                        except Exception:
+                            min_spacing = 3
+                        too_close = False
+                        nearest_name = None
+                        nearest_dist = None
+                        try:
+                            from feudal_sim.components.city import CityComponent
+                            city: CityComponent = house.get_component(CityComponent)
+                            if city:
+                                for c in city.get_all_cities().values():
+                                    cq, cr = c.position
+                                    s1 = -order.q - order.r
+                                    s2 = -cq - cr
+                                    dist = (abs(order.q - cq) + abs(order.r - cr) + abs(s1 - s2)) // 2
+                                    if nearest_dist is None or dist < nearest_dist:
+                                        nearest_dist = dist
+                                        nearest_name = getattr(c, 'name', 'settlement')
+                                    if dist < min_spacing:
+                                        too_close = True
+                                        break
+                            # Also check other pending outposts for this house
+                            if not too_close:
+                                for other in getattr(terr, 'pending_outposts', []):
+                                    if other is order:
+                                        continue
+                                    cq, cr = other.q, other.r
+                                    s1 = -order.q - order.r
+                                    s2 = -cq - cr
+                                    dist = (abs(order.q - cq) + abs(order.r - cr) + abs(s1 - s2)) // 2
+                                    if nearest_dist is None or dist < nearest_dist:
+                                        nearest_dist = dist
+                                        nearest_name = 'outpost site'
+                                    if dist < min_spacing:
+                                        too_close = True
+                                        break
+                        except Exception:
+                            pass
+                        if too_close:
+                            terr.resolve_outpost_order(order, False)
+                            ai: AIComponent = house.get_component(AIComponent)
+                            if ai:
+                                ai.add_observation(
+                                    f"Outpost cancelled — too close to existing settlement ('{nearest_name}' at {nearest_dist} tiles). Minimum spacing is {min_spacing} tiles.",
+                                    "Events",
+                                )
+                            continue
                         # Claim adjacent unowned land tiles
                         to_claim = []
                         for neigh, _dirn in self.hex_grid.get_neighbors(order.q, order.r):
@@ -644,4 +754,42 @@ class Simulation:
                             "Outpost construction failed to complete (site lost or invalid)",
                             "Events",
                         )
+    
+    def process_scheduled_disbands(self, current_turn: int):
+        """Process any disband actions scheduled in the Actions phase."""
+        from feudal_sim.components.population import PopulationComponent
+        from feudal_sim.components.territory import TerritoryComponent
+        from feudal_sim.components.ai import AIComponent
+        # For each house, handle its pending disbands
+        for house in self.houses:
+            # New path: read from deferred queue
+            for action in [a for a in self.deferred.pop_due(current_turn, 'Events') if a.action_type == 'disband_general' and a.owner_id == house.id]:
+                disband = type('X', (), action.payload)
+                gen = self.entity_manager.get_entity(disband.general_id)
+                # Recall population if available
+                pop_comp: PopulationComponent = house.get_component(PopulationComponent)
+                if pop_comp and gen:
+                    pop_comp.recall_population_from_agent(gen.id)
+                # Destroy general entity
+                if gen:
+                    self.entity_manager.destroy_entity(gen.id)
+                # Unregister in territory
+                terr: TerritoryComponent = house.get_component(TerritoryComponent)
+                if terr:
+                    try:
+                        terr.unregister_general(disband.general_id)
+                    except Exception:
+                        pass
+                # Notify AI
+                ai: AIComponent = house.get_component(AIComponent)
+                if ai:
+                    ai.add_observation(
+                        f"General {disband.general_name} has been disbanded and assigned population recalled",
+                        "Events",
+                    )
+
+    def process_deferred_actions(self, current_turn: int, phase: str):
+        """Process any generic deferred actions for the given phase."""
+        # For now, all specific handlers consume the queue themselves; this is a placeholder for future types.
+        pass
             

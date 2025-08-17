@@ -18,7 +18,7 @@ from feudal_sim.core.config import config
 from feudal_sim.components.resource import ResourceComponent
 from feudal_sim.components.population import PopulationComponent
 from feudal_sim.components.territory import TerritoryComponent
-from feudal_sim.ai.tools import get_tools_for_entity
+from feudal_sim.ai.tools.registry import get_tools_for_entity
 from feudal_sim.ai.context import SimulationContext
 from feudal_sim.ai.prompt_builder import PromptBuilder
 from feudal_sim.ai.prompts import AgentType
@@ -27,7 +27,7 @@ from feudal_sim.ai.persona_generator import generate_agent_identity
 set_trace_processors([MlflowOpenAgentTracingProcessor()])
 mlflow.set_experiment("feudal_sim")
 
-MAX_TURNS = 10
+MAX_TURNS = 12
 
 class AIComponent(Component):
     """
