@@ -109,7 +109,7 @@ class RendererWrapper:
 
     def update_positioned_entities(self, positioned_entities: list):
         """Update positioned entities (generals, scouts, etc.) in shared memory."""
-        if not self.entities_shared_memory or not positioned_entities:
+        if not self.entities_shared_memory:
             return
             
         entity_data = []

@@ -117,6 +117,16 @@ class ResourceComponent(Component):
             # Fallback to old method for backward compatibility
             efficiency = self._calculate_efficiency(population_ratio)
         
+        # Scale efficiency by available workforce proportion (assigned population reduces output)
+        try:
+            from feudal_sim.components.population import PopulationComponent
+            pop_comp = self.entity.get_component(PopulationComponent) if self.entity else None
+            if pop_comp and pop_comp.population > 0:
+                availability_factor = max(0.0, min(1.0, pop_comp.get_available_population() / pop_comp.population))
+                efficiency *= availability_factor
+        except Exception:
+            pass
+        
         # Gather from each territory
         for hex_tile in territories:
             # Apply seasonal modifier to farming output

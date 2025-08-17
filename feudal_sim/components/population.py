@@ -9,9 +9,29 @@ cause territory loss when loyalty falls too low.
 import math
 import random
 from typing import Dict, Any, Set
+from dataclasses import dataclass
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
+
+@dataclass
+class AssignedPopulation:
+    """Represents population assigned to a sub-agent."""
+    workers: int = 0
+    soldiers: int = 0
+    
+    @property
+    def total(self) -> int:
+        """Get total assigned population."""
+        return self.workers + self.soldiers
+    
+    def to_dict(self) -> Dict[str, int]:
+        """Convert to dictionary for easy serialization."""
+        return {
+            'workers': self.workers,
+            'soldiers': self.soldiers,
+            'total': self.total
+        }
 
 class PopulationComponent(Component):
     """
@@ -22,6 +42,7 @@ class PopulationComponent(Component):
     - Population loyalty
     - Food-based population growth
     - Loyalty-based revolt warnings
+    - Sub-agent population assignment tracking
     """
     
     def __init__(self, entity_id: str = None, starting_population: int = 100, starting_loyalty: int = 100):
@@ -37,6 +58,9 @@ class PopulationComponent(Component):
         
         self.worker_ratio = default_worker_ratio
         self.soldier_ratio = default_soldier_ratio
+        
+        # Sub-agent population assignment tracking
+        self.assigned_population: Dict[str, AssignedPopulation] = {}  # {agent_id: AssignedPopulation}
         
         # Track previous values for observations
         self._previous_population = self.population
@@ -360,12 +384,12 @@ class PopulationComponent(Component):
         }
     
     def get_worker_count(self) -> int:
-        """Get the number of workers in the population."""
-        return int(self.population * self.worker_ratio)
+        """Get the number of workers in the population (excluding assigned)."""
+        return int(self.get_available_population() * self.worker_ratio)
     
     def get_soldier_count(self) -> int:
-        """Get the number of soldiers in the population."""
-        return int(self.population * self.soldier_ratio)
+        """Get the number of soldiers in the population (excluding assigned)."""
+        return int(self.get_available_population() * self.soldier_ratio)
     
     def calculate_worker_efficiency(self) -> float:
         """
@@ -390,19 +414,151 @@ class PopulationComponent(Component):
         bonus = min(soldier_expansion_bonus_max, self.soldier_ratio * soldier_expansion_multiplier)
         return bonus
 
+    def get_available_population(self) -> int:
+        """
+        Get population available for house operations (excluding assigned to sub-agents).
+        
+        Returns:
+            Available population count
+        """
+        total_assigned = sum(assignment.total for assignment in self.assigned_population.values())
+        return max(0, self.population - total_assigned)
+    
+    def get_total_assigned_population(self) -> int:
+        """
+        Get total population assigned to all sub-agents.
+        
+        Returns:
+            Total assigned population count
+        """
+        return sum(assignment.total for assignment in self.assigned_population.values())
+    
+    def can_assign_population(self, workers: int = 0, soldiers: int = 0) -> bool:
+        """
+        Check if the specified population can be assigned to a sub-agent.
+        
+        Args:
+            workers: Number of workers to assign
+            soldiers: Number of soldiers to assign
+            
+        Returns:
+            True if assignment is possible, False otherwise
+        """
+        total_requested = workers + soldiers
+        return total_requested <= self.get_available_population()
+    
+    def assign_population_to_agent(self, agent_id: str, workers: int = 0, soldiers: int = 0) -> bool:
+        """
+        Assign population to a sub-agent.
+        
+        Args:
+            agent_id: ID of the sub-agent to assign population to
+            workers: Number of workers to assign
+            soldiers: Number of soldiers to assign
+            
+        Returns:
+            True if assignment successful, False if insufficient population
+        """
+        # Validate assignment is possible
+        if not self.can_assign_population(workers, soldiers):
+            return False
+        
+        # Check if agent already has assignment
+        if agent_id in self.assigned_population:
+            # Update existing assignment
+            old_assignment = self.assigned_population[agent_id]
+            self.assigned_population[agent_id] = AssignedPopulation(
+                workers=old_assignment.workers + workers,
+                soldiers=old_assignment.soldiers + soldiers
+            )
+        else:
+            # Create new assignment
+            self.assigned_population[agent_id] = AssignedPopulation(
+                workers=workers,
+                soldiers=soldiers
+            )
+        
+        # Emit event for population assignment
+        if event_bus:
+            event_bus.emit(
+                EventType.VALUE_CHANGED,
+                self,
+                entity_type='population_component',
+                entity_name=self.entity.name if self.entity else self.entity_id,
+                property='population_assigned',
+                agent_id=agent_id,
+                workers_assigned=workers,
+                soldiers_assigned=soldiers,
+                total_assigned=workers + soldiers,
+                available_population=self.get_available_population()
+            )
+        
+        return True
+    
+    def recall_population_from_agent(self, agent_id: str) -> AssignedPopulation:
+        """
+        Recall all population from a sub-agent.
+        
+        Args:
+            agent_id: ID of the sub-agent to recall population from
+            
+        Returns:
+            AssignedPopulation object representing recalled population
+        """
+        if agent_id not in self.assigned_population:
+            return AssignedPopulation()  # Empty assignment
+        
+        # Get the assignment to return
+        recalled = self.assigned_population[agent_id]
+        
+        # Remove the assignment
+        del self.assigned_population[agent_id]
+        
+        # Emit event for population recall
+        if event_bus:
+            event_bus.emit(
+                EventType.VALUE_CHANGED,
+                self,
+                entity_type='population_component',
+                entity_name=self.entity.name if self.entity else self.entity_id,
+                property='population_recalled',
+                agent_id=agent_id,
+                workers_recalled=recalled.workers,
+                soldiers_recalled=recalled.soldiers,
+                total_recalled=recalled.total,
+                available_population=self.get_available_population()
+            )
+        
+        return recalled
+    
+    def get_agent_assignment(self, agent_id: str) -> AssignedPopulation:
+        """
+        Get population assignment for a specific agent.
+        
+        Args:
+            agent_id: ID of the sub-agent
+            
+        Returns:
+            AssignedPopulation object for the agent
+        """
+        return self.assigned_population.get(agent_id, AssignedPopulation())
+
     def get_population_status(self) -> Dict[str, Any]:
         """Get current population status for AI context or debugging."""
         return {
             'population': self.population,
             'population_capacity': self.population_capacity,
             'population_loyalty': self.population_loyalty,
+            'available_population': self.get_available_population(),
+            'assigned_population': self.get_total_assigned_population(),
             'worker_ratio': self.worker_ratio,
             'soldier_ratio': self.soldier_ratio,
             'worker_count': self.get_worker_count(),
             'soldier_count': self.get_soldier_count(),
             'worker_efficiency': self.calculate_worker_efficiency(),
             'soldier_expansion_bonus': self.calculate_soldier_expansion_bonus(),
-            'revolt_risk': self.check_revolt_risk()
+            'revolt_risk': self.check_revolt_risk(),
+            'assignments': {agent_id: assignment.to_dict() for agent_id, assignment in self.assigned_population.items()}
         }
     
     def get_lore_section(self) -> str:

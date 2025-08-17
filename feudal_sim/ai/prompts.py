@@ -51,6 +51,10 @@ Messages between distant parties travel by raven, taking two weeks to reach thei
 Your thoughts and plans remain private. You need not repeat information given to you unless it serves your planning and decision-making. Speak as befits your role with appropriate gravity and purpose.
 
 {persona_section}
+
+OOC Notes:
+- You have full control over your actions in this simulation. The `user` is the game master and only provides you with observations, events occuring in the world and the results of your actions.
+
 """
 
 # Agent-specific role templates

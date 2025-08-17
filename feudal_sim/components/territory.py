@@ -12,6 +12,7 @@ from feudal_sim.core.config import config
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.components.population import PopulationComponent
+from feudal_sim.map.types import HexTileType
     
 @dataclass
 class ExpansionOrder:
@@ -65,14 +66,25 @@ class TerritoryComponent(Component):
         if not new_territory:
             return
         
+        # Filter out non-claimable water tiles
+        claimable = []
+        for tile in new_territory:
+            terrain = getattr(tile, 'terrain_type', None)
+            if terrain in {HexTileType.RIVER, HexTileType.LAKE, HexTileType.OCEAN}:
+                continue
+            claimable.append(tile)
+        
+        if not claimable:
+            return
+        
         # Store old territory size for events
         old_territory_size = len(self.territory)
         
         # Add new territory to the entity's control
-        self.territory.update(new_territory)
+        self.territory.update(claimable)
         
         # Set ownership and color for new tiles
-        for tile in new_territory:
+        for tile in claimable:
             tile.set_owner(self.entity if self.entity else self.entity_id)
             if owner_color:
                 tile.owner_color = owner_color
@@ -91,8 +103,8 @@ class TerritoryComponent(Component):
                 property='territory',
                 old_value=old_territory_size,
                 new_value=len(self.territory),
-                change=len(new_territory),
-                tiles_added=len(new_territory)
+                change=len(claimable),
+                tiles_added=len(claimable)
             )
     
     def remove_territory(self, tiles_to_remove: List, hex_grid):

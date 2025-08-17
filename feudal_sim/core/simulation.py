@@ -167,7 +167,9 @@ class Simulation:
         
         # Add generals
         generals = self.entity_manager.get_entities_by_type('general')
-        positioned_entities.extend(generals)
+        print(f"🧠 Found {len(generals)} generals")
+        if generals:
+            positioned_entities.extend(generals)
         
         # Add other positioned entity types as they're implemented
         # scouts = self.entity_manager.get_entities_by_type('scout')
@@ -223,14 +225,46 @@ class Simulation:
         for general in generals:
             # Reset movement points for new turn
             from feudal_sim.components.position import PositionComponent
+            from feudal_sim.components.subagent_group import SubAgentGroup
             position_comp = general.get_component(PositionComponent)
             if position_comp:
                 position_comp.reset_movement(status['turn'])
+            
+            # Update sub-agent group state (supplies, morale, terrain observation)
+            group_comp = general.get_component(SubAgentGroup)
+            if group_comp:
+                group_comp.update_turn(self.hex_grid, status['turn'])
             
             # Add basic observations for generals
             ai_comp = general.get_component(AIComponent)
             if ai_comp and position_comp:
                 position_comp.add_movement_observation(ai_comp, "Actions")
+                
+                # Add terrain intelligence observations if available
+                from feudal_sim.components.terrain_observation import TerrainObservation
+                terrain_obs = general.get_component(TerrainObservation)
+                if terrain_obs:
+                    # Add intelligence about threats and opportunities
+                    threats = terrain_obs.get_threats_in_area(position_comp.position, 3)
+                    opportunities = terrain_obs.get_opportunities_in_area(position_comp.position, 3)
+                    
+                    if threats:
+                        threat_count = len(threats)
+                        high_threats = len([t for t in threats if t.threat_level == "high"])
+                        ai_comp.add_observation(
+                            f"Intelligence: {threat_count} threats detected in area" + 
+                            (f" ({high_threats} high priority)" if high_threats > 0 else ""),
+                            "Actions"
+                        )
+                    
+                    if opportunities:
+                        best_opportunity = terrain_obs.get_best_expansion_target()
+                        if best_opportunity:
+                            ai_comp.add_observation(
+                                f"Intelligence: Best expansion opportunity is {best_opportunity.opportunity_type} "
+                                f"at {best_opportunity.position} (value: {best_opportunity.value_assessment:.1%})",
+                                "Actions"
+                            )
         
         # Collect all AI entities (houses + generals)
         all_ai_entities = []

@@ -605,7 +605,9 @@ public:
             if (entity_data && num_entities > 0) {
                 for (int i = 0; i < num_entities; ++i) {
                     PositionedEntity* entity = &entity_data[i];
-                    if (entity->q != -1 && entity->r != -1) { // Check for valid position
+                    // Check for valid position and non-empty name to avoid rendering zeroed-out entities
+                    if (entity->q != -1 && entity->r != -1 && 
+                        strlen(entity->name.data()) > 0) { // Must have a name
                         draw_positioned_entity(*entity);
                     }
                 }

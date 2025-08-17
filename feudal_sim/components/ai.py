@@ -8,7 +8,8 @@ each phase, then makes decisions during the Actions phase.
 
 import os
 from typing import List, Optional, Dict, Any
-from agents import Agent, Runner, ModelSettings, set_trace_processors
+from agents import Agent, Runner, set_trace_processors, RunConfig
+from agents.agent import StopAtTools
 import mlflow
 from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
 from feudal_sim.core.entities import Component
@@ -25,6 +26,8 @@ from feudal_sim.ai.persona_generator import generate_agent_identity
 
 set_trace_processors([MlflowOpenAgentTracingProcessor()])
 mlflow.set_experiment("feudal_sim")
+
+MAX_TURNS = 10
 
 class AIComponent(Component):
     """
@@ -116,15 +119,27 @@ class AIComponent(Component):
                 instructions=instructions,
                 tools=tools,
                 model=config.get("simulation.ai.model", "gpt-4o-mini"),
-                # DEBUG TOOLS
-                model_settings=ModelSettings(
-                    tool_choice="required"
-                ),
-                # tool_use_behavior="stop_on_first_tool",
-                # reset_tool_choice=False
+                tool_use_behavior=StopAtTools(
+                    stop_at_tool_names=["end_turn"]
+                )   
             )
             
             print(f"🤖 Initialized AI agent: {self.agent_name} with {len(tools)} tools")
+            
+            # Seed mission/goal into message history for sub-agents (e.g., generals)
+            try:
+                from feudal_sim.components.subagent_group import SubAgentGroup
+                group_comp = self.entity.get_component(SubAgentGroup)
+                if group_comp and group_comp.mission_parameters:
+                    mp = group_comp.mission_parameters
+                    mission_text = (
+                        f"Mission assigned: {mp.mission_type} | Orders: {mp.orders or 'none'} | "
+                        f"Target: {mp.target_area or 'unspecified'} | Priority: {mp.priority}"
+                    )
+                    # Push as an initial observation so it’s retained in history
+                    self.add_observation(mission_text, phase="Actions", pending=False)
+            except Exception:
+                pass
             
         except Exception as e:
             print(f"❌ Failed to initialize AI agent '{self.agent_name}': {e}")
@@ -333,7 +348,8 @@ class AIComponent(Component):
                 result = await Runner.run(
                     starting_agent=self.agent,
                     input=self.messages,  # Pass the message list directly
-                    context=self.context
+                    context=self.context,
+                    max_turns=MAX_TURNS
                 )
             
                 # Add the AI's decision to message history

@@ -85,6 +85,35 @@ class PromptBuilder:
                 if lore_section:
                     mechanics.append(lore_section.strip())
         
+        # Add mission brief for sub-agents (e.g., generals) if available
+        try:
+            from feudal_sim.components.subagent_group import SubAgentGroup
+            from feudal_sim.components.position import PositionComponent
+            group_comp = self.entity.get_component(SubAgentGroup)
+            pos_comp = self.entity.get_component(PositionComponent)
+            if group_comp:
+                mp = group_comp.mission_parameters
+                mission_lines = [
+                    "**Mission Brief:**",
+                    f"- Mission: {mp.mission_type if mp else 'unspecified'}",
+                    f"- Priority: {mp.priority if mp else 'medium'}",
+                    f"- Orders: {mp.orders if mp and mp.orders else 'none provided'}",
+                    f"- Target Area: {mp.target_area if mp and mp.target_area else 'unspecified'}",
+                    f"- Assigned Forces: {group_comp.assigned_population.total} ("
+                    f"{group_comp.assigned_population.soldiers} soldiers, {group_comp.assigned_population.workers} workers)",
+                ]
+                if pos_comp:
+                    mission_lines.append(
+                        f"- Current Position: {pos_comp.position} | Operational Range: {pos_comp.operational_range} tiles"
+                    )
+                mission_lines.append(
+                    f"- Readiness: morale {group_comp.morale}%, supplies {group_comp.supplies}%"
+                )
+                mechanics.append("\n".join(mission_lines))
+        except Exception:
+            # If component classes unavailable or any error occurs, skip mission section
+            pass
+        
         return "\n\n".join(mechanics) if mechanics else ""
     
     def _build_persona_section(self) -> str:

@@ -1,0 +1,244 @@
+🧠 Found 7 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Summer, Week 1, Production Phase
+🧠 Found 7 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Summer, Week 1, Actions Phase
+🧠 All entities (3 houses, 7 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +9 food, +18 material, +36 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 69 people (now 404)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 94
+👀 [Lord/Lady of House Stark] Week 1 - Actions Phase
+Summer, Year 1
+
+Resources: 139.0 food, 178.0 material, 256.0 metal, 141.0 gold
+Population: 404, Loyalty: 94.0
+Territory: 9 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +21 food, +60 material, +60 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 79 people (now 418)
+👀 [Lord/Lady of House Lannister] Week 1 - Actions Phase
+Summer, Year 1
+
+Resources: 159.0 food, 296.0 material, 272.0 metal, 100.0 gold
+Population: 418, Loyalty: 100.0
+Territory: 19 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Production] Your territories produced +96 food, +42 material, +54 metal this turn
+👀 Robert Baratheon [Production] Your population grew by 179 people (now 664)
+👀 [Robert Baratheon] Week 1 - Actions Phase
+Summer, Year 1
+
+Resources: 359.0 food, 189.0 material, 224.0 metal, 100.0 gold
+Population: 664, Loyalty: 100.0
+Territory: 24 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Clegane AI is thinking...
+👀 General Clegane [Actions] Moved from (1, -9) to (1, -11) - distance 2, 2 movement points remaining
+👀 General Clegane [Actions] Position: (1, -11) - can act within 3 tiles, can move 2 tiles this turn
+👀 General Clegane [Actions] Intelligence: 21 threats detected in area (2 high priority)
+👀 [General Clegane] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🧠 General Snow AI is thinking...
+👀 General Snow [Actions] Moved from (0, -14) to (2, -14) - distance 2, 2 movement points remaining
+👀 General Snow [Actions] Position: (2, -14) - can act within 3 tiles, can move 2 tiles this turn
+👀 General Snow [Actions] Intelligence: 14 threats detected in area (1 high priority)
+👀 [General Snow] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved from (-3, 13) to (-4, 13) - distance 1, 2 movement points remaining
+👀 General Baratheon [Actions] Position: (-4, 13) - can act within 3 tiles, can move 2 tiles this turn
+👀 General Baratheon [Actions] Intelligence: Best expansion opportunity is settlement at (-4, 13) (value: 91.0%)
+👀 [General Baratheon] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved from (-1, 13) to (0, 14) - distance 2, 2 movement points remaining
+👀 General Baratheon [Actions] Position: (0, 14) - can act within 3 tiles, can move 2 tiles this turn
+👀 [General Baratheon] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🧠 General Lorch AI is thinking...
+👀 General Lorch [Actions] Moved from (1, -7) to (0, -6) - distance 1, 2 movement points remaining
+👀 General Lorch [Actions] Position: (0, -6) - can act within 3 tiles, can move 2 tiles this turn
+👀 General Lorch [Actions] Intelligence: Best expansion opportunity is settlement at (-2, -4) (value: 100.0%)
+👀 [General Lorch] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🧠 Commander Forrester AI is thinking...
+👀 Commander Forrester [Actions] Position: (1, -14) - can act within 3 tiles, can move 2 tiles this turn
+👀 Commander Forrester [Actions] Intelligence: 8 threats detected in area (1 high priority)
+👀 [Commander Forrester] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Position: (0, 12) - can act within 3 tiles, can move 2 tiles this turn
+👀 General Baratheon [Actions] Intelligence: Best expansion opportunity is settlement at (1, 9) (value: 100.0%)
+👀 [General Baratheon] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  3
+🤖 Commander Forrester observe_area {}
+🤖 Commander Forrester Observed 7 tiles within 1 tile radius around (1, -14) | No immediate threats or opportunities detected
+🤖 Commander Forrester I observe the surrounding tiles within 1 tile radius around our current position (1, -14) to assess the area for threats or opportunities. No immediate threats or opportunities are detected.
+
+Next, I will move closer to address the high priority threat detected in the intelligence report, unless it's within current radius. Could you specify the location of the high priority threat or should I proceed to scout around the edges for it?
+✅ Commander Forrester AI finished thinking
+🎲 Generated fallback persona for: General Baratheon
+   General Baratheon: Detected entity type 'general'
+   General Baratheon: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for General Baratheon (general)
+🤖 Initialized AI agent: General Baratheon with 6 tools
+Len of new items:  8
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon Observed 7 tiles within 1 tile radius around (-4, 13) | Opportunities: 4 (4 settlement) | Best target: settlement at (-4, 13) (value 91.0%, difficulty easy)
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon No unowned tiles within 1 tile to settle
+🤖 General Baratheon move {"target_q":-5,"target_r":12}
+🤖 General Baratheon Moved from (-4, 13) to (-5, 12)
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  6
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.7,"soldier_ratio":0.3}
+🤖 Lord/Lady of House Lannister Household management updated: 205 workers (70%), 87 soldiers (30%). Resource efficiency: 0.65 (0.00), Expansion bonus: +15.0% (0.00)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"SE"}
+🤖 Lord/Lady of House Lannister Border assessment: 7 tiles (river (and 4 more tiles)). Cost: 140 material, 140 gold
+🤖 Lord/Lady of House Lannister I maintain the population allocation at 70% workers and 30% soldiers for balanced productivity and military readiness.
+
+I have assessed the southeastern border and found 7 tiles available, including valuable river tiles. The expansion cost would be 140 material and 140 gold.
+
+Please advise if you want me to deploy a general to expand southeast or take other actions such as sending ravens, collecting taxes, reviewing cities, or ending the turn.
+🤖 Lord/Lady of House Lannister Would you like me to proceed with military deployment for expansion or other strategic initiatives?
+✅ Lannister AI finished thinking
+Len of new items:  6
+🤖 General Lorch move {"target_q":-1,"target_r":-5}
+🤖 General Lorch Moved from (0, -6) to (-1, -5)
+🤖 General Lorch settle_territory {"target_direction":"northeast"}
+🤖 General Lorch Settled 6 nearby tiles: [(-1, -5), (0, -5), (-2, -5), (-1, -4), (-1, -6), (-2, -4)]
+🤖 General Lorch end_turn {}
+🤖 General Lorch Turn ended
+✅ General Lorch AI finished thinking
+Len of new items:  6
+🤖 Lord/Lady of House Stark assess_border {"direction":"N"}
+🤖 Lord/Lady of House Stark Border assessment: 2 tiles (tundra). Cost: 40 material, 40 gold
+🤖 Lord/Lady of House Stark I will have scouts assess the northern border for potential expansion opportunities. The assessment reveals 2 tundra tiles available for expansion with a cost of 40 material and 40 gold. This information will help us plan our next moves carefully.
+🤖 Lord/Lady of House Stark collect_taxes {"tax_rate":0.1}
+🤖 Lord/Lady of House Stark Collected 61 gold from 404 population with 10% tax rate. Gold: 141 → 202 (+61). Population loyalty: 94 → 86 (-8)
+🤖 Lord/Lady of House Stark I will again collect taxes at a 10% rate this turn to further strengthen our treasury. This action will raise our gold but reduce loyalty moderately to 86, which remains acceptable for now.
+✅ Stark AI finished thinking
+Len of new items:  7
+🤖 Robert Baratheon manage_household {"worker_ratio":0.55,"soldier_ratio":0.45}
+🤖 Robert Baratheon Household management updated: 189 workers (55%), 154 soldiers (45%). Resource efficiency: 0.49 (-0.05), Expansion bonus: +22.5% (+0.02)
+🤖 Robert Baratheon deploy_general {"direction":"NE","soldiers_assigned":120,"workers_assigned":50,"general_name":"General Baratheon","orders":"Continue advancing northeast, consolidate control, and strengthen fortifications at all key points across the river and desert territories."}
+🤖 Robert Baratheon Successfully deployed General Baratheon to the NE with 170 people (120 soldiers, 50 workers). Position: (1, 12). Group strength: 170, combat strength 265 and settlement capability 100.0%. Orders: 'Continue advancing northeast, consolidate control, and strengthen fortifications at all key points across the river and desert territories.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Robert Baratheon I continue adjusting the household by increasing the soldier ratio to 45% and decreasing workers to 55%, focusing more on military strength to secure our expanded territories.
+
+I deploy General Baratheon with 120 soldiers and 50 workers northeast again to push further into the region, consolidate control, and fortify all key points in the river and desert lands.
+
+These actions will secure our hold and prepare us for future expansions or challenges. I will end my turn now.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  6
+🤖 General Snow observe_area {}
+🤖 General Snow Observed 7 tiles within 1 tile radius around (2, -14) | No immediate threats or opportunities detected
+🤖 General Snow I observed the area around our new position (2, -14) and detect no immediate threats or opportunities despite the intelligence indicating 14 threats with 1 high priority. I will prioritize caution and prepare defensive measures while consolidating our hold here.
+
+Next, I will settle any unowned tiles within 1 tile radius around our current position (2, -14) to strengthen territorial control and establish a secure outpost as per mission orders.
+🤖 General Snow settle_tiles {}
+🤖 General Snow Settled 5 nearby tiles for your house
+🤖 General Snow I have settled 5 nearby unowned tiles for our house around (2, -14), expanding our territory and reinforcing our position in the northeast tundra. I will hold this position and maintain readiness for possible threats.
+
+If no other immediate orders are given, I will end this turn to prepare for what comes next.
+✅ General Snow AI finished thinking
+Len of new items:  10
+🤖 General Baratheon settle_territory {"target_direction":"northeast"}
+🤖 General Baratheon Settled 3 nearby tiles: [(1, 12), (0, 11), (1, 11)]
+🤖 General Baratheon move {"target_q":1,"target_r":10}
+🤖 General Baratheon Moved from (0, 12) to (1, 10)
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon Observed 7 tiles within 1 tile radius around (1, 10) | Opportunities: 2 (2 settlement) | Best target: settlement at (1, 9) (value 100.0%, difficulty easy)
+🤖 General Baratheon settle_territory {"target_direction":"south"}
+🤖 General Baratheon Settled 5 nearby tiles: [(1, 10), (2, 10), (0, 10), (1, 9), (2, 9)]
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  10
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon Observed 7 tiles within 1 tile radius around (0, 14) | No immediate threats or opportunities detected
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon No unowned tiles within 1 tile to settle
+🤖 General Baratheon move {"target_q":1,"target_r":15}
+🤖 General Baratheon Moved from (0, 14) to (1, 15)
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 2 nearby tiles for your house
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  17
+🤖 General Clegane observe_area {}
+🤖 General Clegane Observed 7 tiles within 1 tile radius around (1, -11) | No immediate threats or opportunities detected
+🤖 General Clegane Despite intelligence reporting 21 threats in the area, including 2 high priority, my direct observation within 1 tile radius around (1, -11) shows no immediate threats or opportunities.
+
+Given the high number of threats reported, I will act cautiously. I will keep our current position secure and prepare defenses by settling any unowned tiles if available. If no tiles are available, I will focus on reconnaissance by moving cautiously to gather more intelligence about these threats.
+
+First, I will check again for settling opportunities.
+🤖 General Clegane settle_tiles {}
+🤖 General Clegane No unowned tiles within 1 tile to settle
+🤖 General Clegane There are no unowned tiles within 1 tile radius to settle at our current position.
+
+Given the high threat level nearby, I will now move cautiously to a nearby tile within 2 movement points to gain better vantage and prepare for potential confrontation or further scouting.
+
+I will move 1 tile northeast to (2, -12) for better observation and control.
+
+Executing move.
+🤖 General Clegane move {"target_q":2,"target_r":-12}
+🤖 General Clegane Moved from (1, -11) to (2, -12)
+🤖 General Clegane I have moved 1 tile northeast to position (2, -12) to gain better vantage and prepare for controlling the area.
+
+Next, I will observe the surroundings here within 1 tile radius to assess threats more precisely.
+
+Proceeding with observation.
+🤖 General Clegane observe_area {}
+🤖 General Clegane Observed 7 tiles within 1 tile radius around (2, -12) | Threats: 3 (3 medium)
+🤖 General Clegane At position (2, -12), observation reveals 3 medium-level threats within 1 tile radius.
+
+I will send a raven to our lord to report this confirmed threat presence and request reinforcements or advice on handling the dangers in our expansion area.
+
+Sending raven now.
+🤖 General Clegane send_raven_to_lord {"message":"Confirmed 3 medium threats near (2, -12). Position secured but situation requires reinforcements or strategic guidance. Expansion plans are at risk."}
+🤖 General Clegane Raven dispatched to your lord
+🤖 General Clegane I have reported to our lord the confirmation of 3 medium threats around (2, -12), emphasizing the need for reinforcements or strategic guidance as expansion plans face risk.
+
+I will hold position to maintain control and readiness.
+
+Ending turn now.
+🤖 General Clegane end_turn {}
+🤖 General Clegane Turn ended
+✅ General Clegane AI finished thinking
+🧠 Found 8 generals

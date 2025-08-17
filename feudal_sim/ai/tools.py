@@ -9,7 +9,7 @@ that bind the specific house instance to the tool.
 """
 
 from agents import function_tool, RunContextWrapper
-from typing import Callable
+from typing import Callable, Dict
 from enum import Enum
 
 from feudal_sim.ai.context import SimulationContext
@@ -218,114 +218,93 @@ def create_expand_territory_tool(house_entity) -> Callable:
     return expand_territory
 
 
-def create_read_intelligence_tool(house_entity) -> Callable:
+def create_read_compendium_tool(house_entity) -> Callable:
     """
-    Factory function to create a read_intelligence_report tool bound to a specific house entity.
+    Factory function to create a read_compendium tool bound to a specific house entity.
     """
     from feudal_sim.components.intelligence import IntelligenceComponent
     
     intelligence_component = house_entity.get_component(IntelligenceComponent)
-
-    # house name enum, except for the current house
-    house_name_dict = {house: house for house in intelligence_component.get_neighbors()}
-    HouseNameEnum = Enum('HouseName', house_name_dict)
     
     if not intelligence_component:
         @function_tool
-        def read_intelligence_unavailable(house_name: HouseNameEnum) -> str:
-            """No intelligence system available."""
-            return f"House {house_entity.name} has no intelligence gathering capability"
-        return read_intelligence_unavailable
+        def read_compendium_unavailable(topic: str = None) -> str:
+            """No compendium available."""
+            return f"House {house_entity.name} has no compendium to consult"
+        return read_compendium_unavailable
     
     @function_tool
-    def read_intelligence_report(house_name: HouseNameEnum) -> str:
+    def read_compendium(topic: str = None) -> str:
         """
-        Read the intelligence report on a specific house. Shows distance, direction, territory size, and any notes you have made on this house.
+        Read from your strategic compendium - a journal of intelligence, observations, and strategic notes.
+        If no topic is specified, shows a summary of all entries. If a topic is specified, shows detailed information about that house or subject.
         
         Args:
-            house_name: The name of the house to get intelligence on (e.g. "Stark", "Lannister")
+            topic: Optional specific house name or subject to read about (e.g. "Stark", "Lannister"). If not provided, shows all entries.
             
         Returns:
-            Formatted intelligence report with distance, direction, territory size, and any notes you have made on this house.
+            Your compendium entries - either all summaries or detailed information about the specified topic
         """
-        return intelligence_component.format_intelligence_report(house_name.value)
+        if topic:
+            # Try to find specific house intelligence
+            neighbors = intelligence_component.get_neighbors()
+            if topic in neighbors:
+                return intelligence_component.format_intelligence_report(topic)
+            else:
+                return f"No compendium entry found for '{topic}'. Available topics: {', '.join(neighbors)}"
+        else:
+            # Show all intelligence summary
+            return intelligence_component.format_all_intelligence_summary()
     
     # Add action description for dynamic prompts
-    read_intelligence_report.action_description = "**Read Intelligence**: Review detailed intelligence reports on specific rival houses"
+    read_compendium.action_description = "**Read Compendium**: Consult your strategic journal of intelligence and observations"
     
-    return read_intelligence_report
+    return read_compendium
 
 
-def create_read_all_intelligence_tool(house_entity) -> Callable:
+def create_write_compendium_tool(house_entity) -> Callable:
     """
-    Factory function to create a read_all_intelligence tool bound to a specific house entity.
-    """
-    from feudal_sim.components.intelligence import IntelligenceComponent
-    
-    intelligence_component = house_entity.get_component(IntelligenceComponent)
-    
-    if not intelligence_component:
-        @function_tool
-        def read_all_intelligence_unavailable() -> str:
-            """No intelligence system available."""
-            return f"House {house_entity.name} has no intelligence gathering capability"
-        return read_all_intelligence_unavailable
-    
-    @function_tool
-    def read_all_intelligence() -> str:
-        """
-        Read a summary of all intelligence reports on other houses. Shows basic information on all known neighbors.
-        Call this every once in a while to get a sense of the world.
-        
-        Returns:
-            Summary of all neighbor intelligence including distances, directions, and territory sizes
-        """
-        return intelligence_component.format_all_intelligence_summary()
-    
-    # Add action description for dynamic prompts  
-    read_all_intelligence.action_description = "**Survey All Intelligence**: Review summary of intelligence on all known rival houses"
-    
-    return read_all_intelligence
-
-
-def create_update_intelligence_tool(house_entity) -> Callable:
-    """
-    Factory function to create an update_intelligence_notes tool bound to a specific house entity.
+    Factory function to create a write_compendium tool bound to a specific house entity.
     """
     from feudal_sim.components.intelligence import IntelligenceComponent
     
     intelligence_component = house_entity.get_component(IntelligenceComponent)
-    
-    # house name enum, except for the current house
-    house_name_dict = {house: house for house in intelligence_component.get_neighbors()}
-    HouseNameEnum = Enum('HouseName', house_name_dict)
         
     if not intelligence_component:
         @function_tool
-        def update_intelligence_unavailable(house_name: HouseNameEnum, notes: str) -> str:
-            """No intelligence system available."""
-            return f"House {house_entity.name} has no intelligence gathering capability"
-        return update_intelligence_unavailable
+        def write_compendium_unavailable(topic: str, entry: str) -> str:
+            """No compendium available."""
+            return f"House {house_entity.name} has no compendium to write in"
+        return write_compendium_unavailable
     
     @function_tool
-    def update_intelligence_notes(house_name: HouseNameEnum, notes: str) -> str:
+    def write_compendium(topic: str, entry: str) -> str:
         """
-        Update your intelligence notes on a specific house. Add observations, assessments, or strategic thoughts.
+        Write an entry in your strategic compendium - record intelligence, observations, strategic thoughts, or plans.
+        Use this to keep track of important information about other houses, diplomatic relations, military assessments, or strategic plans.
         
         Args:
-            house_name: The name of the house to update notes for
-            notes: Your assessment or observations about this house
+            topic: The subject of your entry (e.g. house name like "Stark" or general topics like "Military Strategy")
+            entry: Your strategic notes, observations, or intelligence about this topic
             
         Returns:
-            Confirmation of the intelligence update
+            Confirmation of the compendium entry
         """
-        intelligence_component.update_notes(house_name.value, notes)
-        return f"Intelligence notes updated for House {house_name.value}: {notes}"
+        # Check if this is a known house - if so, use intelligence system
+        neighbors = intelligence_component.get_neighbors()
+        if topic in neighbors:
+            intelligence_component.update_notes(topic, entry)
+            return f"Compendium updated - {topic}: {entry}"
+        else:
+            # For general topics, we can still record it as intelligence notes 
+            # The intelligence system can handle arbitrary topics
+            intelligence_component.update_notes(topic, entry)
+            return f"Compendium entry recorded - {topic}: {entry}"
     
     # Add action description for dynamic prompts
-    update_intelligence_notes.action_description = "**Update Intelligence**: Add strategic notes and observations about rival houses"
+    write_compendium.action_description = "**Write Compendium**: Record strategic intelligence, observations, and plans in your journal"
     
-    return update_intelligence_notes
+    return write_compendium
 
 
 def create_collect_taxes_tool(house_entity) -> Callable:
@@ -425,7 +404,9 @@ def create_deploy_general_tool(house_entity) -> Callable:
     Factory function to create a deploy_general tool bound to a specific house entity.
     """
     from feudal_sim.components.territory import TerritoryComponent
-    from feudal_sim.components.population import PopulationComponent
+    from feudal_sim.components.population import PopulationComponent, AssignedPopulation
+    from feudal_sim.components.subagent_group import SubAgentGroup
+    from feudal_sim.components.terrain_observation import TerrainObservation
     from feudal_sim.components.position import PositionComponent
     from feudal_sim.core.entities import Entity
     from feudal_sim.components.ai import AIComponent
@@ -442,16 +423,18 @@ def create_deploy_general_tool(house_entity) -> Callable:
         return deploy_general_unavailable
     
     @function_tool
-    def deploy_general(ctx: RunContextWrapper["SimulationContext"], position_q: int, position_r: int, soldiers_assigned: int, general_name: str) -> str:
+    def deploy_general(ctx: RunContextWrapper["SimulationContext"], direction: str, soldiers_assigned: int, workers_assigned: int = 0, general_name: str = "General", orders: str = "Patrol the area and await further orders") -> str:
         """
-        Deploy a general to a specific position with assigned military forces.
-        Generals can act independently within their operational range and make tactical decisions.
+        Deploy a general in a specific direction from your territory with assigned population forces.
+        Generals can act independently and will interpret natural language orders to accomplish their mission.
+        They lead their assigned group of soldiers and workers on missions like expansion, patrol, and fortification.
         
         Args:
-            position_q: Q coordinate for general's starting position (must be within your territory)
-            position_r: R coordinate for general's starting position (must be within your territory) 
+            direction: Direction to deploy the general (N, NE, SE, S, SW, NW, or "center")
             soldiers_assigned: Number of soldiers to assign to this general (from your available military)
-            general_name: Name for the general (e.g., "General Snow", "Commander Stark")
+            workers_assigned: Number of workers to assign to this general (for settlement/construction) 
+            general_name: Name for the general (e.g., "General snow", "Commander Stark")
+            orders: Natural language orders for the general (e.g., "Expand our territory eastward", "Fortify the northern border")
             
         Returns:
             Result of general deployment
@@ -462,48 +445,129 @@ def create_deploy_general_tool(house_entity) -> Callable:
             return "General deployment failed - map access not available"
         
         hex_grid = sim_context.hex_grid
-        target_position = (position_q, position_r)
         
-        # Validate position is within house territory
-        target_tile = hex_grid.get_tile(position_q, position_r)
-        if not target_tile:
-            return f"Cannot deploy general to ({position_q}, {position_r}) - position outside map bounds"
+        # Validate direction
+        valid_directions = ["N", "NE", "SE", "S", "SW", "NW", "center"]
+        direction_upper = direction.upper()
+        if direction_upper not in valid_directions:
+            return f"Invalid direction '{direction}'. Valid directions: {', '.join(valid_directions)}"
         
-        if target_tile not in territory_component.territory:
-            return f"Cannot deploy general to ({position_q}, {position_r}) - position not within your territory"
+        # Find suitable deployment position based on direction
+        deployment_position = None
+        if direction_upper == "CENTER":
+            # Deploy at center of territory
+            if territory_component.territory:
+                # Find centroid of territory
+                total_q = sum(tile.q for tile in territory_component.territory)
+                total_r = sum(tile.r for tile in territory_component.territory)
+                center_q = int(total_q / len(territory_component.territory))
+                center_r = int(total_r / len(territory_component.territory))
+                
+                # Find closest territory tile to centroid
+                min_distance = float('inf')
+                for tile in territory_component.territory:
+                    distance = abs(tile.q - center_q) + abs(tile.r - center_r)
+                    if distance < min_distance:
+                        min_distance = distance
+                        deployment_position = (tile.q, tile.r)
+        else:
+            # Deploy at territory border in specified direction
+            border_tiles_in_direction = territory_component.get_border_tiles_by_direction(direction_upper, hex_grid)
+            
+            # Prefer controlled tiles that have an uncontrolled neighbor specifically in the chosen direction
+            controlled_border_tiles = []
+            for tile in territory_component.territory:
+                for neighbor_tile, neighbor_dir in hex_grid.get_neighbors(tile.q, tile.r):
+                    if neighbor_dir == direction_upper and neighbor_tile not in territory_component.territory:
+                        controlled_border_tiles.append(tile)
+                        break
+            
+            # Fallback: any controlled tile that borders uncontrolled territory (any direction)
+            if not controlled_border_tiles:
+                for tile in territory_component.territory:
+                    if any(neigh not in territory_component.territory for neigh, _d in hex_grid.get_neighbors(tile.q, tile.r)):
+                        controlled_border_tiles.append(tile)
+            
+            if controlled_border_tiles:
+                import random
+                selected_tile = random.choice(controlled_border_tiles)
+                deployment_position = (selected_tile.q, selected_tile.r)
         
-        # Validate soldier assignment
-        available_soldiers = population_component.get_soldier_count()
-        if soldiers_assigned <= 0:
-            return "Must assign at least 1 soldier to the general"
+        if not deployment_position:
+            return f"Cannot find suitable deployment position in direction '{direction}' within your territory"
         
-        if soldiers_assigned > available_soldiers:
-            return f"Cannot assign {soldiers_assigned} soldiers - only {available_soldiers} available"
+        # Validate population assignment
+        if soldiers_assigned <= 0 and workers_assigned <= 0:
+            return "Must assign at least 1 person (soldier or worker) to the general"
+        
+        # Check if enough population is available
+        if not population_component.can_assign_population(workers_assigned, soldiers_assigned):
+            available_pop = population_component.get_available_population()
+            return f"Cannot assign {soldiers_assigned + workers_assigned} people - only {available_pop} available"
         
         # Check if we already have a general at this position
         if hasattr(sim_context, 'entity_manager') and sim_context.entity_manager:
             existing_entities = sim_context.entity_manager.get_all_entities()
             for entity in existing_entities:
                 pos_comp = entity.get_component(PositionComponent)
-                if pos_comp and pos_comp.position == target_position:
+                if pos_comp and pos_comp.position == deployment_position:
                     if hasattr(entity, 'house_id') and entity.house_id == house_entity.id:
-                        return f"You already have a unit positioned at ({position_q}, {position_r})"
+                        return f"You already have a unit positioned at {deployment_position} in the {direction} direction"
+        
+        # Ensure tracking list exists before generating ID
+        if not hasattr(territory_component, 'deployed_generals'):
+            territory_component.deployed_generals = []
         
         # Create general entity
-        general_id = f"{house_entity.id}_general_{len(territory_component.deployed_generals) + 1}"
+        next_index = len(territory_component.deployed_generals) + 1
+        general_id = f"{house_entity.id}_general_{next_index}"
         general_entity = Entity(general_id, general_name)
         general_entity.house_id = house_entity.id  # Link back to parent house
         
         # Add components to general
         position_comp = PositionComponent(
             entity_id=general_id,
-            position=target_position,
+            position=deployment_position,
             operational_range=3,  # Generals have 3-tile operational range
             movement_points=2     # Can move 2 tiles per turn
         )
         general_entity.add_component(position_comp)
         
-        # Add AI component for independent decision making
+        # Create population assignment and assign from house
+        assigned_population = AssignedPopulation(workers=workers_assigned, soldiers=soldiers_assigned)
+        success = population_component.assign_population_to_agent(general_id, workers_assigned, soldiers_assigned)
+        
+        if not success:
+            # This shouldn't happen due to earlier validation, but safety check
+            return f"Failed to assign population to general - insufficient available population"
+        
+        # Add SubAgentGroup component to manage the assigned population
+        group_comp = SubAgentGroup(
+            entity_id=general_id,
+            parent_house_id=house_entity.id,
+            group_type="military",
+            assigned_population=assigned_population
+        )
+        # Set mission based on natural language orders
+        mission_type = "expansion" if "expand" in orders.lower() else "patrol"
+        group_comp.set_mission(mission_type, target_area=deployment_position, orders=orders)
+        general_entity.add_component(group_comp)
+        
+        # Add TerrainObservation component for autonomous intelligence gathering
+        terrain_obs = TerrainObservation(
+            entity_id=general_id,
+            observation_range=3  # Generals have 3-tile observation range (matches operational range)
+        )
+        general_entity.add_component(terrain_obs)
+        
+        # Provide entity manager to observation component for threat queries
+        if hasattr(sim_context, 'entity_manager') and sim_context.entity_manager:
+            try:
+                terrain_obs._entity_manager = sim_context.entity_manager
+            except Exception:
+                pass
+        
+        # Add AI component for independent decision making (after all required components are present)
         ai_comp = AIComponent(
             name=general_name,
             agent_type=AgentType.GENERAL,
@@ -511,10 +575,6 @@ def create_deploy_general_tool(house_entity) -> Callable:
             house_name=house_entity.name
         )
         general_entity.add_component(ai_comp)
-        
-        # TODO: Add MilitaryComponent with assigned soldiers when we create it
-        # For now, just track in a simple way
-        general_entity.assigned_soldiers = soldiers_assigned
         
         # Register general with entity manager
         if hasattr(sim_context, 'entity_manager') and sim_context.entity_manager:
@@ -531,20 +591,37 @@ def create_deploy_general_tool(house_entity) -> Callable:
         territory_component.deployed_generals.append({
             'entity_id': general_id,
             'name': general_name,
-            'position': target_position,
+            'position': deployment_position,
+            'direction': direction,
+            'orders': orders,
             'soldiers_assigned': soldiers_assigned,
+            'workers_assigned': workers_assigned,
             'deployment_turn': sim_context.current_turn if sim_context else -1
         })
         
-        # TODO: Reduce available soldiers in population component
-        # For now, this is just a deployment without affecting house totals
+        # Get group capabilities for reporting
+        group_strength = group_comp.get_group_strength()
+        settlement_capability = group_comp.get_settlement_capability()
+        combat_strength = group_comp.get_combat_strength()
         
-        return (f"Successfully deployed {general_name} at ({position_q}, {position_r}) with {soldiers_assigned} soldiers. "
-                f"The general has operational range of 3 tiles and can move 2 tiles per turn. "
-                f"They will make independent tactical decisions within their area of operations.")
+        # Build capability description
+        capabilities = []
+        if soldiers_assigned > 0:
+            capabilities.append(f"combat strength {combat_strength}")
+        if workers_assigned > 0:
+            capabilities.append(f"settlement capability {settlement_capability:.1%}")
+        
+        capability_text = " and ".join(capabilities) if capabilities else "basic patrol capability"
+        
+        total_assigned = soldiers_assigned + workers_assigned
+        return (f"Successfully deployed {general_name} to the {direction} with {total_assigned} people "
+                f"({soldiers_assigned} soldiers, {workers_assigned} workers). "
+                f"Position: {deployment_position}. Group strength: {group_strength}, {capability_text}. "
+                f"Orders: '{orders}'. "
+                f"The general will act independently within 3 tiles operational range and interpret these orders autonomously.")
     
     # Add action description for dynamic prompts
-    deploy_general.action_description = "**Deploy General**: Position a military commander with assigned forces to act independently in a specific area"
+    deploy_general.action_description = "**Deploy General**: Send a military commander with assigned forces in a direction with natural language orders to act independently"
     
     return deploy_general
 
@@ -651,12 +728,11 @@ def create_house_toolset(house) -> list:
     
     # Territory management tools
     tools.append(create_assess_border_tool(house))
-    tools.append(create_expand_territory_tool(house))
+    # tools.append(create_expand_territory_tool(house))  # Deprecated in favor of sub-agent delegation (deploy_general + settle_territory)
     
-    # Intelligence tools
-    tools.append(create_read_intelligence_tool(house))
-    tools.append(create_read_all_intelligence_tool(house))
-    tools.append(create_update_intelligence_tool(house))
+    # Compendium tools (strategic journal)
+    tools.append(create_read_compendium_tool(house))
+    tools.append(create_write_compendium_tool(house))
     
     # Population management tools
     tools.append(create_manage_household_tool(house))
@@ -669,6 +745,9 @@ def create_house_toolset(house) -> list:
     
     # City management tools
     tools.append(create_view_cities_tool(house))
+    
+    # Universal tools
+    tools.append(end_turn)
     
     # Future tools can be added here:
     # tools.append(create_dispatch_army_tool(house))
@@ -730,6 +809,293 @@ def create_move_tool(entity) -> Callable:
     return move
 
 
+def create_observe_area_tool(general_entity) -> Callable:
+    """
+    Factory function to create an observe_area tool for generals with TerrainObservation.
+    """
+    from feudal_sim.components.terrain_observation import TerrainObservation
+    from feudal_sim.components.position import PositionComponent
+    
+    observation_comp = general_entity.get_component(TerrainObservation)
+    position_comp = general_entity.get_component(PositionComponent)
+    
+    if not observation_comp or not position_comp:
+        @function_tool
+        def observe_area_unavailable() -> str:
+            """Observation unavailable - missing required components."""
+            return f"General {general_entity.name} cannot observe terrain - missing observation capability"
+        return observe_area_unavailable
+    
+    @function_tool
+    def observe_area(ctx: RunContextWrapper["SimulationContext"]) -> str:
+        """
+        Observe the terrain around your current position to gather intelligence.
+        Scans surrounding tiles for expansion opportunities, threats, and resources.
+        Updates your knowledge of the area for tactical decision-making.
+        
+        Returns:
+            Intelligence report of observed area
+        """
+        # Get simulation context
+        sim_context = ctx.context
+        if not sim_context or not hasattr(sim_context, 'hex_grid') or not sim_context.hex_grid:
+            return "Observation failed - map access not available"
+        
+        if not position_comp.position:
+            return "Cannot observe - position unknown"
+        
+        current_turn = getattr(sim_context, 'current_turn', 0)
+        
+        # Perform observation
+        result = observation_comp.observe_current_area(
+            sim_context.hex_grid, 
+            position_comp.position, 
+            current_turn
+        )
+        
+        if not result['success']:
+            return f"Observation failed: {result.get('message', 'Unknown error')}"
+        
+        # Get intelligence summary
+        status = observation_comp.get_observation_status()
+        threats = observation_comp.get_threats_in_area(position_comp.position)
+        opportunities = observation_comp.get_opportunities_in_area(position_comp.position)
+        
+        # Build intelligence report
+        report_parts = []
+        report_parts.append(f"Observed {result['tiles_observed']} tiles around position {position_comp.position}")
+        
+        if result['new_threats'] > 0:
+            report_parts.append(f"⚠️ Detected {result['new_threats']} new threats")
+            threat_summary = {}
+            for threat in threats[-3:]:  # Show last 3 threats
+                threat_summary[threat.threat_level] = threat_summary.get(threat.threat_level, 0) + 1
+            if threat_summary:
+                threat_text = ", ".join(f"{count} {level}" for level, count in threat_summary.items())
+                report_parts.append(f"Threat levels: {threat_text}")
+        
+        if result['new_opportunities'] > 0:
+            report_parts.append(f"🎯 Found {result['new_opportunities']} expansion opportunities")
+            
+            # Highlight best opportunity
+            best_opportunity = observation_comp.get_best_expansion_target()
+            if best_opportunity:
+                report_parts.append(f"Best target: {best_opportunity.opportunity_type} at {best_opportunity.position} "
+                                  f"(value: {best_opportunity.value_assessment:.1%}, difficulty: {best_opportunity.estimated_difficulty})")
+        
+        # Add knowledge summary
+        report_parts.append(f"Total intelligence: {status['tiles_known']} known tiles, "
+                          f"{status['active_threats']} tracked threats, "
+                          f"{status['known_opportunities']} known opportunities")
+        
+        return " | ".join(report_parts)
+    
+    # Add action description for dynamic prompts
+    observe_area.action_description = "**Observe Area**: Scan surrounding terrain for threats, opportunities, and tactical intelligence"
+    
+    return observe_area
+
+
+def create_assess_expansion_tool(general_entity) -> Callable:
+    """
+    Factory function to create an assess_expansion tool for generals.
+    """
+    from feudal_sim.components.terrain_observation import TerrainObservation
+    from feudal_sim.components.position import PositionComponent
+    from feudal_sim.components.subagent_group import SubAgentGroup
+    
+    observation_comp = general_entity.get_component(TerrainObservation)
+    position_comp = general_entity.get_component(PositionComponent)
+    group_comp = general_entity.get_component(SubAgentGroup)
+    
+    if not all([observation_comp, position_comp, group_comp]):
+        @function_tool
+        def assess_expansion_unavailable() -> str:
+            """Expansion assessment unavailable - missing required components."""
+            return f"General {general_entity.name} cannot assess expansion - missing capabilities"
+        return assess_expansion_unavailable
+    
+    @function_tool  
+    def assess_expansion(ctx: RunContextWrapper["SimulationContext"], target_direction: str = None) -> str:
+        """
+        Assess expansion opportunities in a specific direction or around current position.
+        Analyzes terrain viability, resource potential, and settlement requirements.
+        
+        Args:
+            target_direction: Direction to focus assessment (N, NE, SE, S, SW, NW) or None for all directions
+            
+        Returns:
+            Detailed expansion assessment report
+        """
+        if not position_comp.position:
+            return "Cannot assess expansion - position unknown"
+        
+        # Get opportunities in the area
+        opportunities = observation_comp.get_opportunities_in_area(position_comp.position)
+        
+        if target_direction:
+            # Filter opportunities by direction (approximate)
+            # This is a simplified directional filter - could be enhanced
+            filtered_opportunities = []
+            for opp in opportunities:
+                opp_q, opp_r = opp.position
+                pos_q, pos_r = position_comp.position
+                
+                # Simple directional filtering based on coordinate differences
+                dq, dr = opp_q - pos_q, opp_r - pos_r
+                
+                direction_matches = {
+                    'N': dr < 0,
+                    'NE': dq > 0 and dr <= 0,  
+                    'SE': dq > 0 and dr > 0,
+                    'S': dr > 0,
+                    'SW': dq < 0 and dr >= 0,
+                    'NW': dq < 0 and dr < 0
+                }
+                
+                if direction_matches.get(target_direction.upper(), False):
+                    filtered_opportunities.append(opp)
+            
+            opportunities = filtered_opportunities
+        
+        if not opportunities:
+            direction_text = f" in {target_direction} direction" if target_direction else ""
+            return f"No expansion opportunities detected{direction_text}. Consider observing the area first."
+        
+        # Get group capabilities
+        settlement_capability = group_comp.get_settlement_capability()
+        group_strength = group_comp.get_group_strength()
+        
+        # Analyze opportunities
+        report_parts = []
+        direction_text = f" in {target_direction} direction" if target_direction else ""
+        report_parts.append(f"Expansion assessment{direction_text}: {len(opportunities)} opportunities found")
+        
+        # Group capabilities
+        report_parts.append(f"Your group strength: {group_strength}, settlement capability: {settlement_capability:.1%}")
+        
+        # Categorize opportunities
+        by_type = {}
+        for opp in opportunities:
+            by_type[opp.opportunity_type] = by_type.get(opp.opportunity_type, 0) + 1
+        
+        if by_type:
+            type_summary = ", ".join(f"{count} {opp_type}" for opp_type, count in by_type.items())
+            report_parts.append(f"Opportunity types: {type_summary}")
+        
+        # Highlight top 3 opportunities
+        sorted_opportunities = sorted(opportunities, key=lambda x: x.value_assessment, reverse=True)
+        top_opportunities = sorted_opportunities[:3]
+        
+        for i, opp in enumerate(top_opportunities, 1):
+            feasible = "✓" if settlement_capability >= 0.5 else "✗"
+            report_parts.append(f"{i}. {opp.opportunity_type.title()} at {opp.position}: "
+                              f"value {opp.value_assessment:.1%}, {opp.estimated_difficulty} difficulty {feasible}")
+        
+        # Assessment recommendation
+        if settlement_capability >= 0.7 and top_opportunities:
+            best = top_opportunities[0]
+            report_parts.append(f"Recommendation: Strong capability to settle {best.opportunity_type} at {best.position}")
+        elif settlement_capability >= 0.4:
+            report_parts.append("Recommendation: Moderate settlement capability - consider easier targets")
+        else:
+            report_parts.append("Recommendation: Low settlement capability - need more workers or supplies")
+        
+        return " | ".join(report_parts)
+    
+    # Add action description for dynamic prompts
+    assess_expansion.action_description = "**Assess Expansion**: Analyze expansion opportunities and group's capability to settle new territory"
+    
+    return assess_expansion
+
+
+def create_settle_territory_tool(general_entity) -> Callable:
+    """
+    Factory function to create a settle_territory tool for generals.
+    """
+    from feudal_sim.components.terrain_observation import TerrainObservation
+    from feudal_sim.components.position import PositionComponent
+    from feudal_sim.components.subagent_group import SubAgentGroup
+    from feudal_sim.components.territory import TerritoryComponent
+    from feudal_sim.components.population import PopulationComponent
+    
+    observation_comp = general_entity.get_component(TerrainObservation)
+    position_comp = general_entity.get_component(PositionComponent)
+    group_comp = general_entity.get_component(SubAgentGroup)
+    
+    if not all([observation_comp, position_comp, group_comp]):
+        @function_tool
+        def settle_territory_unavailable() -> str:
+            """Settlement unavailable - missing required components."""
+            return f"General {general_entity.name} cannot settle territory - missing capabilities"
+        return settle_territory_unavailable
+    
+    @function_tool
+    def settle_territory(ctx: RunContextWrapper["SimulationContext"], target_direction: str = None) -> str:
+        """
+        Settle all valid unowned land tiles within 1-tile radius around current position for the parent house.
+        Ignores target_direction.
+        """
+        # Context and prerequisites
+        sim_context = ctx.context
+        if not sim_context or not hasattr(sim_context, 'hex_grid') or not sim_context.hex_grid:
+            return "Settlement failed - map access not available"
+        if not position_comp.position:
+            return "Cannot settle - position unknown"
+        if not hasattr(general_entity, 'house_id'):
+            return "Settlement failed - no parent house connection"
+        parent_house = None
+        if hasattr(sim_context, 'entity_manager') and sim_context.entity_manager:
+            parent_house = sim_context.entity_manager.get_entity(general_entity.house_id)
+        if not parent_house:
+            return "Settlement failed - cannot find parent house"
+        house_territory = parent_house.get_component(TerritoryComponent)
+        if not house_territory:
+            return "Settlement failed - parent house has no territory management"
+        
+        # Collect unowned, non-water tiles in radius 1
+        from feudal_sim.map.types import HexTileType
+        q0, r0 = position_comp.position
+        neighbors = [(0,0), (1,0), (-1,0), (0,1), (0,-1), (1,-1), (-1,1)]
+        targets = []
+        for dq, dr in neighbors:
+            tile = sim_context.hex_grid.get_tile(q0 + dq, r0 + dr)
+            if not tile:
+                continue
+            if getattr(tile, 'owner', None):
+                continue
+            terrain = getattr(tile, 'terrain_type', None)
+            if terrain in {HexTileType.OCEAN, HexTileType.LAKE}:
+                continue
+            targets.append(tile)
+        
+        if not targets:
+            return "No unowned land tiles within 1 tile to settle"
+        
+        # Execute settlement via house wrapper for proper updates
+        try:
+            parent_house.expand_territory(targets, sim_context.hex_grid)
+        except Exception:
+            # Fallback to direct component
+            house_territory.expand_territory(targets, sim_context.hex_grid, house_territory.territory_color)
+        
+        # Update group state
+        try:
+            supply_cost = 10 + max(0, len(targets) - 1) * 5
+            group_comp.consume_supplies(supply_cost)
+            group_comp.record_action_result(True, experience_gained=2)
+        except Exception:
+            pass
+        
+        coords = [(t.q, t.r) for t in targets]
+        return f"Settled {len(targets)} nearby tiles: {coords}"
+    
+    # Add action description for dynamic prompts
+    settle_territory.action_description = "**Settle Nearby Tiles**: Claim unowned tiles within 1-tile radius for your house"
+    
+    return settle_territory
+
+
 def create_general_toolset(general_entity) -> list:
     """Create tools for general entities."""
     tools = []
@@ -737,28 +1103,280 @@ def create_general_toolset(general_entity) -> list:
     # Basic movement tool
     tools.append(create_move_tool(general_entity))
     
+    # Observation and intelligence tools
+    # tools.append(create_observe_area_tool(general_entity))
+    # tools.append(create_assess_expansion_tool(general_entity))
+    
+    # General → Lord communication via raven (simple)
+    from feudal_sim.components.rookery import RookeryComponent
+    from agents import function_tool, RunContextWrapper
+    from feudal_sim.ai.context import SimulationContext
+    
+    @function_tool
+    def send_raven_to_lord(ctx: RunContextWrapper["SimulationContext"], message: str) -> str:
+        """
+        Send a raven back to your lord with a short status or request.
+        """
+        sim_context = ctx.context
+        if not sim_context or not sim_context.entity_manager:
+            return "Cannot send raven - simulation context unavailable"
+        if not hasattr(general_entity, 'house_id'):
+            return "Cannot send raven - no parent house assigned"
+        parent = sim_context.entity_manager.get_entity(general_entity.house_id)
+        if not parent:
+            return "Cannot send raven - parent house not found"
+        # Ensure both sides have rookeries and know each other
+        parent_rookery = parent.get_component(RookeryComponent)
+        general_rookery = general_entity.get_component(RookeryComponent)
+        if not general_rookery:
+            general_rookery = RookeryComponent(entity_id=general_entity.id)
+            general_entity.add_component(general_rookery)
+        if not parent_rookery:
+            parent_rookery = RookeryComponent(entity_id=parent.id)
+            parent.add_component(parent_rookery)
+        parent_rookery.add_known_recipient(general_entity.id, general_entity.name, discovered=False)
+        general_rookery.add_known_recipient(parent.id, parent.name, discovered=False)
+        # Date context
+        status = {
+            'turn': getattr(sim_context, 'current_turn', 1),
+            'date': getattr(sim_context, 'current_date', 'Week 1, Spring, Year 1')
+        }
+        parent_rookery.set_current_date_context(status['turn'], status['date'])
+        general_rookery.set_current_date_context(status['turn'], status['date'])
+        ok = general_rookery.send_raven(parent.id, message)
+        return "Raven dispatched to your lord" if ok else "Failed to dispatch raven"
+    send_raven_to_lord.action_description = "**Send Raven to Lord**: Communicate status or requests back to your house"
+    tools.append(send_raven_to_lord)
+    
+    # One-tile observation for simplicity
+    from feudal_sim.components.terrain_observation import TerrainObservation
+    from feudal_sim.components.position import PositionComponent
+    
+    @function_tool
+    def observe_area(ctx: RunContextWrapper["SimulationContext"]) -> str:
+        """
+        Observe tiles within 1 tile radius around you and summarize threats/opportunities.
+        """
+        sim_context = ctx.context
+        if not sim_context or not sim_context.hex_grid:
+            return "Observation failed - map access not available"
+        obs: TerrainObservation = general_entity.get_component(TerrainObservation)
+        pos: PositionComponent = general_entity.get_component(PositionComponent)
+        if not obs or not pos or not pos.position:
+            return "Observation failed - missing components or position"
+        current_turn = getattr(sim_context, 'current_turn', 0)
+        # Temporarily limit range to 1
+        original = obs.observation_range
+        obs.observation_range = 1
+        try:
+            result = obs.observe_current_area(sim_context.hex_grid, pos.position, current_turn)
+        finally:
+            obs.observation_range = original
+        # Fetch localized intelligence
+        threats = obs.get_threats_in_area(pos.position, search_range=1)
+        opportunities = obs.get_opportunities_in_area(pos.position, search_range=1)
+        # Build summaries
+        threat_counts: Dict[str, int] = {}
+        for t in threats:
+            threat_counts[t.threat_level] = threat_counts.get(t.threat_level, 0) + 1
+        opp_type_counts: Dict[str, int] = {}
+        for o in opportunities:
+            opp_type_counts[o.opportunity_type] = opp_type_counts.get(o.opportunity_type, 0) + 1
+        best_local = None
+        if opportunities:
+            best_local = max(opportunities, key=lambda x: x.value_assessment)
+        
+        # Natural language landscape summary within 1 tile
+        hex_grid = sim_context.hex_grid
+        from feudal_sim.map.types import HexTileType
+        tiles_in_radius = []
+        center_tile = hex_grid.get_tile(pos.position[0], pos.position[1])
+        if center_tile:
+            tiles_in_radius.append((center_tile, "CENTER"))
+        for neigh, dirn in hex_grid.get_neighbors(pos.position[0], pos.position[1]):
+            if neigh:
+                tiles_in_radius.append((neigh, dirn))
+        
+        terrain_counts_local: Dict[str, int] = {}
+        ownership = {"ours": 0, "unowned": 0, "other": 0}
+        richest_tile = None
+        richest_value = -1.0
+        for tile, _d in tiles_in_radius:
+            terrain_name = str(getattr(tile, 'terrain_type', 'unknown'))
+            terrain_counts_local[terrain_name] = terrain_counts_local.get(terrain_name, 0) + 1
+            owner = getattr(tile, 'owner', None)
+            if not owner:
+                ownership["unowned"] += 1
+            elif hasattr(owner, 'id') and owner.id == getattr(general_entity, 'house_id', None):
+                ownership["ours"] += 1
+            else:
+                ownership["other"] += 1
+            # crude resource score
+            val = float(getattr(tile, 'food_output', 0)) + float(getattr(tile, 'material_output', 0)) + float(getattr(tile, 'metal_output', 0))
+            if val > richest_value:
+                richest_value = val
+                richest_tile = tile
+        
+        # Terrain mix text
+        terrain_sorted = sorted(terrain_counts_local.items(), key=lambda kv: kv[1], reverse=True)
+        if terrain_sorted:
+            primary = terrain_sorted[0][0]
+            mix_text = f"mostly {primary.lower()}"
+            if len(terrain_sorted) > 1:
+                secondary = terrain_sorted[1][0]
+                mix_text += f" with some {secondary.lower()}"
+        else:
+            mix_text = "mixed terrain"
+        
+        # Directional highlights (owned and unowned)
+        dir_highlights = []
+        # Simple human-friendly names for some terrains
+        def friendly_terrain(terr):
+            name = getattr(terr, 'value', str(terr)).lower()
+            mapping = {
+                'grassland': 'plains',
+                'temperate_forest': 'forest',
+                'boreal_forest': 'forest',
+                'rainforest': 'rainforest',
+                'ice_cap': 'ice',
+            }
+            return mapping.get(name, name.replace('_', ' '))
+        
+        for neigh, dirn in hex_grid.get_neighbors(pos.position[0], pos.position[1]):
+            if not neigh:
+                continue
+            terr = getattr(neigh, 'terrain_type', None)
+            terr_name = friendly_terrain(terr)
+            owner = getattr(neigh, 'owner', None)
+            if not owner:
+                owner_text = 'unclaimed'
+            else:
+                # Our house or other
+                if hasattr(owner, 'id') and owner.id == getattr(general_entity, 'house_id', None):
+                    owner_text = 'our'
+                else:
+                    owner_text = getattr(owner, 'name', getattr(owner, 'id', 'other')).lower()
+            # Optional resource hint for unclaimed land
+            res_text = ''
+            if not owner:
+                food = getattr(neigh, 'food_output', 0)
+                material = getattr(neigh, 'material_output', 0)
+                metal = getattr(neigh, 'metal_output', 0)
+                bits = []
+                if food > 0:
+                    bits.append(f"food {int(food)}")
+                if material > 0:
+                    bits.append(f"material {int(material)}")
+                if metal > 0:
+                    bits.append(f"metal {int(metal)}")
+                if bits:
+                    res_text = f" (resources: {', '.join(bits)})"
+            dir_highlights.append(f"{dirn}: {owner_text} {terr_name}{res_text}")
+        
+        intro = f"From {pos.position}, the immediate surroundings are {mix_text}."
+        own_text = f" Unowned tiles nearby: {ownership['unowned']}."
+        threat_text = ""
+        if threats:
+            breakdown = ", ".join(f"{cnt} {lvl}" for lvl, cnt in threat_counts.items())
+            threat_text = f" Threats detected: {breakdown}."
+        best_text = ""
+        if best_local:
+            best_text = (f" Best local target: {best_local.opportunity_type} at {best_local.position} "
+                         f"(value {best_local.value_assessment:.0%}, {best_local.estimated_difficulty}).")
+        dirs_text = ""
+        if dir_highlights:
+            dirs_text = " Nearby tiles → " + "; ".join(dir_highlights)
+        
+        nl_report = intro + own_text + threat_text + best_text + ("" if not dirs_text else " | " + dirs_text)
+        
+        return nl_report
+    observe_area.action_description = "**Observe (1 tile)**: Scan the immediate surroundings"
+    tools.append(observe_area)
+    
+    # Simple settle within 1 tile radius
+    from feudal_sim.components.territory import TerritoryComponent
+    
+    @function_tool
+    def settle_tiles(ctx: RunContextWrapper["SimulationContext"]) -> str:
+        """
+        Settle any unowned land tiles within 1 tile radius for your parent house.
+        """
+        sim_context = ctx.context
+        if not sim_context or not sim_context.hex_grid or not sim_context.entity_manager:
+            return "Settlement failed - simulation context unavailable"
+        if not hasattr(general_entity, 'house_id'):
+            return "Settlement failed - no parent house"
+        parent = sim_context.entity_manager.get_entity(general_entity.house_id)
+        if not parent:
+            return "Settlement failed - parent house not found"
+        pos = general_entity.get_component(PositionComponent)
+        if not pos or not pos.position:
+            return "Settlement failed - position unknown"
+        q0, r0 = pos.position
+        targets = []
+        for dq, dr in [(0,0), (1,0), (-1,0), (0,1), (0,-1), (1,-1), (-1,1)]:
+            tile = sim_context.hex_grid.get_tile(q0 + dq, r0 + dr)
+            if tile and getattr(tile, 'terrain_type', None) is not None:
+                from feudal_sim.map.types import HexTileType
+                if tile.terrain_type not in {HexTileType.OCEAN, HexTileType.LAKE} and not getattr(tile, 'owner', None):
+                    targets.append(tile)
+        if not targets:
+            return "No unowned tiles within 1 tile to settle"
+        # Use house wrapper to expand for proper capacity updates and color
+        try:
+            parent.expand_territory(targets, sim_context.hex_grid)
+        except Exception:
+            # Fallback to direct component call if wrapper unavailable
+            from feudal_sim.components.territory import TerritoryComponent
+            house_territory = parent.get_component(TerritoryComponent)
+            if not house_territory:
+                return "Settlement failed - parent house has no territory management"
+            house_territory.expand_territory(targets, sim_context.hex_grid, house_territory.territory_color)
+        return f"Settled {len(targets)} nearby tiles for your house"
+    settle_tiles.action_description = "**Settle Nearby Tiles**: Claim unowned tiles within 1 tile radius for your house"
+    tools.append(settle_tiles)
+    
+    # Territory management tools
+    tools.append(create_settle_territory_tool(general_entity))
+    
+    # Universal tools
+    tools.append(end_turn)
+    
     # Future general-specific tools:
-    # tools.append(create_local_expansion_tool(general_entity))
     # tools.append(create_fortify_position_tool(general_entity))
-    # tools.append(create_scout_area_tool(general_entity))
     
     return tools
 
 
 # Tool categories for different entity types
-def create_army_toolset(army_entity) -> list:
+def create_army_toolset(_army_entity) -> list:
     """Create tools for army entities (future implementation)."""
-    return []
+    tools = []
+    
+    # Universal tools
+    tools.append(end_turn)
+    
+    return tools
 
 
-def create_scout_toolset(scout_entity) -> list:
+def create_scout_toolset(_scout_entity) -> list:
     """Create tools for scout entities (future implementation).""" 
-    return []
+    tools = []
+    
+    # Universal tools
+    tools.append(end_turn)
+    
+    return tools
 
 
-def create_caravan_toolset(caravan_entity) -> list:
+def create_caravan_toolset(_caravan_entity) -> list:
     """Create tools for caravan entities (future implementation)."""
-    return []
+    tools = []
+    
+    # Universal tools
+    tools.append(end_turn)
+    
+    return tools
 
 
 # Registry of tool factories by entity type
