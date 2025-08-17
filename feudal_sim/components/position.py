@@ -9,6 +9,8 @@ It provides movement validation, distance calculations, and area of influence.
 from typing import Tuple, Set, List, Optional, Dict, Any
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
+from feudal_sim.utils.directions import neighbor_delta_to_dir
+from feudal_sim.utils.observations import ObservationFormatter
 
 
 class PositionComponent(Component):
@@ -296,17 +298,20 @@ class PositionComponent(Component):
             new_q, new_r = self.position
             distance = self.hex_distance(self.previous_position, self.position)
             
-            ai_component.add_observation(
-                f"Moved from ({old_q}, {old_r}) to ({new_q}, {new_r}) - distance {distance}, "
-                f"{self.remaining_movement} movement points remaining",
-                phase
-            )
+            if distance == 1:
+                dq = new_q - old_q
+                dr = new_r - old_r
+                dir_code = neighbor_delta_to_dir((dq, dr))
+                msg = ObservationFormatter.movement_single_step(dir_code, self.remaining_movement)
+            else:
+                msg = ObservationFormatter.movement_multi_step(distance, self.remaining_movement)
+            
+            ai_component.add_observation(msg, phase)
         
-        # Add operational range context
+        # Add operational range context (no raw coordinates)
         if hasattr(self.entity, 'name'):
             ai_component.add_observation(
-                f"Position: ({self.q}, {self.r}) - can act within {self.operational_range} tiles, "
-                f"can move {self.remaining_movement} tiles this turn",
+                f"Can act within {self.operational_range} tiles this turn",
                 phase
             )
     

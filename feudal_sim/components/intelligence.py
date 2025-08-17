@@ -71,26 +71,27 @@ class IntelligenceComponent(Component):
         return max(abs(x1 - x2), abs(y1 - y2), abs(z1 - z2))
     
     def calculate_direction(self, from_center: Tuple[float, float], to_center: Tuple[float, float]) -> str:
-        """Calculate cardinal/intercardinal direction from one point to another."""
-        dq = to_center[0] - from_center[0]
-        dr = to_center[1] - from_center[1]
-        
-        # Handle case where points are the same
-        if abs(dq) < 0.01 and abs(dr) < 0.01:
-            return "Same location"
-        
-        # Convert to angle (in radians)
-        angle = math.atan2(dr, dq)
-        
-        # Convert to degrees and normalize to 0-360
-        angle_degrees = math.degrees(angle) % 360
-        
-        # Map to 8 cardinal directions
-        # Starting from East (0°) and going counter-clockwise
-        directions = ["E", "NE", "N", "NW", "W", "SW", "S", "SE"]
-        direction_index = round(angle_degrees / 45) % 8
-        
-        return directions[direction_index]
+        """Return a human-friendly direction (N, NE, E, SE, S, SW, W, NW)."""
+        q1, r1 = from_center
+        q2, r2 = to_center
+        dq, dr = q2 - q1, r2 - r1
+        # Approximate axial to compass mapping
+        if abs(dq) > abs(dr):
+            if dq > 0 and dr <= 0:
+                return "NE"
+            elif dq > 0 and dr > 0:
+                return "SE"
+            elif dq < 0 and dr >= 0:
+                return "SW"
+            else:
+                return "NW"
+        else:
+            if dr < 0:
+                return "N"
+            elif dr > 0:
+                return "S"
+            else:
+                return "CENTER"
     
     def _calculate_territory_center_for_house(self, house) -> Tuple[float, float]:
         """Calculate territory center for another house."""

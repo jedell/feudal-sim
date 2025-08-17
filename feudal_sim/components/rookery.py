@@ -10,6 +10,7 @@ from typing import List, Dict, Set
 from dataclasses import dataclass
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
+from feudal_sim.utils.observations import ObservationFormatter
 
 
 @dataclass
@@ -167,7 +168,7 @@ class RookeryComponent(Component):
         
         # Generate observation for AI
         self.current_observations.append(
-            f"📜 A raven arrived from {raven_message.sender_name} (sent {raven_message.sent_date}): '{raven_message.message}'"
+            ObservationFormatter.raven_received(raven_message.sender_name, raven_message.message)
         )
         
         # Store reference for delivery notification
@@ -340,7 +341,7 @@ class RavenDeliverySystem:
                 sender_entity = entity_manager.get_entity(raven.sender_id)
                 if sender_entity and sender_entity.has_component(RookeryComponent):
                     sender_rookery = sender_entity.get_component(RookeryComponent)
-                    delivery_notification = f"📜 Your raven to {raven.recipient_name} was delivered: '{raven.message[:30]}...'"
+                    delivery_notification = ObservationFormatter.raven_delivered(raven.recipient_name)
                     sender_rookery.current_observations.append(delivery_notification)
         
         return len(ravens_to_deliver)

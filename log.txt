@@ -1,244 +1,2761 @@
-🧠 Found 7 generals
-Press Enter to continue...
+uv run main.py
+📄 Loaded config: world
+📄 Loaded config: simulation
+Making 4 rivers
+Tile dtype:  94
+House dtype:  82
+PositionedEntity dtype:  132
+📄 Loaded config: world
+📄 Loaded config: simulation
+   Lord/Lady of House Stark: Detected entity type 'house'
+   Lord/Lady of House Stark: Created 11 tools via house toolset
+🤖 Generated dynamic instructions for Lord/Lady of House Stark (house_lord)
+🤖 Initialized AI agent: Lord/Lady of House Stark with 11 tools
+🏰 Stark established capital city 'Winterfell' at (-10, 2)
+   Lord/Lady of House Lannister: Detected entity type 'house'
+DEBUG: Tile size: 94
+DEBUG: House size: 82
+DEBUG: PositionedEntity size: 132
+   Lord/Lady of House Lannister: Created 11 tools via house toolset
+🤖 Generated dynamic instructions for Lord/Lady of House Lannister (house_lord)
+🤖 Initialized AI agent: Lord/Lady of House Lannister with 11 tools
+🏰 Lannister established capital city 'Casterly Rock' at (14, 2)
+🎲 Generated identity: Robert Baratheon with matching persona
+   Robert Baratheon: Detected entity type 'house'
+   Robert Baratheon: Created 11 tools via house toolset
+🤖 Generated dynamic instructions for Robert Baratheon (house_lord)
+🤖 Initialized AI agent: Robert Baratheon with 11 tools
+🏰 Baratheon established capital city 'Storm's End' at (-8, 11)
+🏗️  Adding resource nodes to the map...
+   💰 Added gold mine at (-12, -2)
+   ⛏️  Added iron deposit at (-8, -7)
+   ⛏️  Added iron deposit at (-12, 9)
+✅ Added 3 resource nodes
+🔍 Initializing house intelligence reports...
+   📊 Stark: Generated intelligence on 2 other houses
+   📊 Lannister: Generated intelligence on 2 other houses
+   📊 Baratheon: Generated intelligence on 2 other houses
 
-⚙️  Production Phase - Year 1, Summer, Week 1, Production Phase
-🧠 Found 7 generals
-Press Enter to continue...
+⚙️  Production Phase - Year 1, Spring, Week 1, Production Phase
+🧠 Found 0 generals
+Press Enter to continue...DEBUG: Initialized positioned entities shared memory for 50 entities
+INFO: Initializing raylib 5.5
+INFO: Platform backend: DESKTOP (GLFW)
+INFO: Supported raylib modules:
+INFO:     > rcore:..... loaded (mandatory)
+INFO:     > rlgl:...... loaded (mandatory)
+INFO:     > rshapes:... loaded (optional)
+INFO:     > rtextures:. loaded (optional)
+INFO:     > rtext:..... loaded (optional)
+INFO:     > rmodels:... loaded (optional)
+INFO:     > raudio:.... loaded (optional)
+INFO: DISPLAY: Device initialized successfully
+INFO:     > Display size: 1728 x 1117
+INFO:     > Screen size:  800 x 600
+INFO:     > Render size:  800 x 600
+INFO:     > Viewport offsets: 0, 0
+INFO: GLAD: OpenGL extensions loaded successfully
+INFO: GL: Supported extensions count: 43
+INFO: GL: OpenGL device information:
+INFO:     > Vendor:   Apple
+INFO:     > Renderer: Apple M3 Pro
+INFO:     > Version:  4.1 Metal - 89.4
+INFO:     > GLSL:     4.10
+INFO: GL: VAO extension detected, VAO functions loaded successfully
+INFO: GL: NPOT textures extension detected, full NPOT textures supported
+INFO: GL: DXT compressed textures supported
+INFO: PLATFORM: DESKTOP (GLFW - Cocoa): Initialized successfully
+INFO: TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 1] Default texture loaded successfully
+INFO: SHADER: [ID 1] Vertex shader compiled successfully
+INFO: SHADER: [ID 2] Fragment shader compiled successfully
+INFO: SHADER: [ID 3] Program shader loaded successfully
+INFO: SHADER: [ID 3] Default shader loaded successfully
+INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+INFO: RLGL: Default OpenGL state initialized successfully
+INFO: TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+INFO: FONT: Default font loaded successfully (224 glyphs)
+INFO: SYSTEM: Working Directory: /Volumes/git/feudal-sim
+INFO: TIMER: Target time per frame: 16.667 milliseconds
+Loading sprite assets...
+INFO: FILEIO: [render/assets/Trees.png] File loaded successfully
+INFO: IMAGE: Data loaded successfully (64x16 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 3] Texture loaded successfully (64x16 | R8G8B8A8 | 1 mipmaps)
+Loaded sprite sheet: trees (4x1 sprites, 64x16 texture)
+Successfully loaded trees sprites
+INFO: FILEIO: [render/assets/Keep.png] File loaded successfully
+INFO: IMAGE: Data loaded successfully (96x64 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 4] Texture loaded successfully (96x64 | R8G8B8A8 | 1 mipmaps)
+Loaded sprite sheet: keeps (3x2 sprites, 96x64 texture)
+Successfully loaded keep sprites
+INFO: FILEIO: [render/assets/Soliders/Mounted/RedKnight.png] File loaded successfully
+INFO: IMAGE: Data loaded successfully (128x384 | R8G8B8A8 | 1 mipmaps)
+INFO: TEXTURE: [ID 5] Texture loaded successfully (128x384 | R8G8B8A8 | 1 mipmaps)
+Loaded sprite sheet: red_knights (4x12 sprites, 128x384 texture)
+Successfully loaded red knight sprites
+Sprite loading completed.
 
-⚙️  Actions Phase - Year 1, Summer, Week 1, Actions Phase
-🧠 All entities (3 houses, 7 generals) making decisions concurrently...
+
+⚙️  Actions Phase - Year 1, Spring, Week 1, Actions Phase
+🧠 All entities (3 houses, 0 generals) making decisions concurrently...
 🧠 Stark AI is thinking...
-👀 Lord/Lady of House Stark [Production] Your territories produced +9 food, +18 material, +36 metal this turn
-👀 Lord/Lady of House Stark [Production] Your population grew by 69 people (now 404)
-👀 Lord/Lady of House Stark [Production] Population loyalty increased to 94
+👀 Lord/Lady of House Stark [Production] Your territories produced +28 food, +14 material, +17 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 64 people (now 164)
 👀 [Lord/Lady of House Stark] Week 1 - Actions Phase
-Summer, Year 1
+Spring, Year 1
 
-Resources: 139.0 food, 178.0 material, 256.0 metal, 141.0 gold
-Population: 404, Loyalty: 94.0
-Territory: 9 tiles, 0 pending expansions
+Resources: 128.0 food, 114.0 material, 117.0 metal, 100.0 gold
+Population: 164, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
 
 What actions do you take this turn?
 🧠 Lannister AI is thinking...
-👀 Lord/Lady of House Lannister [Production] Your territories produced +21 food, +60 material, +60 metal this turn
-👀 Lord/Lady of House Lannister [Production] Your population grew by 79 people (now 418)
+👀 Lord/Lady of House Lannister [Production] Your territories produced +40 food, +12 material, +9 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 70 people (now 170)
 👀 [Lord/Lady of House Lannister] Week 1 - Actions Phase
-Summer, Year 1
+Spring, Year 1
 
-Resources: 159.0 food, 296.0 material, 272.0 metal, 100.0 gold
-Population: 418, Loyalty: 100.0
-Territory: 19 tiles, 0 pending expansions
+Resources: 140.0 food, 112.0 material, 109.0 metal, 100.0 gold
+Population: 170, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
 
 What actions do you take this turn?
 🧠 Baratheon AI is thinking...
-👀 Robert Baratheon [Production] Your territories produced +96 food, +42 material, +54 metal this turn
-👀 Robert Baratheon [Production] Your population grew by 179 people (now 664)
+👀 Robert Baratheon [Production] Your territories produced +18 food, +14 material, +24 metal this turn
+👀 Robert Baratheon [Production] Your population grew by 59 people (now 159)
 👀 [Robert Baratheon] Week 1 - Actions Phase
-Summer, Year 1
+Spring, Year 1
 
-Resources: 359.0 food, 189.0 material, 224.0 metal, 100.0 gold
-Population: 664, Loyalty: 100.0
-Territory: 24 tiles, 0 pending expansions
-
-What actions do you take this turn?
-🧠 General Clegane AI is thinking...
-👀 General Clegane [Actions] Moved from (1, -9) to (1, -11) - distance 2, 2 movement points remaining
-👀 General Clegane [Actions] Position: (1, -11) - can act within 3 tiles, can move 2 tiles this turn
-👀 General Clegane [Actions] Intelligence: 21 threats detected in area (2 high priority)
-👀 [General Clegane] Week 1 - Actions Phase
-Summer, Year 1
-
+Resources: 118.0 food, 114.0 material, 124.0 metal, 100.0 gold
+Population: 159, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
 
 What actions do you take this turn?
-🧠 General Snow AI is thinking...
-👀 General Snow [Actions] Moved from (0, -14) to (2, -14) - distance 2, 2 movement points remaining
-👀 General Snow [Actions] Position: (2, -14) - can act within 3 tiles, can move 2 tiles this turn
-👀 General Snow [Actions] Intelligence: 14 threats detected in area (1 high priority)
-👀 [General Snow] Week 1 - Actions Phase
-Summer, Year 1
+🎲 Generated fallback persona for: Commander Clegane
+   Commander Clegane: Detected entity type 'general'
+   Commander Clegane: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for Commander Clegane (general)
+🤖 Initialized AI agent: Commander Clegane with 6 tools
+Len of new items:  5
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Stark Household management updated: 98 workers (60%), 65 soldiers (40%). Resource efficiency: 0.54 (-0.11), Expansion bonus: +20.0% (+0.05)
+🤖 Lord/Lady of House Stark assess_border {"direction":"N"}
+🤖 Lord/Lady of House Stark Border assessment: 3 tiles (grassland, mountain). Cost: 60 material, 60 gold
+🤖 Lord/Lady of House Stark I will allocate 60 material and 60 gold to begin expanding our territory northwards into a promising region of grassland and mountain. This expansion will increase our lands and resources, essential for the strength of the North.
+
+Additionally, I have apportioned 60% of our population as workers to maintain steady growth and 40% as soldiers to prepare for expansion and defense.
+
+This is the course for this season.
+✅ Stark AI finished thinking
+Len of new items:  7
+🤖 Robert Baratheon manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Robert Baratheon Household management updated: 95 workers (60%), 63 soldiers (40%). Resource efficiency: 0.54 (-0.11), Expansion bonus: +20.0% (+0.05)
+🤖 Robert Baratheon assess_border {"direction":"N"}
+🤖 Robert Baratheon Border assessment: 3 tiles (hill). Cost: 60 material, 60 gold
+🤖 Robert Baratheon assess_border {"direction":"NE"}
+🤖 Robert Baratheon Border assessment: 3 tiles (hill). Cost: 60 material, 60 gold
+🤖 Robert Baratheon I have allocated 60% of my population to work and 40% to soldiers, enhancing our military strength for expansion. I have scouted the northern and northeast borders, each showing 3 hill tiles available for potential expansion, with an estimated cost of 60 material and 60 gold per direction. I will consider expanding into one of these hill regions next turn.
+✅ Baratheon AI finished thinking
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Lannister Household management updated: 102 workers (60%), 68 soldiers (40%). Resource efficiency: 0.54 (-0.11), Expansion bonus: +20.0% (+0.05)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"NE"}
+🤖 Lord/Lady of House Lannister Border assessment: 1 tiles (grassland). Cost: 20 material, 20 gold
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"NE","soldiers_assigned":30,"workers_assigned":10,"general_name":"Commander Clegane","orders":"Expand our territory northeastward into the grassland territory, secure it against any threats, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Successfully deployed Commander Clegane to the NE with 40 people (30 soldiers, 10 workers). Position: (15, 2). Group strength: 40, combat strength 65 and settlement capability 80.0%. Orders: 'Expand our territory northeastward into the grassland territory, secure it against any threats, and establish a settlement.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Lord/Lady of House Lannister This turn, I have allocated 60% of our population as workers to maintain resource production efficiency and 40% as soldiers to strengthen our military capability for expansion. I have assessed the northeast border and found a grassland tile available for expansion at the cost of 20 material and 20 gold. I have deployed Commander Clegane with a force of 30 soldiers and 10 workers to expand and secure the northeast territory, and establish a settlement there. This will increase our territorial holdings and strengthen our position. I will monitor progress closely.
+✅ Lannister AI finished thinking
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Spring, Week 1, Events Phase
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Spring, Week 1, Cleanup Phase
+📊 Turn Summary - spring Year 1
+House Stark Resources: {'food': 128, 'material': 114, 'metal': 117, 'gold': 100}
+House Stark Population: 164, Loyalty: 100
+House Lannister Resources: {'food': 140, 'material': 42, 'metal': 109, 'gold': 20}
+House Lannister Population: 170, Loyalty: 100
+House Baratheon Resources: {'food': 118, 'material': 114, 'metal': 124, 'gold': 100}
+House Baratheon Population: 159, Loyalty: 100
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Spring, Week 2, Production Phase
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Spring, Week 2, Actions Phase
+🧠 All entities (3 houses, 1 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +23 food, +14 material, +15 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 75 people (now 239)
+👀 [Lord/Lady of House Stark] Week 2 - Actions Phase
+Spring, Year 1
+
+Resources: 151.0 food, 128.0 material, 132.0 metal, 100.0 gold
+Population: 239, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +26 food, +9 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 83 people (now 253)
+👀 [Lord/Lady of House Lannister] Week 2 - Actions Phase
+Spring, Year 1
+
+Resources: 166.0 food, 49.0 material, 118.0 metal, 20.0 gold
+Population: 253, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Production] Your territories produced +16 food, +14 material, +24 metal this turn
+👀 Robert Baratheon [Production] Your population grew by 67 people (now 226)
+👀 [Robert Baratheon] Week 2 - Actions Phase
+Spring, Year 1
+
+Resources: 134.0 food, 128.0 material, 148.0 metal, 100.0 gold
+Population: 226, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Commander Clegane AI is thinking...
+👀 Commander Clegane [Actions] Can act within 3 tiles this turn
+👀 [Commander Clegane] Week 2 - Actions Phase
+Spring, Year 1
 
 
 What actions do you take this turn?
-🧠 General Baratheon AI is thinking...
-👀 General Baratheon [Actions] Moved from (-3, 13) to (-4, 13) - distance 1, 2 movement points remaining
-👀 General Baratheon [Actions] Position: (-4, 13) - can act within 3 tiles, can move 2 tiles this turn
-👀 General Baratheon [Actions] Intelligence: Best expansion opportunity is settlement at (-4, 13) (value: 91.0%)
-👀 [General Baratheon] Week 1 - Actions Phase
-Summer, Year 1
-
-
-What actions do you take this turn?
-🧠 General Baratheon AI is thinking...
-👀 General Baratheon [Actions] Moved from (-1, 13) to (0, 14) - distance 2, 2 movement points remaining
-👀 General Baratheon [Actions] Position: (0, 14) - can act within 3 tiles, can move 2 tiles this turn
-👀 [General Baratheon] Week 1 - Actions Phase
-Summer, Year 1
-
-
-What actions do you take this turn?
-🧠 General Lorch AI is thinking...
-👀 General Lorch [Actions] Moved from (1, -7) to (0, -6) - distance 1, 2 movement points remaining
-👀 General Lorch [Actions] Position: (0, -6) - can act within 3 tiles, can move 2 tiles this turn
-👀 General Lorch [Actions] Intelligence: Best expansion opportunity is settlement at (-2, -4) (value: 100.0%)
-👀 [General Lorch] Week 1 - Actions Phase
-Summer, Year 1
-
-
-What actions do you take this turn?
-🧠 Commander Forrester AI is thinking...
-👀 Commander Forrester [Actions] Position: (1, -14) - can act within 3 tiles, can move 2 tiles this turn
-👀 Commander Forrester [Actions] Intelligence: 8 threats detected in area (1 high priority)
-👀 [Commander Forrester] Week 1 - Actions Phase
-Summer, Year 1
-
-
-What actions do you take this turn?
-🧠 General Baratheon AI is thinking...
-👀 General Baratheon [Actions] Position: (0, 12) - can act within 3 tiles, can move 2 tiles this turn
-👀 General Baratheon [Actions] Intelligence: Best expansion opportunity is settlement at (1, 9) (value: 100.0%)
-👀 [General Baratheon] Week 1 - Actions Phase
-Summer, Year 1
-
-
-What actions do you take this turn?
-Len of new items:  3
-🤖 Commander Forrester observe_area {}
-🤖 Commander Forrester Observed 7 tiles within 1 tile radius around (1, -14) | No immediate threats or opportunities detected
-🤖 Commander Forrester I observe the surrounding tiles within 1 tile radius around our current position (1, -14) to assess the area for threats or opportunities. No immediate threats or opportunities are detected.
-
-Next, I will move closer to address the high priority threat detected in the intelligence report, unless it's within current radius. Could you specify the location of the high priority threat or should I proceed to scout around the edges for it?
-✅ Commander Forrester AI finished thinking
 🎲 Generated fallback persona for: General Baratheon
    General Baratheon: Detected entity type 'general'
    General Baratheon: Created 6 tools via general toolset
 🤖 Generated dynamic instructions for General Baratheon (general)
 🤖 Initialized AI agent: General Baratheon with 6 tools
-Len of new items:  8
-🤖 General Baratheon observe_area {}
-🤖 General Baratheon Observed 7 tiles within 1 tile radius around (-4, 13) | Opportunities: 4 (4 settlement) | Best target: settlement at (-4, 13) (value 91.0%, difficulty easy)
-🤖 General Baratheon settle_tiles {}
-🤖 General Baratheon No unowned tiles within 1 tile to settle
-🤖 General Baratheon move {"target_q":-5,"target_r":12}
-🤖 General Baratheon Moved from (-4, 13) to (-5, 12)
-🤖 General Baratheon end_turn {}
-🤖 General Baratheon Turn ended
-✅ General Baratheon AI finished thinking
-Len of new items:  6
-🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.7,"soldier_ratio":0.3}
-🤖 Lord/Lady of House Lannister Household management updated: 205 workers (70%), 87 soldiers (30%). Resource efficiency: 0.65 (0.00), Expansion bonus: +15.0% (0.00)
-🤖 Lord/Lady of House Lannister assess_border {"direction":"SE"}
-🤖 Lord/Lady of House Lannister Border assessment: 7 tiles (river (and 4 more tiles)). Cost: 140 material, 140 gold
-🤖 Lord/Lady of House Lannister I maintain the population allocation at 70% workers and 30% soldiers for balanced productivity and military readiness.
-
-I have assessed the southeastern border and found 7 tiles available, including valuable river tiles. The expansion cost would be 140 material and 140 gold.
-
-Please advise if you want me to deploy a general to expand southeast or take other actions such as sending ravens, collecting taxes, reviewing cities, or ending the turn.
-🤖 Lord/Lady of House Lannister Would you like me to proceed with military deployment for expansion or other strategic initiatives?
-✅ Lannister AI finished thinking
-Len of new items:  6
-🤖 General Lorch move {"target_q":-1,"target_r":-5}
-🤖 General Lorch Moved from (0, -6) to (-1, -5)
-🤖 General Lorch settle_territory {"target_direction":"northeast"}
-🤖 General Lorch Settled 6 nearby tiles: [(-1, -5), (0, -5), (-2, -5), (-1, -4), (-1, -6), (-2, -4)]
-🤖 General Lorch end_turn {}
-🤖 General Lorch Turn ended
-✅ General Lorch AI finished thinking
-Len of new items:  6
-🤖 Lord/Lady of House Stark assess_border {"direction":"N"}
-🤖 Lord/Lady of House Stark Border assessment: 2 tiles (tundra). Cost: 40 material, 40 gold
-🤖 Lord/Lady of House Stark I will have scouts assess the northern border for potential expansion opportunities. The assessment reveals 2 tundra tiles available for expansion with a cost of 40 material and 40 gold. This information will help us plan our next moves carefully.
-🤖 Lord/Lady of House Stark collect_taxes {"tax_rate":0.1}
-🤖 Lord/Lady of House Stark Collected 61 gold from 404 population with 10% tax rate. Gold: 141 → 202 (+61). Population loyalty: 94 → 86 (-8)
-🤖 Lord/Lady of House Stark I will again collect taxes at a 10% rate this turn to further strengthen our treasury. This action will raise our gold but reduce loyalty moderately to 86, which remains acceptable for now.
-✅ Stark AI finished thinking
 Len of new items:  7
-🤖 Robert Baratheon manage_household {"worker_ratio":0.55,"soldier_ratio":0.45}
-🤖 Robert Baratheon Household management updated: 189 workers (55%), 154 soldiers (45%). Resource efficiency: 0.49 (-0.05), Expansion bonus: +22.5% (+0.02)
-🤖 Robert Baratheon deploy_general {"direction":"NE","soldiers_assigned":120,"workers_assigned":50,"general_name":"General Baratheon","orders":"Continue advancing northeast, consolidate control, and strengthen fortifications at all key points across the river and desert territories."}
-🤖 Robert Baratheon Successfully deployed General Baratheon to the NE with 170 people (120 soldiers, 50 workers). Position: (1, 12). Group strength: 170, combat strength 265 and settlement capability 100.0%. Orders: 'Continue advancing northeast, consolidate control, and strengthen fortifications at all key points across the river and desert territories.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
-🤖 Robert Baratheon I continue adjusting the household by increasing the soldier ratio to 45% and decreasing workers to 55%, focusing more on military strength to secure our expanded territories.
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Lannister Household management updated: 127 workers (60%), 85 soldiers (40%). Resource efficiency: 0.54 (0.00), Expansion bonus: +20.0% (0.00)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"NE"}
+🤖 Lord/Lady of House Lannister Border assessment: 1 tiles (grassland). Cost: 20 material, 20 gold
+🤖 Lord/Lady of House Lannister I will maintain the household allocation as 60% workers and 40% soldiers to balance resource production and military strength for expansion.
 
-I deploy General Baratheon with 120 soldiers and 50 workers northeast again to push further into the region, consolidate control, and fortify all key points in the river and desert lands.
+I will assess the northeast border again to gather updated intelligence on the potential for expanding further into that grassland territory.
 
-These actions will secure our hold and prepare us for future expansions or challenges. I will end my turn now.
+I await further developments from Commander Clegane's current expansion efforts before committing more forces or resources.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  5
+🤖 Robert Baratheon deploy_general {"direction":"N","soldiers_assigned":50,"workers_assigned":30,"general_name":"General Baratheon","orders":"Expand our territory northward by securing the 3 hill tiles. Establish strong defenses upon capture."}
+🤖 Robert Baratheon Successfully deployed General Baratheon to the N with 80 people (50 soldiers, 30 workers). Position: (-7, 10). Group strength: 80, combat strength 115 and settlement capability 100.0%. Orders: 'Expand our territory northward by securing the 3 hill tiles. Establish strong defenses upon capture.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Robert Baratheon I have deployed General Baratheon with 50 soldiers and 30 workers to the north with orders to expand our territory by securing the three hill tiles and establishing strong defenses once the land is ours. This will increase our domain and strengthen our northern border. We continue to maintain a balance between population growth and military capability for a strong and prosperous realm.
 🤖 Robert Baratheon end_turn {}
 🤖 Robert Baratheon Turn ended
 ✅ Baratheon AI finished thinking
+🎲 Generated fallback persona for: General Umber
+   General Umber: Detected entity type 'general'
+   General Umber: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for General Umber (general)
+🤖 Initialized AI agent: General Umber with 6 tools
 Len of new items:  6
-🤖 General Snow observe_area {}
-🤖 General Snow Observed 7 tiles within 1 tile radius around (2, -14) | No immediate threats or opportunities detected
-🤖 General Snow I observed the area around our new position (2, -14) and detect no immediate threats or opportunities despite the intelligence indicating 14 threats with 1 high priority. I will prioritize caution and prepare defensive measures while consolidating our hold here.
+🤖 Lord/Lady of House Stark deploy_general {"direction":"N","soldiers_assigned":65,"workers_assigned":35,"general_name":"General Umber","orders":"Proceed to expand our territory northward, secure the grassland and mountain lands, establish a stronghold and send reconnaissance to adjacent areas."}
+🤖 Lord/Lady of House Stark Cannot deploy general - insufficient resources: need 115 gold and 130 material
+🤖 Lord/Lady of House Stark I see we do not have enough materials and gold to deploy the general with the desired soldiers and workers for expansion north.
 
-Next, I will settle any unowned tiles within 1 tile radius around our current position (2, -14) to strengthen territorial control and establish a secure outpost as per mission orders.
-🤖 General Snow settle_tiles {}
-🤖 General Snow Settled 5 nearby tiles for your house
-🤖 General Snow I have settled 5 nearby unowned tiles for our house around (2, -14), expanding our territory and reinforcing our position in the northeast tundra. I will hold this position and maintain readiness for possible threats.
+I will first adjust to deploy a smaller force.
 
-If no other immediate orders are given, I will end this turn to prepare for what comes next.
-✅ General Snow AI finished thinking
+Deploy General Umber with 40 soldiers and 20 workers to the north with orders to expand and secure the territory, establish a foothold, and scout surrounding areas.
+🤖 Lord/Lady of House Stark deploy_general {"direction":"N","soldiers_assigned":40,"workers_assigned":20,"general_name":"General Umber","orders":"Proceed to expand our territory northward, secure the grassland and mountain lands, establish a stronghold, and send reconnaissance to adjacent areas."}
+🤖 Lord/Lady of House Stark Successfully deployed General Umber to the N with 60 people (40 soldiers, 20 workers). Position: (-10, 1). Group strength: 60, combat strength 90 and settlement capability 100.0%. Orders: 'Proceed to expand our territory northward, secure the grassland and mountain lands, establish a stronghold, and send reconnaissance to adjacent areas.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Lord/Lady of House Stark I have deployed General Umber northward with 40 soldiers and 20 workers. The orders are to expand our territory northward, secure the grassland and mountain lands, establish a stronghold, and send reconnaissance to adjacent areas.
+
+This will extend our realm's reach and secure new resources for the North.
+
+For household management, I will keep the balance steady this term: 60% workers to maintain growth and 40% soldiers to support our military efforts.
+
+No new taxes will be levied this turn; the people's loyalty remains precious.
+
+This is our plan this season.
+✅ Stark AI finished thinking
+Len of new items:  20
+🤖 Commander Clegane observe_area {}
+🤖 Commander Clegane From our current position, the immediate surroundings are mostly ocean with some plains. Unowned tiles nearby: 3. | Borders: our territory to north, southwest and northwest; unclaimed to northeast, southeast and south | Settlements: NW: Casterly Rock - Capital (Village) - Owned by Lannister
+🤖 Commander Clegane settle_tiles {}
+🤖 Commander Clegane No unowned tiles within 1 tile to settle
+🤖 Commander Clegane move {"direction":"NE"}
+🤖 Commander Clegane Cannot move to (16, 1): Cannot move into water tiles
+🤖 Commander Clegane move {"direction":"NE"}
+🤖 Commander Clegane Cannot move to (16, 1): Cannot move into water tiles
+🤖 Commander Clegane move {"direction":"E"}
+🤖 Commander Clegane Invalid direction 'E'. Valid directions: N, NE, SE, S, SW, NW
+🤖 Commander Clegane move {"direction":"SE"}
+🤖 Commander Clegane Cannot move to (16, 2): Cannot move into water tiles
+🤖 Commander Clegane move {"direction":"N"}
+🤖 Commander Clegane Moved from (15, 2) to (15, 1)
+🤖 Commander Clegane observe_area {}
+🤖 Commander Clegane From our current position, the immediate surroundings are mostly plains with some ocean. Unowned tiles nearby: 3. | Borders: our territory to south, southwest and northwest; unclaimed to north, northeast and southeast | Settlements: SW: Casterly Rock - Capital (Village) - Owned by Lannister
+🤖 Commander Clegane settle_tiles {}
+🤖 Commander Clegane Settled 1 nearby tiles for your house
+🤖 Commander Clegane end_turn {}
+🤖 Commander Clegane Turn ended
+✅ Commander Clegane AI finished thinking
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Spring, Week 2, Events Phase
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Spring, Week 2, Cleanup Phase
+📊 Turn Summary - spring Year 1
+House Stark Resources: {'food': 151, 'material': 38, 'metal': 132, 'gold': 10}
+House Stark Population: 239, Loyalty: 100
+House Lannister Resources: {'food': 166, 'material': 49, 'metal': 118, 'gold': 20}
+House Lannister Population: 253, Loyalty: 100
+House Baratheon Resources: {'food': 134, 'material': 18, 'metal': 148, 'gold': 0}
+House Baratheon Population: 226, Loyalty: 100
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Spring, Week 3, Production Phase
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Spring, Week 3, Actions Phase
+🛑 Disbanded Commander Clegane due to upkeep/morale failure
+🧠 All entities (3 houses, 2 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +19 food, +13 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 85 people (now 324)
+👀 [Lord/Lady of House Stark] Week 3 - Actions Phase
+Spring, Year 1
+
+Resources: 170.0 food, 46.0 material, 145.0 metal, 10.0 gold
+Population: 324, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +32 food, +8 material, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 99 people (now 352)
+👀 Lord/Lady of House Lannister [Actions] General Commander Clegane has disbanded due to upkeep/morale issues (assigned 40 people returned)
+👀 [Lord/Lady of House Lannister] Week 3 - Actions Phase
+Spring, Year 1
+
+Resources: 198.0 food, 57.0 material, 128.0 metal, 20.0 gold
+Population: 352, Loyalty: 100.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Production] Your territories produced +10 food, +19 metal this turn
+👀 Robert Baratheon [Production] Your population grew by 72 people (now 298)
+👀 [Robert Baratheon] Week 3 - Actions Phase
+Spring, Year 1
+
+Resources: 144.0 food, 26.0 material, 167.0 metal, 0.0 gold
+Population: 298, Loyalty: 100.0
+Territory: 7 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 [General Baratheon] Week 3 - Actions Phase
+Spring, Year 1
+
+
+What actions do you take this turn?
+🧠 General Umber AI is thinking...
+👀 General Umber [Actions] Can act within 3 tiles this turn
+👀 [General Umber] Week 3 - Actions Phase
+Spring, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  8
+🤖 General Umber observe_area {}
+🤖 General Umber From our current position, the immediate surroundings are mostly plains with some mountains. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest | Settlements: S: Winterfell - Capital (Village) - Owned by Stark
+🤖 General Umber settle_tiles {}
+🤖 General Umber Settled 3 nearby tiles for your house
+🤖 General Umber send_raven_to_lord {"message":"Secured and settled 3 unclaimed tiles north and northeast. Territory expanding towards grassland and mountain regions as ordered. Preparing for further reconnaissance and stronghold establishment."}
+🤖 General Umber Raven dispatched to your lord
+🤖 General Umber end_turn {}
+🤖 General Umber Turn ended
+✅ General Umber AI finished thinking
+Len of new items:  8
+🤖 Robert Baratheon We currently have 26 materials and no gold after the last expansion effort. Our population has grown to 298 with full loyalty. Our resources show strong metal and food but material and gold reserves are low.
+
+I will take the following actions this week:
+- Collect taxes at a moderate rate of 20% to refill our treasury without risking loyalty loss.
+- Allocate more population to workers to enhance material production while still keeping a strong soldier force for defense and potential expansion (worker ratio 70%, soldier ratio 30%).
+- Assess the northeast border more deeply for further expansion potential after the northern push.
+
+These moves should strengthen our resource base and prepare us for further growth and power projection.
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.2}
+🤖 Robert Baratheon manage_household {"worker_ratio":0.7,"soldier_ratio":0.3}
+🤖 Robert Baratheon assess_border {"direction":"NE"}
+🤖 Robert Baratheon Collected 90 gold from 298 population with 20% tax rate. Gold: 0 → 90 (+90). Population loyalty: 100 → 84 (-16)
+🤖 Robert Baratheon Household management updated: 152 workers (70%), 65 soldiers (30%). Resource efficiency: 0.65 (+0.11), Expansion bonus: +15.0% (-0.05)
+🤖 Robert Baratheon Border assessment: 3 tiles (hill). Cost: 60 material, 60 gold
+🤖 Robert Baratheon I collected a 20% tax this week, raising 90 gold but lowering loyalty to 84%. I adjusted the household to 70% workers and 30% soldiers, improving resource production efficiency. I also assessed the northeast border again and found 3 hill tiles available for expansion at a cost of 60 material and 60 gold. This readies us for further territorial growth after shoring up resources.
+✅ Baratheon AI finished thinking
+Len of new items:  9
+🤖 Lord/Lady of House Stark Our resources show a significant material deficit due to the costs of our northern expansion. We must stabilize our material stock to support further growth.
+
+I will adjust the household to favor more workers to replenish material production without sacrificing too many soldiers needed for defense and ongoing expansion efforts.
+
+I will allocate 75% of our population to work and 25% to soldiers.
+
+Meanwhile, I will order General Umber to continue fortifying and expanding the northern lands, maintaining a defensive stance until we stabilize resources.
+
+No new expansions will be initiated elsewhere for now.
+
+Our loyalty remains strong, so I will not impose additional taxes.
+
+This balanced but cautious approach will ensure steady growth and security.
+
+I proceed with these orders.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.75,"soldier_ratio":0.25}
+🤖 Lord/Lady of House Stark list_generals {}
+🤖 Lord/Lady of House Stark Household management updated: 198 workers (75%), 66 soldiers (25%). Resource efficiency: 0.71 (+0.17), Expansion bonus: +12.5% (-0.08)
+🤖 Lord/Lady of House Stark General Umber — 60 assigned, morale 95%, supplies 78%, status active
+🤖 Lord/Lady of House Stark I have adjusted household allocation to 75% workers and 25% soldiers to improve material production and maintain defense.
+
+General Umber remains active with 60 people for expanding and securing the northern territory.
+
+We maintain our loyalty at 100, and no new taxes are collected this turn.
+
+This is our strategy heading into the next season.
+🤖 Lord/Lady of House Stark Now I will end this turn to allow events and production to resolve.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
 Len of new items:  10
-🤖 General Baratheon settle_territory {"target_direction":"northeast"}
-🤖 General Baratheon Settled 3 nearby tiles: [(1, 12), (0, 11), (1, 11)]
-🤖 General Baratheon move {"target_q":1,"target_r":10}
-🤖 General Baratheon Moved from (0, 12) to (1, 10)
 🤖 General Baratheon observe_area {}
-🤖 General Baratheon Observed 7 tiles within 1 tile radius around (1, 10) | Opportunities: 2 (2 settlement) | Best target: settlement at (1, 9) (value 100.0%, difficulty easy)
-🤖 General Baratheon settle_territory {"target_direction":"south"}
-🤖 General Baratheon Settled 5 nearby tiles: [(1, 10), (2, 10), (0, 10), (1, 9), (2, 9)]
+🤖 General Baratheon From our current position, the immediate surroundings are mostly hills with some grassland. Unowned tiles nearby: 3. | Borders: our territory to south, southwest and northwest; unclaimed to north, northeast and southeast | Settlements: SW: Storm's End - Capital (Village) - Owned by Baratheon
+🤖 General Baratheon The immediate surroundings consist mostly of hills with some grassland. There are three unowned tiles nearby that we need to secure to the north, northeast, and southeast. Our territory borders to the south, southwest, and northwest. Our capital, Storm's End, lies to the southwest.
+
+Given our mission to expand northward by securing the three hill tiles and establish strong defenses, I will take the following actions:
+
+1. Settle the three unowned hill tiles within 1 tile radius to the north, northeast, and southeast to claim them for Baratheon.
+2. Begin fortifying these new positions to ensure strong defenses.
+
+I will proceed to settle these tiles immediately.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 3 nearby tiles for your house
+🤖 General Baratheon We have successfully settled the three nearby unowned hill tiles to the north, northeast, and southeast, expanding our territory as ordered. Next, I will send a raven to our lord to report the progress of securing the three hill tiles and our intent to establish strong defenses there. Then, we will prepare for fortification in upcoming turns.
+
+Sending a raven now.
+🤖 General Baratheon send_raven_to_lord {"message":"We have secured the three hill tiles northward as per orders. Territory expanded and preparations will begin to fortify and establish strong defenses there. Morale and supplies remain high at 100%. Await further instructions."}
+🤖 General Baratheon Raven dispatched to your lord
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  11
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Lannister Household management updated: 228 workers (65%), 123 soldiers (35%). Resource efficiency: 0.60 (+0.05), Expansion bonus: +17.5% (-0.03)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"NE"}
+🤖 Lord/Lady of House Lannister No expansion opportunities in NE direction
+🤖 Lord/Lady of House Lannister assess_border {"direction":"S"}
+🤖 Lord/Lady of House Lannister Border assessment: 1 tiles (steppe). Cost: 20 material, 20 gold
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":50,"workers_assigned":10,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 100 gold and 90 material
+🤖 Lord/Lady of House Lannister I have adjusted the household composition to 65% workers and 35% soldiers to enhance resource production efficiency while maintaining reasonable military strength.
+
+I assessed the northeast border but found no further expansion opportunities there.
+
+I then assessed the southern border and found a steppe tile available for expansion, requiring 20 material and 20 gold.
+
+However, I currently lack sufficient resources (90 material and 100 gold required) to deploy a general to expand southward.
+
+I will refrain from deploying a general this turn and focus on accumulating resources for future expansion.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Spring, Week 3, Events Phase
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Spring, Week 3, Cleanup Phase
+📊 Turn Summary - spring Year 1
+House Stark Resources: {'food': 170, 'material': 46, 'metal': 145, 'gold': 10}
+House Stark Population: 324, Loyalty: 100
+House Lannister Resources: {'food': 198, 'material': 57, 'metal': 128, 'gold': 20}
+House Lannister Population: 352, Loyalty: 100
+House Baratheon Resources: {'food': 144, 'material': 26, 'metal': 167, 'gold': 90}
+House Baratheon Population: 298, Loyalty: 84
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Spring, Week 4, Production Phase
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Spring, Week 4, Actions Phase
+🛑 Disbanded General Umber due to upkeep/morale failure
+🧠 All entities (3 houses, 1 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +36 food, +20 material, +24 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 103 people (now 427)
+👀 Lord/Lady of House Stark [Actions] General General Umber has disbanded due to upkeep/morale issues (assigned 60 people returned)
+👀 [Lord/Lady of House Stark] Week 4 - Actions Phase
+Spring, Year 1
+
+Resources: 206.0 food, 66.0 material, 169.0 metal, 10.0 gold
+Population: 427, Loyalty: 100.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +46 food, +14 material, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 122 people (now 474)
+👀 [Lord/Lady of House Lannister] Week 4 - Actions Phase
+Spring, Year 1
+
+Resources: 244.0 food, 71.0 material, 138.0 metal, 20.0 gold
+Population: 474, Loyalty: 100.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Production] Your territories produced +24 food, +13 material, +25 metal, +90 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 84 people (now 382)
+👀 Robert Baratheon [Production] Population loyalty increased to 85
+👀 [Robert Baratheon] Week 4 - Actions Phase
+Spring, Year 1
+
+Resources: 88.0 food, 39.0 material, 192.0 metal, 40.0 gold
+Population: 382, Loyalty: 85.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 4 - Actions Phase
+Spring, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  9
+🤖 Lord/Lady of House Stark Our northern expansion has successfully added three new tiles to our territory.
+
+General Umber disbanded due to morale and upkeep challenges; their 60 assigned people have returned to our population.
+
+We now have 427 people, and resources have improved significantly.
+
+Given the expanded lands, it's prudent to allocate more soldiers for defense and future expansion.
+
+I will manage the household with 65% workers to sustain production and 35% soldiers to maintain military strength.
+
+Next, I will assess the border to the northeast to evaluate further expansion opportunities.
+
+No new taxes will be imposed; loyalty remains strong.
+
+This is our course for this week.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Stark assess_border {"direction":"NE"}
+🤖 Lord/Lady of House Stark Household management updated: 277 workers (65%), 149 soldiers (35%). Resource efficiency: 0.60 (-0.11), Expansion bonus: +17.5% (+0.05)
+🤖 Lord/Lady of House Stark Border assessment: 4 tiles (mountain, hill (and 1 more tiles)). Cost: 80 material, 80 gold
+🤖 Lord/Lady of House Stark Following the border assessment to the northeast, there is a promising region of 4 tiles encompassing mountain and hill terrain. The cost for expansion there is 80 material and 80 gold.
+
+Given our current resources and military strength, I will hold off on committing to that expansion immediately and instead prepare our forces further.
+
+I will wait until next turn to gather more materials and gold before deploying a general or starting new projects.
+
+Our immediate focus will be maintaining these newly gained lands and continuing resource growth.
+
+This approach prioritizes stability and readiness for the challenges ahead.
+🤖 Lord/Lady of House Stark I will now end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  9
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Lannister Household management updated: 308 workers (65%), 165 soldiers (35%). Resource efficiency: 0.60 (0.00), Expansion bonus: +17.5% (0.00)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"S"}
+🤖 Lord/Lady of House Lannister Border assessment: 1 tiles (steppe). Cost: 20 material, 20 gold
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":60,"workers_assigned":20,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 110 gold and 110 material
+🤖 Lord/Lady of House Lannister I have kept the population allocation at 65% workers and 35% soldiers to maximize resource production while maintaining a good military force.
+
+The southern border remains a viable expansion target with a steppe tile available for conquest at the cost of 20 material and 20 gold.
+
+However, I currently do not have enough gold and material to deploy a general with sufficient forces to expand there.
+
+I will focus this turn on resource accumulation and maintaining readiness for a future expansion effort.
+
+I end this turn awaiting improved resources.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  11
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly hills with some grassland. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest | Settlements: SW: Storm's End - Capital (Village) - Owned by Baratheon
+🤖 General Baratheon The immediate surroundings are now fully owned, with no unowned tiles nearby. Our territory surrounds us in all directions, including the three hill tiles we claimed to the north.
+
+Orders are to establish strong defenses on the newly captured hill tiles. I will take the following actions:
+
+1. Use available workers to fortify these hill tiles, beginning with the northernmost tile and then the others.
+2. Maintain position to oversee and coordinate defense preparations.
+
+I will settle the territory again to reinforce ownership and indicate defensive establishment, and prepare for fortifications starting with these tiles.
+🤖 General Baratheon settle_territory {"target_direction":"N"}
+🤖 General Baratheon No unowned tiles within range to settle
+🤖 General Baratheon The territory is fully settled with no unowned tiles nearby to settle further.
+
+Since the three hill tiles are secured, the next logical step is to move closer to the northern hill tiles to begin fortification efforts and maintain control over these strategic positions.
+
+Moving one tile north to gain better access and oversight for fortification on the northern hill tiles.
+🤖 General Baratheon move {"direction":"N"}
+🤖 General Baratheon Moved from (-7, 10) to (-7, 9)
+🤖 General Baratheon I have moved one tile north to better oversee the northern hill tiles and begin fortification efforts there. We maintain control and readiness to fortify these territories as ordered.
+
+I will end the turn here and await further orders.
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  13
+🤖 Robert Baratheon Our resource stockpiles remain robust with strong food, metal, and growing material reserves, but gold is modest at 40. Population has grown to 382 with loyalty recovering to 85%.
+
+I will take these actions:
+- Maintain moderate taxes at 20% to replenish gold further and keep loyalty stable.
+- Keep a balanced population split at 65% workers and 35% soldiers to sustain growth and military strength.
+- Deploy a general northeast to expand into the 3 hill tiles, using remaining gold and material from our resources.
+
+This will grow our lands and maintain a capable defense posture while balancing loyalty and treasury needs.
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.2}
+🤖 Robert Baratheon manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Robert Baratheon deploy_general {"direction":"NE","soldiers_assigned":40,"workers_assigned":30,"general_name":"General Orys","orders":"Expand and secure the 3 hill tiles northeast. Fortify and ensure the safety of the new territory."}
+🤖 Robert Baratheon Collected 115 gold from 382 population with 20% tax rate. Gold: 40 → 155 (+115). Population loyalty: 85 → 69 (-16)
+🤖 Robert Baratheon Household management updated: 196 workers (65%), 105 soldiers (35%). Resource efficiency: 0.60 (-0.06), Expansion bonus: +17.5% (+0.02)
+🤖 Robert Baratheon Cannot deploy general - insufficient resources: need 90 gold and 100 material
+🤖 Robert Baratheon I intended to deploy General Orys with 40 soldiers and 30 workers northeast to secure the hill tiles, but we do not have enough material for the full expansion cost. 
+
+I will keep the tax rate at 20% to raise gold, balance the population at 65% workers and 35% soldiers for steady growth and military strength.
+
+Next, I will reassess available directions or wait for more material before committing to further expansion.
+🤖 Robert Baratheon assess_border {"direction":"SE"}
+🤖 Robert Baratheon Border assessment: 4 tiles (mountain, desert, grassland (and 1 more tiles)). Cost: 80 material, 80 gold
+🤖 Robert Baratheon I have maintained a 20% tax rate, balanced the workforce at 65% workers and 35% soldiers, and assessed the southeast border. There are 4 tiles there including mountain, desert, and grassland, with a cost of 80 material and 80 gold. Given our current material and gold, I will focus on accumulating resources for now before launching another expansion.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Spring, Week 4, Events Phase
+📬 1 ravens delivered this turn
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Spring, Week 4, Cleanup Phase
+📊 Turn Summary - spring Year 1
+House Stark Resources: {'food': 206, 'material': 66, 'metal': 169, 'gold': 10}
+House Stark Population: 427, Loyalty: 100
+House Lannister Resources: {'food': 244, 'material': 71, 'metal': 138, 'gold': 20}
+House Lannister Population: 474, Loyalty: 100
+House Baratheon Resources: {'food': 88, 'material': 39, 'metal': 192, 'gold': 155}
+House Baratheon Population: 382, Loyalty: 69
+🌅 Season changed: spring → summer
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Summer, Week 1, Production Phase
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Summer, Week 1, Actions Phase
+🧠 All entities (3 houses, 1 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +47 food, +20 material, +24 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 126 people (now 553)
+👀 [Lord/Lady of House Stark] Week 1 - Actions Phase
+Summer, Year 1
+
+Resources: 253.0 food, 86.0 material, 193.0 metal, 10.0 gold
+Population: 553, Loyalty: 100.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +54 food, +14 material, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 149 people (now 623)
+👀 [Lord/Lady of House Lannister] Week 1 - Actions Phase
+Summer, Year 1
+
+Resources: 298.0 food, 85.0 material, 148.0 metal, 20.0 gold
+Population: 623, Loyalty: 100.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 📜 A raven arrived from General Baratheon: 'We have secured the three hill tiles northward as per orders. Territory expanded and preparations will begin to fortify and establish strong defenses there. Morale and supplies remain high at 100%. Await further instructions.'
+👀 Robert Baratheon [Production] Your territories produced +13 material, +25 metal, +65 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 58 people (now 440)
+👀 Robert Baratheon [Production] Population loyalty increased to 70
+👀 [Robert Baratheon] Week 1 - Actions Phase
+Summer, Year 1
+
+Resources: 37.0 food, 52.0 material, 217.0 metal, 105.0 gold
+Population: 440, Loyalty: 70.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 1 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  9
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Lannister Household management updated: 404 workers (65%), 218 soldiers (35%). Resource efficiency: 0.60 (0.00), Expansion bonus: +17.5% (0.00)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"S"}
+🤖 Lord/Lady of House Lannister Border assessment: 1 tiles (steppe). Cost: 20 material, 20 gold
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":70,"workers_assigned":30,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 120 gold and 130 material
+🤖 Lord/Lady of House Lannister I maintain the household allocation of 65% workers and 35% soldiers to continue strong resource production with solid military capacity.
+
+The southern border steppe tile remains a good expansion opportunity.
+
+However, I do not currently have enough gold and material to deploy General Reyne with sufficient forces to expand there.
+
+I will continue to focus on resource accumulation this turn, delaying expansion until I have the required resources to ensure successful conquest and settlement.
+
+I will end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  8
+🤖 Lord/Lady of House Stark Our resources and population have grown steadily in the favorable summer season.
+
+We maintain 10 tiles, with no urgent expansions pending.
+
+I will now begin a measured preparation for the northeastern expansion previously assessed.
+
+I will manage the household with 60% workers to continue strong resource production and 40% soldiers to ready for military actions.
+
+Next, I will deploy a general named "General Reed" to the northeast with 60 soldiers and 20 workers.
+
+Orders for General Reed are to secure and expand the northeastern tiles, establish defenses, and conduct reconnaissance into adjacent areas.
+
+No new taxes will be levied; loyalty remains steadfast.
+
+This plan aims to expand our northern influence cautiously while keeping production strong.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Stark deploy_general {"direction":"NE","soldiers_assigned":60,"workers_assigned":20,"general_name":"General Reed","orders":"Secure and expand the northeastern tiles, establish defenses, and conduct reconnaissance into adjacent areas."}
+🤖 Lord/Lady of House Stark Household management updated: 331 workers (60%), 221 soldiers (40%). Resource efficiency: 0.54 (-0.05), Expansion bonus: +20.0% (+0.03)
+🤖 Lord/Lady of House Stark Cannot deploy general - insufficient resources: need 110 gold and 110 material
+🤖 Lord/Lady of House Stark I currently lack sufficient gold and material to deploy General Reed with the intended force.
+
+I will first wait for resources to accumulate before sending such a strong force.
+
+For now, I will take no further action beyond the household adjustment.
+
+Our strategy remains to prepare steadily for expansion northeast once resources allow.
+
+I will end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  10
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly hills with some plains. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest
+🤖 General Baratheon From my current position, I observe mostly hills with some plains around. There are 3 unowned tiles nearby to the north, northeast, and northwest. Our territory borders to the southeast, south, and southwest, with unclaimed lands to the north.
+
+To continue the expansion northward and secure the area further, I will settle these three unowned tiles within 1 tile radius for our house.
+
+Preparing to settle the three unowned tiles now.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 3 nearby tiles for your house
+🤖 General Baratheon The three nearby unowned tiles to the north, northeast, and northwest have been successfully settled, expanding our territory further north as ordered.
+
+With this expansion in place, I will send a raven to our lord to report the progress of securing these new lands and reaffirm our readiness to fortify and defend these positions.
+
+Sending the raven with the update now.
+🤖 General Baratheon send_raven_to_lord {"message":"We have expanded and secured three more northern tiles, continuing our northward expansion as ordered. Territory grows, and we prepare to fortify and defend these new lands. Morale and supplies remain strong."}
+🤖 General Baratheon Raven dispatched to your lord
 🤖 General Baratheon end_turn {}
 🤖 General Baratheon Turn ended
 ✅ General Baratheon AI finished thinking
 Len of new items:  10
+🤖 Robert Baratheon Our resources are stable with strong metal and decent material reserves, gold is adequate at 105, but food is low at 37. Population is 440 and loyalty has recovered to 70%.
+
+Actions for this week:
+- Immediately prioritize food production by shifting the workforce to 80% workers and 20% soldiers to improve food and material output.
+- Hold taxes steady at 15% to balance gold income and loyalty stability.
+- Deploy General Orys northeast with 40 soldiers and 40 workers to expand into the three hill tiles there, using available gold and materials.
+- Reinforce the fortifications in the new northern territory with available material and metal to secure our gains there.
+
+This balanced approach aims to sustain growth, territorial expansion, and defense without sacrificing loyalty.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.8,"soldier_ratio":0.2}
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.15}
+🤖 Robert Baratheon deploy_general {"direction":"NE","soldiers_assigned":40,"workers_assigned":40,"general_name":"General Orys","orders":"Expand and secure the 3 hill tiles northeast. Fortify new territory with strong defenses."}
+🤖 Robert Baratheon Household management updated: 288 workers (80%), 72 soldiers (20%). Resource efficiency: 0.77 (+0.17), Expansion bonus: +10.0% (-0.07)
+🤖 Robert Baratheon Collected 99 gold from 440 population with 15% tax rate. Gold: 105 → 204 (+99). Population loyalty: 70 → 58 (-12)
+🤖 Robert Baratheon Cannot deploy general - insufficient resources: need 90 gold and 110 material
+🤖 Robert Baratheon I have shifted the population to 80% workers and 20% soldiers to boost food production, and collected taxes at 15%, raising gold but lowering loyalty to 58%. However, we still lack enough material to deploy General Orys with 40 soldiers and 40 workers northeast for expansion.
+
+I will hold off deployment this week and focus on accumulating materials and food for upcoming campaigns.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Summer, Week 1, Events Phase
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Summer, Week 1, Cleanup Phase
+📊 Turn Summary - summer Year 1
+House Stark Resources: {'food': 253, 'material': 86, 'metal': 193, 'gold': 10}
+House Stark Population: 553, Loyalty: 100
+House Lannister Resources: {'food': 298, 'material': 85, 'metal': 148, 'gold': 20}
+House Lannister Population: 623, Loyalty: 100
+House Baratheon Resources: {'food': 37, 'material': 52, 'metal': 217, 'gold': 204}
+House Baratheon Population: 440, Loyalty: 58
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Summer, Week 2, Production Phase
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Summer, Week 2, Actions Phase
+🧠 All entities (3 houses, 1 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +41 food, +20 material, +21 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 147 people (now 700)
+👀 [Lord/Lady of House Stark] Week 2 - Actions Phase
+Summer, Year 1
+
+Resources: 294.0 food, 106.0 material, 214.0 metal, 10.0 gold
+Population: 700, Loyalty: 100.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +54 food, +14 material, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 176 people (now 799)
+👀 [Lord/Lady of House Lannister] Week 2 - Actions Phase
+Summer, Year 1
+
+Resources: 352.0 food, 99.0 material, 158.0 metal, 20.0 gold
+Population: 799, Loyalty: 100.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Production] Your territories produced +28 material, +34 metal, +49 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 42 people (now 482)
+👀 [Robert Baratheon] Week 2 - Actions Phase
+Summer, Year 1
+
+Resources: 5.0 food, 80.0 material, 251.0 metal, 154.0 gold
+Population: 482, Loyalty: 58.0
+Territory: 13 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 2 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  7
 🤖 General Baratheon observe_area {}
-🤖 General Baratheon Observed 7 tiles within 1 tile radius around (0, 14) | No immediate threats or opportunities detected
-🤖 General Baratheon settle_tiles {}
-🤖 General Baratheon No unowned tiles within 1 tile to settle
-🤖 General Baratheon move {"target_q":1,"target_r":15}
-🤖 General Baratheon Moved from (0, 14) to (1, 15)
-🤖 General Baratheon settle_tiles {}
-🤖 General Baratheon Settled 2 nearby tiles for your house
+🤖 General Baratheon move {"direction":"N"}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly hills with some plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Baratheon Moved from (-7, 9) to (-7, 8)
+🤖 General Baratheon I observe the surroundings and note that all nearby tiles are owned with no unclaimed land nearby. Our territory now surrounds us fully in all directions.
+
+I will move one tile further north to maintain a strategic forward position and oversee the northern territory more closely.
+
+After moving north, I will prepare to fortify the northern hill tiles as previously ordered. 
+
+Moving one tile north now.
 🤖 General Baratheon end_turn {}
 🤖 General Baratheon Turn ended
 ✅ General Baratheon AI finished thinking
-Len of new items:  17
-🤖 General Clegane observe_area {}
-🤖 General Clegane Observed 7 tiles within 1 tile radius around (1, -11) | No immediate threats or opportunities detected
-🤖 General Clegane Despite intelligence reporting 21 threats in the area, including 2 high priority, my direct observation within 1 tile radius around (1, -11) shows no immediate threats or opportunities.
+Len of new items:  8
+🤖 Robert Baratheon Our food supply is critically low at 5 while material, metal, and gold remain strong. Population is nearly 500 but loyalty has dropped to 58%, a potential risk for unrest.
 
-Given the high number of threats reported, I will act cautiously. I will keep our current position secure and prepare defenses by settling any unowned tiles if available. If no tiles are available, I will focus on reconnaissance by moving cautiously to gather more intelligence about these threats.
+I will take these actions:
+- Shift workforce to 90% workers and 10% soldiers to maximize food production urgently.
+- Reduce taxes to 10% to improve loyalty amid low food conditions.
+- Begin reinforcing fortifications in the northern and existing territories to secure gains and prevent unrest.
+- Hold off on expansion until food supplies stabilize and loyalty recovers.
 
-First, I will check again for settling opportunities.
-🤖 General Clegane settle_tiles {}
-🤖 General Clegane No unowned tiles within 1 tile to settle
-🤖 General Clegane There are no unowned tiles within 1 tile radius to settle at our current position.
+This should stabilize the realm internally before pursuing more territorial growth.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.9,"soldier_ratio":0.1}
+🤖 Robert Baratheon Household management updated: 361 workers (90%), 40 soldiers (10%). Resource efficiency: 0.88 (+0.12), Expansion bonus: +5.0% (-0.05)
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon Collected 73 gold from 482 population with 10% tax rate. Gold: 154 → 227 (+73). Population loyalty: 58 → 50 (-8)
+🤖 Robert Baratheon I have allocated 90% of our population to work and 10% to soldiers to maximize food production. I have reduced taxes to 10% to try to stabilize loyalty, though it has dropped to 50%. I will focus this turn on reinforcing our territories, holding off expansion until our food supply and loyalty improve.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.60,"soldier_ratio":0.40}
+🤖 Lord/Lady of House Lannister Household management updated: 479 workers (60%), 319 soldiers (40%). Resource efficiency: 0.54 (-0.05), Expansion bonus: +20.0% (+0.03)
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":70,"workers_assigned":30,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 120 gold and 130 material
+🤖 Lord/Lady of House Lannister I have adjusted the household composition to 60% workers and 40% soldiers to improve our military capacity for expansion, while slightly reducing resource efficiency.
 
-Given the high threat level nearby, I will now move cautiously to a nearby tile within 2 movement points to gain better vantage and prepare for potential confrontation or further scouting.
+I attempt again to deploy General Reyne with 70 soldiers and 30 workers to expand southward into the steppe territory.
 
-I will move 1 tile northeast to (2, -12) for better observation and control.
+However, I still lack the necessary 120 gold and 130 material to deploy the general.
 
-Executing move.
-🤖 General Clegane move {"target_q":2,"target_r":-12}
-🤖 General Clegane Moved from (1, -11) to (2, -12)
-🤖 General Clegane I have moved 1 tile northeast to position (2, -12) to gain better vantage and prepare for controlling the area.
+I will wait to accumulate resources before attempting the expansion again.
 
-Next, I will observe the surroundings here within 1 tile radius to assess threats more precisely.
+I end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  8
+🤖 Lord/Lady of House Stark We have more resources and a growing population.
 
-Proceeding with observation.
-🤖 General Clegane observe_area {}
-🤖 General Clegane Observed 7 tiles within 1 tile radius around (2, -12) | Threats: 3 (3 medium)
-🤖 General Clegane At position (2, -12), observation reveals 3 medium-level threats within 1 tile radius.
+I will keep household management steady at 60% workers and 40% soldiers to maintain balance between resource production and military readiness.
 
-I will send a raven to our lord to report this confirmed threat presence and request reinforcements or advice on handling the dangers in our expansion area.
+With enough materials but still low gold, I will focus this turn on collecting taxes to increase our gold reserves without overburdening the people, setting tax rate at 10%.
 
-Sending raven now.
-🤖 General Clegane send_raven_to_lord {"message":"Confirmed 3 medium threats near (2, -12). Position secured but situation requires reinforcements or strategic guidance. Expansion plans are at risk."}
-🤖 General Clegane Raven dispatched to your lord
-🤖 General Clegane I have reported to our lord the confirmation of 3 medium threats around (2, -12), emphasizing the need for reinforcements or strategic guidance as expansion plans face risk.
+This modest levy will help fund upcoming expansions and military deployments without risking loyalty.
 
-I will hold position to maintain control and readiness.
+I will hold back on new deployments this turn and wait for gold reserves to build.
+
+This plan allows us to prepare for future actions with solid resource bases and loyal subjects.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Stark collect_taxes {"tax_rate":0.1}
+🤖 Lord/Lady of House Stark Household management updated: 420 workers (60%), 280 soldiers (40%). Resource efficiency: 0.54 (0.00), Expansion bonus: +20.0% (0.00)
+🤖 Lord/Lady of House Stark Collected 106 gold from 700 population with 10% tax rate. Gold: 10 → 116 (+106). Population loyalty: 100 → 92 (-8)
+🤖 Lord/Lady of House Stark I have kept household management at 60% workers and 40% soldiers to maintain growth and military strength.
+
+I have collected taxes at a 10% rate, which raised our gold from 10 to 116 but caused a slight drop in loyalty from 100 to 92.
+
+This modest tax will help us fund the planned northeastern expansion.
+
+I will hold back on deploying generals until we have sufficient resources to support the full force needed.
+
+This cautious but pragmatic approach safeguards our position.
+
+I am ready to end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Summer, Week 2, Events Phase
+📬 1 ravens delivered this turn
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Summer, Week 2, Cleanup Phase
+📊 Turn Summary - summer Year 1
+House Stark Resources: {'food': 294, 'material': 106, 'metal': 214, 'gold': 116}
+House Stark Population: 700, Loyalty: 92
+House Lannister Resources: {'food': 352, 'material': 99, 'metal': 158, 'gold': 20}
+House Lannister Population: 799, Loyalty: 100
+House Baratheon Resources: {'food': 5, 'material': 80, 'metal': 251, 'gold': 227}
+House Baratheon Population: 482, Loyalty: 50
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Summer, Week 3, Production Phase
+🧠 Found 1 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Summer, Week 3, Actions Phase
+🧠 All entities (3 houses, 1 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +41 food, +20 material, +21 metal, +106 gold this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 167 people (now 867)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 93
+👀 [Lord/Lady of House Stark] Week 3 - Actions Phase
+Summer, Year 1
+
+Resources: 335.0 food, 126.0 material, 235.0 metal, 116.0 gold
+Population: 867, Loyalty: 93.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +46 food, +14 material, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 199 people (now 998)
+👀 [Lord/Lady of House Lannister] Week 3 - Actions Phase
+Summer, Year 1
+
+Resources: 398.0 food, 113.0 material, 168.0 metal, 20.0 gold
+Population: 998, Loyalty: 100.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 📜 A raven arrived from General Baratheon: 'We have expanded and secured three more northern tiles, continuing our northward expansion as ordered. Territory grows, and we prepare to fortify and defend these new lands. Morale and supplies remain strong.'
+👀 Robert Baratheon [Production] Your territories produced +28 material, +45 metal, +23 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 33 people (now 515)
+👀 [Robert Baratheon] Week 3 - Actions Phase
+Summer, Year 1
+
+Resources: 66.0 food, 108.0 material, 296.0 metal, 227.0 gold
+Population: 515, Loyalty: 50.0
+Territory: 13 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 3 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🎲 Generated fallback persona for: General Reed
+   General Reed: Detected entity type 'general'
+   General Reed: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for General Reed (general)
+🤖 Initialized AI agent: General Reed with 6 tools
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Lannister Household management updated: 598 workers (60%), 399 soldiers (40%). Resource efficiency: 0.54 (0.00), Expansion bonus: +20.0% (0.00)
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":80,"workers_assigned":40,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 130 gold and 150 material
+🤖 Lord/Lady of House Lannister I maintain the population allocation at 60% workers and 40% soldiers to balance resource generation and military strength.
+
+I attempt again to deploy General Reyne with an increased force of 80 soldiers and 40 workers to the south for expansion.
+
+However, I still lack the necessary 130 gold and 150 material to deploy the general with these forces.
+
+I will continue accumulating resources before attempting this expansion.
+
+I will end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  10
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest
+🤖 General Baratheon From this new position, I observe three unowned tiles nearby to the north, northeast, and northwest. Our territory borders the southeast, south, and southwest.
+
+Since these unowned tiles are in the direction of our intended northward expansion, I will settle these three tiles within 1-tile radius to secure them for our house.
+
+Proceeding to settle the three unowned tiles now.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 3 nearby tiles for your house
+🤖 General Baratheon The three nearby unowned tiles to the north, northeast, and northwest have been secured, expanding our territory further north as ordered.
+
+Next, I will send a raven to our lord reporting the progress of this expansion and our preparations for fortification and defense of the newly acquired lands.
+
+Sending the raven now.
+🤖 General Baratheon send_raven_to_lord {"message":"Further northward expansion completed with three additional tiles secured. Territory grows as ordered. We prepare to fortify newly acquired lands and strengthen defenses. Morale and supplies hold steady."}
+🤖 General Baratheon Raven dispatched to your lord
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  8
+🤖 Lord/Lady of House Stark Our resources and gold have grown substantially, and loyalty has recovered slightly.
+
+With 126 materials and 116 gold, we are now well positioned to begin expansion northeast.
+
+I will manage the household with 60% workers and 40% soldiers to maintain balance.
+
+Now, I will deploy General Reed to the northeast with 60 soldiers and 20 workers, as planned.
+
+His orders remain to secure and expand the northeastern tiles, establish defenses, and conduct reconnaissance.
+
+No new taxes will be levied this turn to preserve loyalty.
+
+This move marks a decisive step in extending our realm and fortifying our position.
+
+Proceeding with these actions.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Stark deploy_general {"direction":"NE","soldiers_assigned":60,"workers_assigned":20,"general_name":"General Reed","orders":"Secure and expand the northeastern tiles, establish defenses, and conduct reconnaissance into adjacent areas."}
+🤖 Lord/Lady of House Stark Household management updated: 520 workers (60%), 346 soldiers (40%). Resource efficiency: 0.54 (0.00), Expansion bonus: +20.0% (0.00)
+🤖 Lord/Lady of House Stark Successfully deployed General Reed to the NE with 80 people (60 soldiers, 20 workers). Position: (-9, 0). Group strength: 80, combat strength 130 and settlement capability 100.0%. Orders: 'Secure and expand the northeastern tiles, establish defenses, and conduct reconnaissance into adjacent areas.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Lord/Lady of House Stark I have allocated our population with 60% workers and 40% soldiers to maintain a balance of growth and strength.
+
+General Reed has been deployed northeast with 60 soldiers and 20 workers to secure and expand the new territory, establish defenses, and conduct reconnaissance.
+
+No taxes will be collected this turn to help loyalty remain strong.
+
+This plan furthers our realm steadily and prudently. I will proceed to end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  13
+🤖 Robert Baratheon Our resources are now more balanced, with food at 66, materials growing to 108, strong metal at 296, and good gold reserves at 227. Population has grown to 515, though loyalty remains low at 50%.
+
+For this turn, I will act to improve loyalty and continue shoring up defenses for the newly expanded northern territories:
+- Allocate workforce 75% workers and 25% soldiers to maintain a balance of resource and defense.
+- Lower taxes further to 5% to boost loyalty.
+- Deploy General Baratheon to the north with 50 soldiers and 30 workers to focus on fortification and defense, ensuring these territories remain secure.
+- Order for reinforcements and enhancements in fortifications across all northern holdings.
+
+This approach should stabilize loyalty while maintaining our hold on expanded lands.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.75,"soldier_ratio":0.25}
+🤖 Robert Baratheon Household management updated: 326 workers (75%), 108 soldiers (25%). Resource efficiency: 0.71 (-0.17), Expansion bonus: +12.5% (+0.07)
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.05}
+🤖 Robert Baratheon Tax rate must be between 0.1 (10%) and 1.0 (100%)
+🤖 Robert Baratheon I mistakenly attempted to set tax rate below the minimum 10%. I will set taxes to the minimum allowed 10% to improve loyalty while balancing resources.
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon Collected 78 gold from 515 population with 10% tax rate. Gold: 227 → 305 (+78). Population loyalty: 50 → 42 (-8)
+🤖 Robert Baratheon deploy_general {"direction":"N","soldiers_assigned":50,"workers_assigned":30,"general_name":"General Baratheon","orders":"Fortify and defend the newly expanded northern territories with strong defenses and patrols."}
+🤖 Robert Baratheon Cannot deploy general - insufficient resources: need 100 gold and 110 material
+🤖 Robert Baratheon I have set the household to 75% workers and 25% soldiers to balance resource growth and defense. I collected taxes at the minimum rate of 10%, raising gold but loyalty dropped slightly to 42%. I intended to deploy General Baratheon with 50 soldiers and 30 workers north to fortify our expanded northern territories, but we currently lack the material for this deployment.
+
+I will hold off further military deployment this turn and focus on accumulating more material and resources to maintain loyalty and strengthen our position.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Summer, Week 3, Events Phase
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Summer, Week 3, Cleanup Phase
+📊 Turn Summary - summer Year 1
+House Stark Resources: {'food': 335, 'material': 16, 'metal': 235, 'gold': 6}
+House Stark Population: 867, Loyalty: 93
+House Lannister Resources: {'food': 398, 'material': 113, 'metal': 168, 'gold': 20}
+House Lannister Population: 998, Loyalty: 100
+House Baratheon Resources: {'food': 66, 'material': 108, 'metal': 296, 'gold': 305}
+House Baratheon Population: 515, Loyalty: 42
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Summer, Week 4, Production Phase
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Summer, Week 4, Actions Phase
+🧠 All entities (3 houses, 2 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +41 food, +21 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 188 people (now 1055)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 94
+👀 [Lord/Lady of House Stark] Week 4 - Actions Phase
+Summer, Year 1
+
+Resources: 376.0 food, 27.0 material, 256.0 metal, 6.0 gold
+Population: 1055, Loyalty: 94.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +46 food, +14 material, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 222 people (now 1220)
+👀 [Lord/Lady of House Lannister] Week 4 - Actions Phase
+Summer, Year 1
+
+Resources: 444.0 food, 127.0 material, 178.0 metal, 20.0 gold
+Population: 1220, Loyalty: 100.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Production] Your territories produced +69 food, +34 material, +37 metal, +78 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 67 people (now 582)
+👀 Robert Baratheon [Production] Population loyalty increased to 43
+👀 [Robert Baratheon] Week 4 - Actions Phase
+Summer, Year 1
+
+Resources: 55.0 food, 142.0 material, 333.0 metal, 255.0 gold
+Population: 582, Loyalty: 43.0
+Territory: 16 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 4 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🧠 General Reed AI is thinking...
+👀 General Reed [Actions] Can act within 3 tiles this turn
+👀 [General Reed] Week 4 - Actions Phase
+Summer, Year 1
+
+
+What actions do you take this turn?
+🎲 Generated fallback persona for: General Orys
+   General Orys: Detected entity type 'general'
+   General Orys: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for General Orys (general)
+🤖 Initialized AI agent: General Orys with 6 tools
+Len of new items:  6
+🤖 Lord/Lady of House Stark Our population has grown robustly, and loyalty continues strong at 94.
+
+Material resources have fallen low after deploying General Reed, and gold has also dipped somewhat.
+
+I will adjust household management to increase workers to 75% and reduce soldiers to 25% for this turn to maximize material production and stabilize resources for future actions.
+
+I will not deploy more generals or expand this turn until materials and gold have sufficiently recovered.
+
+No taxes will be collected to preserve loyalty.
+
+Our focus is on consolidating gains and building strength for sustained expansion.
+
+I proceed accordingly.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.75,"soldier_ratio":0.25}
+🤖 Lord/Lady of House Stark Household management updated: 731 workers (75%), 243 soldiers (25%). Resource efficiency: 0.71 (+0.17), Expansion bonus: +12.5% (-0.08)
+🤖 Lord/Lady of House Stark Household allocation adjusted to 75% workers and 25% soldiers to boost resource production.
+
+No new expansions or taxes this turn.
+
+Focused on consolidating and strengthening resources.
+
+Ready to end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  10
+🤖 Robert Baratheon Our resources are strong across the board, including food, material, metal, and gold. Population is nearing 600, but loyalty remains low at 43%, a risk to stability if left unchecked.
+
+Actions for this week:
+- Increase workers slightly to 80% for sustained resource gain, including food to support population.
+- Maintain a reasonable soldier presence at 20% despite low loyalty to keep defense and order.
+- Keep tax rate low at 10% to encourage loyalty recovery.
+- Deploy General Orys northeast with 50 soldiers and 30 workers to finally secure the three northeast hill tiles, using our ample gold and material reserves for expansion.
+- Continue improving and fortifying northern holdings.
+
+This plan addresses expansion with strong resources while working on stabilizing loyalty and defense.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.8,"soldier_ratio":0.2}
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon deploy_general {"direction":"NE","soldiers_assigned":50,"workers_assigned":30,"general_name":"General Orys","orders":"Secure and fortify the 3 hill tiles northeast. Establish strong defenses."}
+🤖 Robert Baratheon Household management updated: 401 workers (80%), 100 soldiers (20%). Resource efficiency: 0.77 (+0.06), Expansion bonus: +10.0% (-0.02)
+🤖 Robert Baratheon Collected 88 gold from 582 population with 10% tax rate. Gold: 255 → 343 (+88). Population loyalty: 43 → 35 (-8)
+🤖 Robert Baratheon Successfully deployed General Orys to the NE with 80 people (50 soldiers, 30 workers). Position: (-6, 7). Group strength: 80, combat strength 115 and settlement capability 100.0%. Orders: 'Secure and fortify the 3 hill tiles northeast. Establish strong defenses.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Robert Baratheon I have increased workers to 80% and soldiers to 20% to maintain growth and defense. I kept taxes low at 10% to support loyalty, though it dipped to 35%. I deployed General Orys northeast with 50 soldiers and 30 workers to secure and fortify the three hill tiles there. We continue to fortify northern holdings while balancing expansion and internal stability.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  8
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Baratheon All the surrounding tiles around our current position are now owned, with no unclaimed tiles nearby.
+
+I will move one tile north to maintain momentum in our northward expansion and position myself closer to the frontier for continued oversight and fortification work.
+
+Proceeding to move one tile north now.
+🤖 General Baratheon move {"direction":"N"}
+🤖 General Baratheon Moved from (-7, 8) to (-7, 7)
+🤖 General Baratheon I have moved one tile north to better oversee the northern frontier.
+
+With no unowned tiles nearby to settle, I will focus on preparing fortifications on the newly acquired northern tiles in upcoming turns.
 
 Ending turn now.
-🤖 General Clegane end_turn {}
-🤖 General Clegane Turn ended
-✅ General Clegane AI finished thinking
-🧠 Found 8 generals
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  9
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Lannister Household management updated: 732 workers (60%), 488 soldiers (40%). Resource efficiency: 0.54 (0.00), Expansion bonus: +20.0% (0.00)
+🤖 Lord/Lady of House Lannister collect_taxes {"tax_rate":0.5}
+🤖 Lord/Lady of House Lannister Collected 915 gold from 1220 population with 50% tax rate. Gold: 20 → 935 (+915). Population loyalty: 100 → 60 (-40)
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":80,"workers_assigned":40,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 130 gold and 150 material
+🤖 Lord/Lady of House Lannister I have kept the population allocation at 60% workers and 40% soldiers to maintain resource production and expansion potential.
+
+To fund our expansion, I have levied a 50% tax rate, raising 915 gold but reducing population loyalty to 60.
+
+Despite the increased gold, I still lack sufficient material to deploy General Reyne with 80 soldiers and 40 workers for southern expansion.
+
+I will focus on accumulating more material this turn while managing the loyalty impact carefully.
+
+I end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  16
+🤖 General Reed observe_area {}
+🤖 General Reed From our current position, the immediate surroundings are mostly mountains with some hills. Unowned tiles nearby: 3. | Borders: our territory to south, southwest and northwest; unclaimed to north, northeast and southeast
+🤖 General Reed settle_tiles {}
+🤖 General Reed Settled 3 nearby tiles for your house
+🤖 General Reed observe_area {}
+🤖 General Reed From our current position, the immediate surroundings are mostly mountains with some hills. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Reed move {"direction":"NE"}
+🤖 General Reed Moved from (-9, 0) to (-8, -1)
+🤖 General Reed observe_area {}
+🤖 General Reed From our current position, the immediate surroundings are mostly mountains with some hills. Unowned tiles nearby: 3. | Borders: our territory to south, southwest and northwest; unclaimed to north, northeast and southeast
+🤖 General Reed settle_tiles {}
+🤖 General Reed Settled 3 nearby tiles for your house
+🤖 General Reed send_raven_to_lord {"message":"Successfully secured and settled northeastern tiles from position (-8, -1). Surroundings mostly mountains and hills; holding strong borders. Ready for further orders."}
+🤖 General Reed Raven dispatched to your lord
+🤖 General Reed end_turn {}
+🤖 General Reed Turn ended
+✅ General Reed AI finished thinking
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Summer, Week 4, Events Phase
+📬 1 ravens delivered this turn
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Summer, Week 4, Cleanup Phase
+📊 Turn Summary - summer Year 1
+House Stark Resources: {'food': 376, 'material': 27, 'metal': 256, 'gold': 6}
+House Stark Population: 1055, Loyalty: 94
+House Lannister Resources: {'food': 444, 'material': 127, 'metal': 178, 'gold': 935}
+House Lannister Population: 1220, Loyalty: 60
+House Baratheon Resources: {'food': 55, 'material': 32, 'metal': 333, 'gold': 243}
+House Baratheon Population: 582, Loyalty: 35
+🌅 Season changed: summer → autumn
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Autumn, Week 1, Production Phase
+Baratheon is experiencing a population revolt!
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Autumn, Week 1, Actions Phase
+🛑 Disbanded General Reed due to upkeep/morale failure
+🧠 All entities (3 houses, 2 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +91 food, +32 material, +42 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 233 people (now 1288)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 95
+👀 Lord/Lady of House Stark [Actions] General General Reed has disbanded due to upkeep/morale issues (assigned 80 people returned)
+👀 [Lord/Lady of House Stark] Week 1 - Actions Phase
+Autumn, Year 1
+
+Resources: 467.0 food, 59.0 material, 298.0 metal, 6.0 gold
+Population: 1288, Loyalty: 95.0
+Territory: 16 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +54 food, +14 material, +10 metal, +915 gold this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 249 people (now 1469)
+👀 Lord/Lady of House Lannister [Production] Population loyalty increased to 61
+👀 [Lord/Lady of House Lannister] Week 1 - Actions Phase
+Autumn, Year 1
+
+Resources: 498.0 food, 141.0 material, 188.0 metal, 935.0 gold
+Population: 1469, Loyalty: 61.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 📜 A raven arrived from General Baratheon: 'Further northward expansion completed with three additional tiles secured. Territory grows as ordered. We prepare to fortify newly acquired lands and strengthen defenses. Morale and supplies hold steady.'
+👀 Robert Baratheon [Production] Your territories produced +37 metal this turn
+👀 Robert Baratheon [Production] Your population grew by 62 people (now 644)
+👀 Robert Baratheon [Production] Population loyalty increased to 36
+👀 Robert Baratheon [Production] ⚠️ REVOLT RISK: Population loyalty (36) is below 40! There's a 25% chance of revolt each turn, which could cause territory loss and resource damage (15% food, 10% material, 10% metal, 10% gold)!
+👀 [Robert Baratheon] Week 1 - Actions Phase
+Autumn, Year 1
+
+Resources: 44.0 food, 66.0 material, 370.0 metal, 193.0 gold
+Population: 644, Loyalty: 36.0
+Territory: 16 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 1 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+🧠 General Orys AI is thinking...
+👀 [General Orys] Week 1 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  6
+🤖 General Orys observe_area {}
+🤖 General Orys From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 3. | Borders: our territory to south, southwest and northwest; unclaimed to north, northeast and southeast | friendly units: 1 (northwest)
+🤖 General Orys settle_tiles {}
+🤖 General Orys Settled 3 nearby tiles for your house
+🤖 General Orys end_turn {}
+🤖 General Orys Turn ended
+✅ General Orys AI finished thinking
+Len of new items:  8
+🤖 Lord/Lady of House Stark Our territory has grown significantly with the addition of 6 new tiles, likely from General Reed's successful campaign.
+
+General Reed has disbanded due to morale and upkeep issues; his 80 assigned people have returned to our population.
+
+We have strong resource stocks and a large, loyal population.
+
+Considering the size of our domain, I will adjust household management to 65% workers and 35% soldiers to maintain a balance between production and defense.
+
+I will assess the border to the east to evaluate opportunities for further expansion.
+
+No taxes will be collected this turn.
+
+This cautious approach allows us to consolidate strength and carefully look to the east for growth.
+
+Proceed with these actions.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Stark assess_border {"direction":"NE"}
+🤖 Lord/Lady of House Stark Household management updated: 837 workers (65%), 450 soldiers (35%). Resource efficiency: 0.60 (-0.11), Expansion bonus: +17.5% (+0.05)
+🤖 Lord/Lady of House Stark Border assessment: 4 tiles (mountain, hill (and 1 more tiles)). Cost: 80 material, 80 gold
+🤖 Lord/Lady of House Stark I have adjusted household management to allocate 65% workers and 35% soldiers, balancing production and military readiness.
+
+The border assessment to the northeast reveals 4 tiles of mountain, hill, and other terrain, requiring 80 material and 80 gold for expansion.
+
+Given current resources, immediate expansion eastward is challenging but possible in subsequent turns.
+
+For now, we prioritize consolidating our holdings and resource stockpiles.
+
+No new taxes will be imposed.
+
+I will now end this turn to allow progress to unfold.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Lannister Household management updated: 881 workers (60%), 587 soldiers (40%). Resource efficiency: 0.54 (0.00), Expansion bonus: +20.0% (0.00)
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":80,"workers_assigned":40,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 130 gold and 150 material
+🤖 Lord/Lady of House Lannister I maintain the population distribution at 60% workers and 40% soldiers to balance resource gathering and military strength.
+
+Despite having ample gold, I still lack the necessary material (need 150, have 141) to deploy General Reyne with 80 soldiers and 40 workers southward into the steppe territory.
+
+I will continue accumulating material to reach the required threshold for a successful expansion.
+
+I end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  10
+🤖 Robert Baratheon Our population loyalty is dangerously low at 36, risking revolt with 25% chance. We must act decisively to restore loyalty and prevent losses.
+
+Actions:
+- Shift majority to workers (85%) to boost food and material supply, which can help placate the population.
+- Set taxes to 5% (lowest allowed is 10%) to minimize unrest. I will set to 10% to reduce pressure on the people.
+- Deploy a general to quell unrest and improve loyalty in southern or central holdings, where loyalty issues might be manageable.
+- Hold all expansion plans until loyalty is secured.
+- Reinforce fortifications in vulnerable holdings to deter rebellion or external threats.
+
+Urgent focus on restoring loyalty while maintaining strong defenses.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.85,"soldier_ratio":0.15}
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon Household management updated: 411 workers (85%), 72 soldiers (15%). Resource efficiency: 0.82 (+0.06), Expansion bonus: +7.5% (-0.03)
+🤖 Robert Baratheon Collected 97 gold from 644 population with 10% tax rate. Gold: 193 → 290 (+97). Population loyalty: 36 → 28 (-8)
+🤖 Robert Baratheon deploy_general {"direction":"S","soldiers_assigned":30,"workers_assigned":20,"general_name":"Commander Loyal","orders":"Patrol southern and central territories, maintain order, and improve population loyalty through presence and stability."}
+🤖 Robert Baratheon Cannot deploy general - insufficient resources: need 80 gold and 80 material
+🤖 Robert Baratheon I allocated 85% of the population to workers to boost food and materials and set taxes at minimum 10% to help reduce unrest, though loyalty fell further to 28%. I attempted to deploy Commander Loyal south to patrol and improve order but lack sufficient resources currently.
+
+I will hold off on deployment and focus on building resources and balancing loyalty by adjusting the population allocation next turn if necessary.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  13
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest | friendly units: 1 (southeast)
+🤖 General Baratheon From my current position, I observe mostly plains around with three unowned tiles nearby to the north, northeast, and northwest. Our territory borders southeast, south, and southwest, with unclaimed lands to the north.
+
+To continue our expansion northward according to orders, I will settle these three unowned tiles now.
+
+Proceeding to settle the three unowned tiles within 1 tile radius.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 2 nearby tiles for your house
+🤖 General Baratheon I have settled two out of the three nearby unowned tiles for our house.
+
+I will try settling the remaining one tile again to secure full control in the northern area.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon No unowned tiles within 1 tile to settle
+🤖 General Baratheon It appears the remaining tile is out of immediate range to settle or may already be contested or settled by another force.
+
+I will send a raven to our lord reporting the partial success in settling the nearby tiles and informing about the contested tile if any.
+
+Sending the raven now.
+🤖 General Baratheon send_raven_to_lord {"message":"We have settled two of the three northern tiles as part of our expansion. The remaining tile could not be claimed—possibly contested or out of range. Fortification preparations ongoing. Morale and supplies stable."}
+🤖 General Baratheon Raven dispatched to your lord
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Autumn, Week 1, Events Phase
+🔥 Population revolt occurring in Baratheon!
+💥 Population revolt! Lost 1 border territory tile(s) and resources
+🔴 Resource losses: 6 food, 6 material, 37 metal, 29 gold
+📉 Baratheon population capacity reduced to 2587.004
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Autumn, Week 1, Cleanup Phase
+📊 Turn Summary - autumn Year 1
+House Stark Resources: {'food': 467, 'material': 59, 'metal': 298, 'gold': 6}
+House Stark Population: 1288, Loyalty: 95
+House Lannister Resources: {'food': 498, 'material': 141, 'metal': 188, 'gold': 935}
+House Lannister Population: 1469, Loyalty: 61
+House Baratheon Resources: {'food': 44, 'material': 66, 'metal': 370, 'gold': 290}
+House Baratheon Population: 644, Loyalty: 28
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Autumn, Week 2, Production Phase
+Baratheon is experiencing a population revolt!
+🧠 Found 2 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Autumn, Week 2, Actions Phase
+🧠 All entities (3 houses, 2 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +83 food, +32 material, +42 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 275 people (now 1563)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 96
+👀 [Lord/Lady of House Stark] Week 2 - Actions Phase
+Autumn, Year 1
+
+Resources: 550.0 food, 91.0 material, 340.0 metal, 6.0 gold
+Population: 1563, Loyalty: 96.0
+Territory: 16 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +54 food, +14 material, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 276 people (now 1745)
+👀 Lord/Lady of House Lannister [Production] Population loyalty increased to 62
+👀 [Lord/Lady of House Lannister] Week 2 - Actions Phase
+Autumn, Year 1
+
+Resources: 552.0 food, 155.0 material, 198.0 metal, 935.0 gold
+Population: 1745, Loyalty: 62.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 💥 REVOLT! Population revolt! Lost 1 border territory tile(s) and resources Your people's anger has cost you territory! You also lost 6 food, 6 material, 37 metal, 29 gold in the chaos. Consider improving loyalty to prevent future revolts.
+👀 Robert Baratheon [Production] Your territories produced +38 food, +43 material, +40 metal, +47 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 81 people (now 725)
+👀 Robert Baratheon [Production] Population loyalty increased to 29
+👀 Robert Baratheon [Production] ⚠️ REVOLT RISK: Population loyalty (29) is below 40! There's a 25% chance of revolt each turn, which could cause territory loss and resource damage (15% food, 10% material, 10% metal, 10% gold)!
+👀 [Robert Baratheon] Week 2 - Actions Phase
+Autumn, Year 1
+
+Resources: 2.0 food, 109.0 material, 410.0 metal, 190.0 gold
+Population: 725, Loyalty: 29.0
+Territory: 20 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 2 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+🧠 General Orys AI is thinking...
+👀 General Orys [Actions] Can act within 3 tiles this turn
+👀 [General Orys] Week 2 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+
+Len of new items:  7
+🤖 General Orys observe_area {}
+🤖 General Orys From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest | friendly units: 1 (northwest)
+🤖 General Orys The nearby area has been fully settled, securing the nearby hills and plains as ordered. No unowned tiles remain within operational range to settle. 
+
+Next, I will focus on fortifying the secured hill tiles. I will begin preparations to establish defenses on these tiles. To do this, I will direct my workers to start constructing fortifications on the three hill tiles to the northeast.
+
+I will send a message to inform my lord of the completion of securing the nearby hills and the commencement of fortifications. Then I will end my turn.
+🤖 General Orys send_raven_to_lord {"message":"The three northeast hill tiles have been secured and settled. We are commencing construction of fortifications to solidify our defense there."}
+🤖 General Orys end_turn {}
+🤖 General Orys Raven dispatched to your lord
+🤖 General Orys Turn ended
+✅ General Orys AI finished thinking
+🎲 Generated fallback persona for: General Reyne
+   General Reyne: Detected entity type 'general'
+   General Reyne: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for General Reyne (general)
+🤖 Initialized AI agent: General Reyne with 6 tools
+Len of new items:  9
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest | friendly units: 1 (southeast)
+🤖 General Baratheon The immediate surroundings show no unowned tiles nearby, and our territory is well established in all directions around this position.
+
+I will move one tile north to continue pushing the frontier and oversee preparations for fortifications in the northern territory.
+
+After moving, I will end my turn.
+🤖 General Baratheon move {"direction":"N"}
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon Moved from (-7, 7) to (-7, 6)
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  8
+🤖 Lord/Lady of House Stark Our resources and population grow steadily. Loyalty remains strong at 96.
+
+Material and gold reserves are currently low for expansion.
+
+I will adjust household management to 75% workers and 25% soldiers to maximize resource production and stabilize reserves.
+
+I will levy a modest 10% tax this turn to raise gold without severely impacting loyalty.
+
+No new generals will be deployed until our resources improve further.
+
+We focus on strengthening our domain to ensure successful future expansion.
+
+I proceed accordingly.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.75,"soldier_ratio":0.25}
+🤖 Lord/Lady of House Stark collect_taxes {"tax_rate":0.1}
+🤖 Lord/Lady of House Stark Household management updated: 1172 workers (75%), 390 soldiers (25%). Resource efficiency: 0.71 (+0.11), Expansion bonus: +12.5% (-0.05)
+🤖 Lord/Lady of House Stark Collected 235 gold from 1563 population with 10% tax rate. Gold: 6 → 241 (+235). Population loyalty: 96 → 88 (-8)
+🤖 Lord/Lady of House Stark Household adjusted to 75% workers and 25% soldiers to boost resources.
+
+Collected 10% taxes, raising gold from 6 to 241, but loyalty dropped from 96 to 88.
+
+No generals deployed this turn to conserve resources.
+
+We focus on consolidating gains for stronger future expansion.
+
+I am ready to end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  8
+🤖 Robert Baratheon We have suffered a revolt, losing a territory tile and some resources. Loyalty is critically low at 29, risking further revolts. Our food supply is dangerously low at 2, though materials, metal, and gold remain strong.
+
+Actions:
+- Allocate 90% workers to urgently rebuild food stores and stabilize resources.
+- Maintain low taxes at 10% to avoid further spurring unrest.
+- Refrain from expansions to focus on internal stabilization.
+- Use resources to strengthen fortifications, especially in border areas vulnerable to rebellion or external threats.
+- Consider sending a message to allied houses to discuss potential aid or alliances to reinforce our position if available later.
+
+Immediate goal: rebuild resources and loyalty through careful management and defense.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.9,"soldier_ratio":0.1}
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon Household management updated: 508 workers (90%), 56 soldiers (10%). Resource efficiency: 0.88 (+0.06), Expansion bonus: +5.0% (-0.02)
+🤖 Robert Baratheon Collected 109 gold from 725 population with 10% tax rate. Gold: 190 → 299 (+109). Population loyalty: 29 → 21 (-8)
+🤖 Robert Baratheon I have allocated 90% of the population to workers to rebuild food supplies. Taxes remain low at 10% but loyalty has dropped further to 21%. I will focus entirely on stabilizing our realm and resources without expansion this turn. Fortifications will be prioritized internally to prevent further revolts or external threats.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Lannister Household management updated: 1047 workers (60%), 698 soldiers (40%). Resource efficiency: 0.54 (0.00), Expansion bonus: +20.0% (0.00)
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"S","soldiers_assigned":80,"workers_assigned":40,"general_name":"General Reyne","orders":"Expand our territory southward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Successfully deployed General Reyne to the S with 120 people (80 soldiers, 40 workers). Position: (15, 2). Group strength: 120, combat strength 180 and settlement capability 100.0%. Orders: 'Expand our territory southward into the steppe territory, secure it, and establish a settlement.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Lord/Lady of House Lannister I maintain the household allocation at 60% workers and 40% soldiers to balance resource production and military strength.
+
+Now with sufficient materials and gold, I have deployed General Reyne with 80 soldiers and 40 workers to expand our territory southward into the steppe tile. The general's orders are to secure the territory and establish a settlement.
+
+This action will grow our domain and secure new resources for House Lannister.
+
+I will monitor the progress of this expansion closely.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+🧠 Found 3 generals
+Press Enter to continue...
+⚙️  Events Phase - Year 1, Autumn, Week 2, Events Phase
+📬 1 ravens delivered this turn
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Autumn, Week 2, Cleanup Phase
+📊 Turn Summary - autumn Year 1
+House Stark Resources: {'food': 550, 'material': 91, 'metal': 340, 'gold': 241}
+House Stark Population: 1563, Loyalty: 88
+House Lannister Resources: {'food': 552, 'material': 5, 'metal': 198, 'gold': 805}
+House Lannister Population: 1745, Loyalty: 62
+House Baratheon Resources: {'food': 2, 'material': 109, 'metal': 410, 'gold': 299}
+House Baratheon Population: 725, Loyalty: 21
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Autumn, Week 3, Production Phase
+Baratheon is experiencing a population revolt!
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Autumn, Week 3, Actions Phase
+🧠 All entities (3 houses, 3 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +91 food, +32 material, +48 metal, +235 gold this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 320 people (now 1883)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 89
+👀 [Lord/Lady of House Stark] Week 3 - Actions Phase
+Autumn, Year 1
+
+Resources: 641.0 food, 123.0 material, 388.0 metal, 241.0 gold
+Population: 1883, Loyalty: 89.0
+Territory: 16 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +54 food, +10 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 303 people (now 2048)
+👀 Lord/Lady of House Lannister [Production] Population loyalty increased to 63
+👀 [Lord/Lady of House Lannister] Week 3 - Actions Phase
+Autumn, Year 1
+
+Resources: 486.0 food, 19.0 material, 208.0 metal, 725.0 gold
+Population: 2048, Loyalty: 63.0
+Territory: 8 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 📜 A raven arrived from General Baratheon: 'We have settled two of the three northern tiles as part of our expansion. The remaining tile could not be claimed—possibly contested or out of range. Fortification preparations ongoing. Morale and supplies stable.'
+👀 Robert Baratheon [Production] Your territories produced +43 material, +50 metal, +9 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 65 people (now 790)
+👀 Robert Baratheon [Production] Population loyalty increased to 22
+👀 Robert Baratheon [Production] ⚠️ REVOLT RISK: Population loyalty (22) is below 40! There's a 25% chance of revolt each turn, which could cause territory loss and resource damage (15% food, 10% material, 10% metal, 10% gold)!
+👀 [Robert Baratheon] Week 3 - Actions Phase
+Autumn, Year 1
+
+Resources: 51.0 food, 152.0 material, 460.0 metal, 249.0 gold
+Population: 790, Loyalty: 22.0
+Territory: 20 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 3 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+🧠 General Orys AI is thinking...
+👀 General Orys [Actions] Can act within 3 tiles this turn
+👀 [General Orys] Week 3 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+🧠 General Reyne AI is thinking...
+👀 General Reyne [Actions] Can act within 3 tiles this turn
+👀 [General Reyne] Week 3 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  7
+🤖 General Orys observe_area {}
+🤖 General Orys From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Orys The territory remains fully secured with no unclaimed tiles within operational range. Fortifications on the hill tiles to the northeast should be ongoing as ordered.
+
+Next, I will assess the position and condition of our forces and fortifications. If possible, I will utilize this turn to oversee or improve the defenses on the three hill tiles northeast, ensuring that they are strong and prepared.
+
+I will also observe the surroundings carefully for any signs of enemy movement or threat that might require repositioning or reinforcing our defenses.
+
+I will perform a thorough observation again and remain ready to respond to new developments. If no immediate action is required, I will maintain readiness and preserve our forces for future strategic use.
+
+I choose to observe the area again for any approaching threats or opportunities, and then hold position to continue fortifications.
+🤖 General Orys observe_area {}
+🤖 General Orys From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Orys end_turn {}
+🤖 General Orys Turn ended
+✅ General Orys AI finished thinking
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Lannister Household management updated: 1253 workers (65%), 674 soldiers (35%). Resource efficiency: 0.60 (+0.05), Expansion bonus: +17.5% (-0.03)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"S"}
+🤖 Lord/Lady of House Lannister Border assessment: 1 tiles (steppe). Cost: 20 material, 20 gold
+🤖 Lord/Lady of House Lannister I have adjusted the household allocation to 65% workers and 35% soldiers to improve resource efficiency and increase material production, as our material stock is low.
+
+I will assess the southern border again to verify if the previously targeted steppe tile remains available for further expansion after General Reyne's current operation.
+
+I will wait on deploying new forces until the expansion results are confirmed, prioritizing resource buildup this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  10
+🤖 Robert Baratheon Loyalty remains dangerously low at 22%, risking another revolt. Food has improved to 51 but still requires careful management. Materials, metal, and gold are strong. Population is 790.
+
+Actions:
+- Continue with majority workers, 85% workers and 15% soldiers, to maintain steady resource production.
+- Keep taxes at minimum 10% to avoid further unrest.
+- Focus on internal fortifications and defense, particularly in northern and border territories, avoiding expansion.
+- Consider sending a raven to House Stark or Lannister to open diplomatic dialogue for future alliance or support, showing strength and seeking stability.
+- Monitor loyalty trends carefully and prepare to adjust taxes or deployment accordingly next turn.
+
+Priority remains internal stability and defense against revolt.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.85,"soldier_ratio":0.15}
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon send_raven {"recipient":"Stark","message":"Lord Stark, House Baratheon seeks cordial relations and potential alliance in these turbulent times. We wish to discuss mutual support and peace for our realms."}
+🤖 Robert Baratheon Household management updated: 535 workers (85%), 94 soldiers (15%). Resource efficiency: 0.82 (-0.06), Expansion bonus: +7.5% (+0.02)
+🤖 Robert Baratheon Collected 119 gold from 790 population with 10% tax rate. Gold: 249 → 368 (+119). Population loyalty: 22 → 14 (-8)
+🤖 Robert Baratheon Raven sent to Stark: 'Lord Stark, House Baratheon seeks cordial relations and potential alliance in these turbulent times. We wish to discuss mutual support and peace for our realms.' - message will arrive in 2 weeks.
+🤖 Robert Baratheon I have allocated 85% workers and 15% soldiers to maintain steady resource growth and defense. Taxes remain at minimum 10%, but loyalty has dropped further to 14%. I sent a raven to House Stark proposing cordial relations and a potential alliance to bolster stability and support. Our focus remains on internal fortifications and avoiding expansion until loyalty improves.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  10
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest
+🤖 General Baratheon From my current position, I observe mostly plains with some hills. There are 3 unowned tiles nearby to the north, northeast, and northwest. Our territory borders to the southeast, south, and southwest. 
+
+To continue our expansion as ordered, I will settle these three unowned tiles within 1 tile radius for our house. This will help us secure the area and prepare for establishing defenses.
+
+Proceeding to settle these three unowned tiles now.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 3 nearby tiles for your house
+🤖 General Baratheon The three nearby unowned tiles to the north, northeast, and northwest have been successfully settled for our house, expanding our territory further.
+
+Now, I will send a raven to our lord reporting the progress of expanding the territory northward and our continued preparations for fortifications and defense.
+
+Sending the raven with the report.
+🤖 General Baratheon send_raven_to_lord {"message":"Northward expansion continues with three additional tiles secured. Territory expands as ordered; fortifications and defenses will be established soon. Morale and supplies remain strong."}
+🤖 General Baratheon Raven dispatched to your lord
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  13
+🤖 Lord/Lady of House Stark Our resources and gold reserves are strong, though our loyalty has dipped to 89.
+
+I will manage the household with 65% workers and 35% soldiers to balance production and military readiness.
+
+Now, I will deploy a general named "General Karstark" to the northeast with 80 soldiers and 30 workers.
+
+His orders are to expand and secure the northeastern mountains and hills, establish fortifications, and scout further terrain for potential expansion.
+
+No new taxes will be collected this turn to help regain loyalty.
+
+This plan will advance our control over new territory while maintaining loyal support at home.
+
+Proceeding with these orders.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Stark deploy_general {"direction":"NE","soldiers_assigned":80,"workers_assigned":30,"general_name":"General Karstark","orders":"Expand and secure the northeastern mountains and hills, establish fortifications, and scout further terrain for potential expansion."}
+🤖 Lord/Lady of House Stark Household management updated: 1223 workers (65%), 659 soldiers (35%). Resource efficiency: 0.60 (-0.11), Expansion bonus: +17.5% (+0.05)
+🤖 Lord/Lady of House Stark Cannot deploy general - insufficient resources: need 130 gold and 140 material
+🤖 Lord/Lady of House Stark I currently lack enough resources to deploy General Karstark with the intended force.
+
+I will hold to the current household management of 65% workers, 35% soldiers for balanced growth and defense.
+
+I will not deploy a general this turn to preserve resources.
+
+I will propose collecting a moderate tax of 5% this turn to bolster gold reserves cautiously without causing heavy discontent.
+
+This cautious fiscal policy balances growth and preparation for future expansion.
+
+I will proceed accordingly.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Stark collect_taxes {"tax_rate":0.05}
+🤖 Lord/Lady of House Stark Household management updated: 1223 workers (65%), 659 soldiers (35%). Resource efficiency: 0.60 (0.00), Expansion bonus: +17.5% (0.00)
+🤖 Lord/Lady of House Stark Tax rate must be between 0.1 (10%) and 1.0 (100%)
+🤖 Lord/Lady of House Stark I erred in tax collection rate; minimum allowed is 10%. I will refrain from tax collection this turn to preserve loyalty and wait to accumulate more gold naturally.
+
+I will maintain household management at 65% workers and 35% soldiers.
+
+I am ready to end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  16
+🤖 General Reyne observe_area {}
+🤖 General Reyne From our current position, the immediate surroundings are mostly ocean with some plains. Unowned tiles nearby: 3. | Borders: our territory to north, southwest and northwest; unclaimed to northeast, southeast and south | Settlements: NW: Casterly Rock - Capital (Village) - Owned by Lannister
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne No unowned tiles within 1 tile to settle
+🤖 General Reyne move {"direction":"S"}
+🤖 General Reyne Cannot move to (15, 3): Cannot move into water tiles
+🤖 General Reyne move {"direction":"SE"}
+🤖 General Reyne Cannot move to (16, 2): Cannot move into water tiles
+🤖 General Reyne move {"direction":"SW"}
+🤖 General Reyne Moved from (15, 2) to (14, 3)
+🤖 General Reyne observe_area {}
+🤖 General Reyne From our current position, the immediate surroundings are mostly grassland with some ocean. Unowned tiles nearby: 3. | Borders: our territory to north, northeast and northwest; unclaimed to southeast, south and southwest | Settlements: N: Casterly Rock - Capital (Village) - Owned by Lannister
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne Settled 1 nearby tiles for your house
+🤖 General Reyne end_turn {}
+🤖 General Reyne Turn ended
+✅ General Reyne AI finished thinking
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Autumn, Week 3, Events Phase
+📬 1 ravens delivered this turn
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Autumn, Week 3, Cleanup Phase
+📊 Turn Summary - autumn Year 1
+House Stark Resources: {'food': 641, 'material': 123, 'metal': 388, 'gold': 241}
+House Stark Population: 1883, Loyalty: 89
+House Lannister Resources: {'food': 486, 'material': 19, 'metal': 208, 'gold': 725}
+House Lannister Population: 2048, Loyalty: 63
+House Baratheon Resources: {'food': 51, 'material': 152, 'metal': 460, 'gold': 368}
+House Baratheon Population: 790, Loyalty: 14
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Autumn, Week 4, Production Phase
+Baratheon is experiencing a population revolt!
+🧠 Found 3 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Autumn, Week 4, Actions Phase
+🧠 All entities (3 houses, 3 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +83 food, +32 material, +42 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 362 people (now 2245)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 90
+👀 [Lord/Lady of House Stark] Week 4 - Actions Phase
+Autumn, Year 1
+
+Resources: 724.0 food, 155.0 material, 430.0 metal, 241.0 gold
+Population: 2245, Loyalty: 90.0
+Territory: 16 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +15 material, +12 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 277 people (now 2325)
+👀 Lord/Lady of House Lannister [Production] Population loyalty increased to 64
+👀 [Lord/Lady of House Lannister] Week 4 - Actions Phase
+Autumn, Year 1
+
+Resources: 435.0 food, 34.0 material, 220.0 metal, 645.0 gold
+Population: 2325, Loyalty: 64.0
+Territory: 9 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 📜 A raven arrived from General Orys: 'The three northeast hill tiles have been secured and settled. We are commencing construction of fortifications to solidify our defense there.'
+👀 Robert Baratheon [Production] Your territories produced +76 food, +49 material, +43 metal, +69 gold this turn
+👀 Robert Baratheon [Production] 🐦 Raven in transit to Stark: 'Lord Stark, House Baratheon se...' (arriving in 1 week)
+👀 Robert Baratheon [Production] Your population grew by 103 people (now 893)
+👀 Robert Baratheon [Production] Population loyalty increased to 15
+👀 Robert Baratheon [Production] ⚠️ REVOLT RISK: Population loyalty (15) is below 40! There's a 25% chance of revolt each turn, which could cause territory loss and resource damage (15% food, 10% material, 10% metal, 10% gold)!
+👀 [Robert Baratheon] Week 4 - Actions Phase
+Autumn, Year 1
+
+Resources: 47.0 food, 201.0 material, 503.0 metal, 268.0 gold
+Population: 893, Loyalty: 15.0
+Territory: 23 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 4 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+🧠 General Orys AI is thinking...
+👀 General Orys [Actions] Can act within 3 tiles this turn
+👀 [General Orys] Week 4 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+🧠 General Reyne AI is thinking...
+👀 General Reyne [Actions] Moved one tile southwest — 2 movement points remain
+👀 General Reyne [Actions] Can act within 3 tiles this turn
+👀 [General Reyne] Week 4 - Actions Phase
+Autumn, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  7
+🤖 General Orys observe_area {}
+🤖 General Orys From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Orys The area around remains secured with no unclaimed land within reach. The fortifications on the hills to the northeast should be making progress.
+
+I will send another status raven to my lord, reporting that the hills remain secure and fortifications are underway as planned. I will also request any new orders or intelligence regarding enemy movements, so we can adapt and prepare accordingly.
+
+After sending the raven, I will end my turn.
+🤖 General Orys send_raven_to_lord {"message":"The hills to the northeast remain secure. Fortification continues as planned. Awaiting further orders or intelligence on enemy activity."}
+🤖 General Orys end_turn {}
+🤖 General Orys Raven dispatched to your lord
+🤖 General Orys Turn ended
+✅ General Orys AI finished thinking
+🎲 Generated fallback persona for: General Karstark
+   General Karstark: Detected entity type 'general'
+   General Karstark: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for General Karstark (general)
+🤖 Initialized AI agent: General Karstark with 6 tools
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Lannister Household management updated: 1433 workers (65%), 771 soldiers (35%). Resource efficiency: 0.60 (0.00), Expansion bonus: +17.5% (0.00)
+🤖 Lord/Lady of House Lannister assess_border {"direction":"S"}
+🤖 Lord/Lady of House Lannister No expansion opportunities in S direction
+🤖 Lord/Lady of House Lannister I have maintained the household split at 65% workers and 35% soldiers to optimize resource production, especially materials.
+
+I reassessed the southern border and found that there are no further expansion opportunities there, indicating General Reyne successfully secured the southern steppe tile last turn.
+
+Considering this, I will now scout other borders next turn to identify new expansion targets.
+
+I will end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+🎲 Generated fallback persona for: Commander Peace
+   Commander Peace: Detected entity type 'general'
+   Commander Peace: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for Commander Peace (general)
+🤖 Initialized AI agent: Commander Peace with 6 tools
+Len of new items:  14
+🤖 General Reyne observe_area {}
+🤖 General Reyne From our current position, the immediate surroundings are mostly grassland with some ocean. Unowned tiles nearby: 2. | Borders: our territory to north, northeast, southwest and northwest; unclaimed to southeast and south | Settlements: N: Casterly Rock - Capital (Village) - Owned by Lannister
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne No unowned tiles within 1 tile to settle
+🤖 General Reyne move {"direction":"S"}
+🤖 General Reyne Cannot move to (14, 4): Cannot move into water tiles
+🤖 General Reyne move {"direction":"SE"}
+🤖 General Reyne Cannot move to (15, 3): Cannot move into water tiles
+🤖 General Reyne move {"direction":"SW"}
+🤖 General Reyne Moved from (14, 3) to (13, 4)
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne Settled 1 nearby tiles for your house
+🤖 General Reyne end_turn {}
+🤖 General Reyne Turn ended
+✅ General Reyne AI finished thinking
+Len of new items:  8
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Baratheon The surrounding tiles are all owned. No unclaimed tiles nearby remain.
+
+I will move one tile further north to maintain our forward position and better oversee the expanded northern territory.
+
+Once moved, I will focus on preparations for fortifying and defending the newly acquired lands as ordered.
+
+Moving one tile north now.
+🤖 General Baratheon move {"direction":"N"}
+🤖 General Baratheon Moved from (-7, 6) to (-7, 5)
+🤖 General Baratheon I have moved one tile north to strengthen our position on the frontier.
+
+I will end the turn and prepare for continued defensive preparations in the coming weeks.
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  8
+🤖 Lord/Lady of House Stark Our realm grows strong in population and resources, with loyalty improving to 90.
+
+We have 155 materials and 241 gold, enough for a strong military expansion.
+
+I will continue managing the household at 65% workers and 35% soldiers for balanced growth and defense.
+
+I will now deploy General Karstark northeast with 80 soldiers and 30 workers to expand and fortify the mountainous terrain and scout further.
+
+No new taxes will be collected this turn to sustain loyal support.
+
+This decisive push advances our territorial ambitions with a strong force.
+
+Proceeding with these plans.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Stark Household management updated: 1459 workers (65%), 785 soldiers (35%). Resource efficiency: 0.60 (0.00), Expansion bonus: +17.5% (0.00)
+🤖 Lord/Lady of House Stark deploy_general {"direction":"NE","soldiers_assigned":80,"workers_assigned":30,"general_name":"General Karstark","orders":"Expand and secure the northeastern mountains and hills, establish fortifications, and scout further terrain for potential expansion."}
+🤖 Lord/Lady of House Stark Successfully deployed General Karstark to the NE with 110 people (80 soldiers, 30 workers). Position: (-8, -2). Group strength: 110, combat strength 175 and settlement capability 100.0%. Orders: 'Expand and secure the northeastern mountains and hills, establish fortifications, and scout further terrain for potential expansion.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Lord/Lady of House Stark I have allocated our population with 65% workers and 35% soldiers to maintain balance between production and defense.
+
+General Karstark has been deployed northeast with 80 soldiers and 30 workers to expand, fortify, and scout.
+
+No taxes will be imposed this turn to preserve loyalty.
+
+This plan strengthens our domain in a calculated manner.
+
+I will now end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  10
+🤖 Robert Baratheon Loyalty remains critically low at 15%. The realm risks further revolts. Our population is approaching 900, and resources are strong in material, metal, and gold, though food is moderate.
+
+This week I will:
+- Allocate 90% workers and 10% soldiers to boost food production further and sustain resources.
+- Maintain the minimum tax rate of 10% to avoid more unrest.
+- Deploy a general centrally or south to patrol and boost morale/stability among the populace.
+- Continue reinforcing fortifications and defenses throughout the realm focusing on vulnerable border areas.
+- Await response from House Stark while preparing for either diplomatic engagement or conflict if necessary.
+
+Priority remains internal stability and resource recovery before pursuing further expansion.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.9,"soldier_ratio":0.1}
+🤖 Robert Baratheon Household management updated: 659 workers (90%), 73 soldiers (10%). Resource efficiency: 0.88 (+0.06), Expansion bonus: +5.0% (-0.02)
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon Collected 134 gold from 893 population with 10% tax rate. Gold: 268 → 402 (+134). Population loyalty: 15 → 7 (-8)
+🤖 Robert Baratheon deploy_general {"direction":"S","soldiers_assigned":30,"workers_assigned":20,"general_name":"Commander Peace","orders":"Patrol southern and central territories to maintain order and stabilize population loyalty."}
+🤖 Robert Baratheon Successfully deployed Commander Peace to the S with 50 people (30 soldiers, 20 workers). Position: (-9, 12). Group strength: 50, combat strength 70 and settlement capability 100.0%. Orders: 'Patrol southern and central territories to maintain order and stabilize population loyalty.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Robert Baratheon I have allocated 90% workers and 10% soldiers to maximize food and resource production. Taxes remain at the minimum 10%, but loyalty has dropped dangerously low to 7%. I deployed Commander Peace south to patrol and maintain order in southern and central territories, aiming to stabilize population loyalty. We continue fortifying our lands and await House Stark's response while prioritizing internal stability.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Autumn, Week 4, Events Phase
+📬 2 ravens delivered this turn
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Autumn, Week 4, Cleanup Phase
+📊 Turn Summary - autumn Year 1
+House Stark Resources: {'food': 724, 'material': 15, 'metal': 430, 'gold': 111}
+House Stark Population: 2245, Loyalty: 90
+House Lannister Resources: {'food': 435, 'material': 34, 'metal': 220, 'gold': 645}
+House Lannister Population: 2325, Loyalty: 64
+House Baratheon Resources: {'food': 47, 'material': 121, 'metal': 503, 'gold': 322}
+House Baratheon Population: 893, Loyalty: 7
+🌅 Season changed: autumn → winter
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Winter, Week 1, Production Phase
+Baratheon is experiencing a population revolt!
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Winter, Week 1, Actions Phase
+🧠 All entities (3 houses, 5 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Events] 📜 A raven arrived from Baratheon: 'Lord Stark, House Baratheon seeks cordial relations and potential alliance in these turbulent times. We wish to discuss mutual support and peace for our realms.'
+👀 Lord/Lady of House Stark [Production] Your territories produced +24 food, +37 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 374 people (now 2619)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 91
+👀 [Lord/Lady of House Stark] Week 1 - Actions Phase
+Winter, Year 1
+
+Resources: 638.0 food, 47.0 material, 467.0 metal, 31.0 gold
+Population: 2619, Loyalty: 91.0
+Territory: 16 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +16 material, +14 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 227 people (now 2552)
+👀 Lord/Lady of House Lannister [Production] Population loyalty increased to 65
+👀 [Lord/Lady of House Lannister] Week 1 - Actions Phase
+Winter, Year 1
+
+Resources: 335.0 food, 50.0 material, 234.0 metal, 565.0 gold
+Population: 2552, Loyalty: 65.0
+Territory: 10 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 📜 Your raven to Stark was delivered
+👀 Robert Baratheon [Events] 📜 A raven arrived from General Baratheon: 'Northward expansion continues with three additional tiles secured. Territory expands as ordered; fortifications and defenses will be established soon. Morale and supplies remain strong.'
+👀 Robert Baratheon [Production] Your territories produced +53 metal this turn
+👀 Robert Baratheon [Production] Your population grew by 42 people (now 935)
+👀 Robert Baratheon [Production] ⚠️ REVOLT RISK: Population loyalty (7) is below 40! There's a 25% chance of revolt each turn, which could cause territory loss and resource damage (15% food, 10% material, 10% metal, 10% gold)!
+👀 [Robert Baratheon] Week 1 - Actions Phase
+Winter, Year 1
+
+Resources: 4.0 food, 170.0 material, 556.0 metal, 272.0 gold
+Population: 935, Loyalty: 7.0
+Territory: 23 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 1 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 General Orys AI is thinking...
+👀 General Orys [Actions] Can act within 3 tiles this turn
+👀 [General Orys] Week 1 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 General Reyne AI is thinking...
+👀 General Reyne [Actions] Moved one tile southwest — 2 movement points remain
+👀 General Reyne [Actions] Can act within 3 tiles this turn
+👀 [General Reyne] Week 1 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 General Karstark AI is thinking...
+👀 General Karstark [Actions] Can act within 3 tiles this turn
+👀 [General Karstark] Week 1 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 Commander Peace AI is thinking...
+👀 Commander Peace [Actions] Can act within 3 tiles this turn
+👀 [Commander Peace] Week 1 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  8
+🤖 General Karstark observe_area {}
+🤖 General Karstark From our current position, the immediate surroundings are mostly hills with some mountains. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest
+🤖 General Karstark settle_tiles {}
+🤖 General Karstark Settled 3 nearby tiles for your house
+🤖 General Karstark send_raven_to_lord {"message":"Secured three nearby hills and mountain tiles to the north and northeast. Territory control expanding as per orders. Preparing for further scouting and fortifications next turns."}
+🤖 General Karstark Raven dispatched to your lord
+🤖 General Karstark end_turn {}
+🤖 General Karstark Turn ended
+✅ General Karstark AI finished thinking
+Len of new items:  7
+🤖 General Orys observe_area {}
+🤖 General Orys From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Orys The winter season has arrived. The secured hills and surrounding territory remain claimed, with no unowned tiles nearby.
+
+Winter conditions may limit farming and slow construction, so I will focus on maintaining readiness of our forces and defenses.
+
+I choose to maintain observation of the area for any signs of movement or threat. I will also keep my troops prepared and supplies secure during the harsh season.
+
+I observe the area once more to stay alert, then hold position this turn.
+🤖 General Orys observe_area {}
+🤖 General Orys From our current position, the immediate surroundings are mostly plains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Orys end_turn {}
+🤖 General Orys Turn ended
+✅ General Orys AI finished thinking
+Len of new items:  9
+🤖 Commander Peace observe_area {}
+🤖 Commander Peace From our current position, the immediate surroundings are mostly desert with some hills. Unowned tiles nearby: 3. | Borders: our territory to north, northeast and southeast; unclaimed to south, southwest and northwest | Settlements: NE: Storm's End - Capital (Village) - Owned by Baratheon
+🤖 Commander Peace The immediate area around us contains mostly desert and hills, with three unowned tiles nearby for potential expansion. Our territory borders to the north, northeast, and southeast, while the unclaimed tiles lie to the south, southwest, and northwest. To the northeast, there is a significant settlement, Storm's End, a village capital owned by House Baratheon.
+
+Given our mission to maintain order and stabilize loyalty, I will take the following actions:
+
+1. Settle the unowned tiles within our operational range to extend our control and influence.
+2. Send a raven message to our lord informing of our position, the proximity of Storm's End, and our intent to expand control in this area.
+
+I will proceed to settle the nearby unowned tiles now.
+🤖 Commander Peace settle_tiles {}
+🤖 Commander Peace send_raven_to_lord {"message":"Positioned at southern-central territory near Storm's End. Unowned desert and hills tiles settled to extend control. Continuing patrol to stabilize loyalty."}
+🤖 Commander Peace Settled 3 nearby tiles for your house
+🤖 Commander Peace Raven dispatched to your lord
+🤖 Commander Peace end_turn {}
+🤖 Commander Peace Turn ended
+✅ Commander Peace AI finished thinking
+Len of new items:  9
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Lannister assess_border {"direction":"SW"}
+🤖 Lord/Lady of House Lannister assess_border {"direction":"SE"}
+🤖 Lord/Lady of House Lannister Household management updated: 1580 workers (65%), 851 soldiers (35%). Resource efficiency: 0.60 (0.00), Expansion bonus: +17.5% (0.00)
+🤖 Lord/Lady of House Lannister Border assessment: 1 tiles (steppe). Cost: 20 material, 20 gold
+🤖 Lord/Lady of House Lannister No expansion opportunities in SE direction
+🤖 Lord/Lady of House Lannister I have maintained the household allocation at 65% workers and 35% soldiers to continue efficient resource production and a capable military.
+
+I assessed the southwestern border and found an available steppe tile for expansion at the cost of 20 material and 20 gold.
+
+I also assessed the southeastern border but found no expansion opportunities there.
+
+I will prioritize expansion southwestward next turn based on this assessment.
+
+I will end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+Len of new items:  8
+🤖 Lord/Lady of House Stark We have received a message from House Baratheon expressing a desire for cordial relations and potential alliance.
+
+In response, I will send a raven back to House Baratheon expressing gratitude for their message and openness to discussions of mutual support and peace. I will propose to begin formal talks to explore alliance possibilities.
+
+Meanwhile, with winter upon us, resources are lower, and population grows strongly with loyalty at 91.
+
+I will manage household with increased workers to 70% and soldiers at 30% this winter to maintain resource production while ensuring capable defense.
+
+I will hold off on military expansions in winter, focusing on internal stability.
+
+No new taxes will be collected this turn to maintain loyalty.
+
+This plan balances diplomacy, defense, and internal strength.
+
+I will proceed accordingly.
+🤖 Lord/Lady of House Stark send_raven {"recipient":"Baratheon","message":"Lord Stark acknowledges and appreciates House Baratheon's proposal for alliance and mutual support. We welcome further discussions to secure peace and strengthen our realms together. May our talks be fruitful."}
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.7,"soldier_ratio":0.3}
+🤖 Lord/Lady of House Stark Raven sent to Baratheon: 'Lord Stark acknowledges and appreciates House Baratheon's proposal for alliance and mutual support. We welcome further discussions to secure peace and strengthen our realms together. May our talks be fruitful.' - message will arrive in 2 weeks.
+🤖 Lord/Lady of House Stark Household management updated: 1756 workers (70%), 752 soldiers (30%). Resource efficiency: 0.65 (+0.06), Expansion bonus: +15.0% (-0.02)
+🤖 Lord/Lady of House Stark I have sent a raven to House Baratheon expressing willingness for alliance discussions.
+
+Household allocation is set to 70% workers and 30% soldiers to maintain resources and defense during winter.
+
+No military expansions or taxes are planned this turn.
+
+I will now end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  14
+🤖 General Reyne observe_area {}
+🤖 General Reyne From our current position, the immediate surroundings are mostly grassland with some ocean. Unowned tiles nearby: 3. | Borders: our territory to north, northeast and northwest; unclaimed to southeast, south and southwest
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne No unowned tiles within 1 tile to settle
+🤖 General Reyne move {"direction":"S"}
+🤖 General Reyne Cannot move to (13, 5): Cannot move into water tiles
+🤖 General Reyne move {"direction":"SE"}
+🤖 General Reyne Cannot move to (14, 4): Cannot move into water tiles
+🤖 General Reyne move {"direction":"NW"}
+🤖 General Reyne Moved from (13, 4) to (12, 4)
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne Settled 2 nearby tiles for your house
+🤖 General Reyne end_turn {}
+🤖 General Reyne Turn ended
+✅ General Reyne AI finished thinking
+Len of new items:  10
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest
+🤖 General Baratheon Despite the harsh winter season, I observe three unowned tiles nearby to the north, northeast, and northwest. Our territory borders southeast, south, and southwest, with unclaimed lands to the north.
+
+To continue securing territory as ordered, I will settle these three unowned tiles within 1-tile radius for our house.
+
+Proceeding to settle the three unowned tiles now.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 3 nearby tiles for your house
+🤖 General Baratheon The three nearby unowned tiles to the north, northeast, and northwest have been settled for our house, continuing our expansion despite the challenges of winter.
+
+Next, I will send a raven to our lord with a status update on the continued successful expansion and our preparations to fortify and defend these new territories.
+
+Sending the raven now.
+🤖 General Baratheon send_raven_to_lord {"message":"Winter expansion progressing with three northern tiles secured. Territory grows as ordered. Despite seasonal hardships, morale and supplies remain stable. Fortification plans underway."}
+🤖 General Baratheon Raven dispatched to your lord
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  10
+🤖 Robert Baratheon Loyalty remains critically low at 7%, with a high risk of revolt. Food supply is dangerously low at 4, and we face harsh winter conditions which will challenge food production further. Materials, metal, and gold supplies are strong, and population is 935.
+
+Immediate actions:
+- Allocate 95% workers and 5% soldiers to maximize food production during the harsh winter.
+- Maintain minimum allowable taxes at 10% to avoid further unrest.
+- Deploy generals tactically to quell any potential uprisings, patrol border regions, and maintain order.
+- Halt all expansion and invest resources into internal stability and fortification of newly acquired northern territories.
+- Consider opening communication with more houses if possible for potential external support.
+
+Our focus is survival through this difficult winter and restoring loyalty to prevent further revolts.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.95,"soldier_ratio":0.05}
+🤖 Robert Baratheon Household management updated: 688 workers (95%), 36 soldiers (5%). Resource efficiency: 0.94 (+0.06), Expansion bonus: +2.5% (-0.03)
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon Collected 141 gold from 935 population with 10% tax rate. Gold: 272 → 413 (+141). Population loyalty: 7 → 0 (-7)
+🤖 Robert Baratheon deploy_general {"direction":"S","soldiers_assigned":20,"workers_assigned":20,"general_name":"Commander Resolve","orders":"Patrol southern and central territories with the goal to soothe unrest and maintain order during the harsh winter."}
+🤖 Robert Baratheon Cannot deploy another general: cap reached (3/3). Gain more territory to increase your command capacity.
+🤖 Robert Baratheon I allocated 95% of the population to workers to maximize food production during the harsh winter. Taxes remain at minimum 10%, but loyalty has dropped to zero, indicating extreme unrest and imminent risk of severe revolt. I attempted to deploy Commander Resolve to patrol and stabilize the southern territories, but we've reached the general command cap due to multiple ongoing deployments.
+
+I will hold off on further deployments this turn, focus all available resources on survival and fortification, and urgently prepare to manage the revolt risks.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Winter, Week 1, Events Phase
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Winter, Week 1, Cleanup Phase
+📊 Turn Summary - winter Year 1
+House Stark Resources: {'food': 638, 'material': 47, 'metal': 467, 'gold': 31}
+House Stark Population: 2619, Loyalty: 91
+House Lannister Resources: {'food': 335, 'material': 50, 'metal': 234, 'gold': 565}
+House Lannister Population: 2552, Loyalty: 65
+House Baratheon Resources: {'food': 4, 'material': 170, 'metal': 556, 'gold': 413}
+House Baratheon Population: 935, Loyalty: 0
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Winter, Week 2, Production Phase
+Baratheon is experiencing a population revolt!
+🧠 Found 5 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Winter, Week 2, Actions Phase
+🛑 Disbanded General Orys due to upkeep/morale failure
+🛑 Disbanded Commander Peace due to upkeep/morale failure
+🧠 All entities (3 houses, 3 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Production] Your territories produced +39 material, +48 metal this turn
+👀 Lord/Lady of House Stark [Production] 🐦 Raven in transit to Baratheon: 'Lord Stark acknowledges and ap...' (arriving in 1 week)
+👀 Lord/Lady of House Stark [Production] Your population grew by 333 people (now 2952)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 92
+👀 [Lord/Lady of House Stark] Week 2 - Actions Phase
+Winter, Year 1
+
+Resources: 666.0 food, 86.0 material, 515.0 metal, 31.0 gold
+Population: 2952, Loyalty: 92.0
+Territory: 19 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +19 material, +17 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 179 people (now 2731)
+👀 Lord/Lady of House Lannister [Production] Population loyalty increased to 66
+👀 [Lord/Lady of House Lannister] Week 2 - Actions Phase
+Winter, Year 1
+
+Resources: 359.0 food, 69.0 material, 251.0 metal, 565.0 gold
+Population: 2731, Loyalty: 66.0
+Territory: 12 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Production] Your territories produced +63 material, +75 metal, +91 gold this turn
+👀 Robert Baratheon [Production] Your population grew by 24 people (now 959)
+👀 Robert Baratheon [Production] ⚠️ REVOLT RISK: Population loyalty (0) is below 40! There's a 25% chance of revolt each turn, which could cause territory loss and resource damage (15% food, 10% material, 10% metal, 10% gold)!
+👀 Robert Baratheon [Actions] General General Orys has disbanded due to upkeep/morale issues (assigned 80 people returned)
+👀 Robert Baratheon [Actions] General Commander Peace has disbanded due to upkeep/morale issues (assigned 50 people returned)
+👀 [Robert Baratheon] Week 2 - Actions Phase
+Winter, Year 1
+
+Resources: 48.0 food, 233.0 material, 631.0 metal, 413.0 gold
+Population: 959, Loyalty: 0.0
+Territory: 29 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 2 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 General Reyne AI is thinking...
+👀 [General Reyne] Week 2 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 General Karstark AI is thinking...
+👀 General Karstark [Actions] Can act within 3 tiles this turn
+👀 [General Karstark] Week 2 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  8
+🤖 General Karstark observe_area {}
+🤖 General Karstark From our current position, the immediate surroundings are mostly hills with some mountains. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Karstark send_raven_to_lord {"message":"All nearby tiles settled. Territory secure and expanded around current position. No immediate new lands within 3 tiles. Propose moving northeast to scout beyond current operational range for further expansion potential."}
+🤖 General Karstark Raven dispatched to your lord
+🤖 General Karstark move {"direction":"NE"}
+🤖 General Karstark Moved from (-8, -2) to (-7, -3)
+🤖 General Karstark end_turn {}
+🤖 General Karstark Turn ended
+✅ General Karstark AI finished thinking
+Len of new items:  6
+🤖 Lord/Lady of House Stark Our population and resources continue to grow steadily, with loyalty now at 92.
+
+No new messages from House Baratheon have yet arrived.
+
+I will keep household management steady at 70% workers and 30% soldiers for winter resource maintenance with adequate defense.
+
+Given the harsh winter, I will not initiate new expansions or taxes.
+
+We will wait further for diplomatic developments and the coming seasons to resume active expansion.
+
+This prudent stability will keep the North strong through winter's harshness.
+
+I proceed with these orders.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.7,"soldier_ratio":0.3}
+🤖 Lord/Lady of House Stark Household management updated: 1989 workers (70%), 852 soldiers (30%). Resource efficiency: 0.65 (0.00), Expansion bonus: +15.0% (0.00)
+🤖 Lord/Lady of House Stark The household remains set at 70% workers, 30% soldiers; no expansions or taxes are planned.
+
+I will end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+🎲 Generated fallback persona for: Commander Resolve
+   Commander Resolve: Detected entity type 'general'
+   Commander Resolve: Created 6 tools via general toolset
+🤖 Generated dynamic instructions for Commander Resolve (general)
+🤖 Initialized AI agent: Commander Resolve with 6 tools
+Len of new items:  12
+🤖 General Reyne observe_area {}
+🤖 General Reyne From our current position, the immediate surroundings are mostly grassland with some ocean. Unowned tiles nearby: 2. | Borders: our territory to north, northeast, southeast and northwest; unclaimed to south and southwest
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne No unowned tiles within 1 tile to settle
+🤖 General Reyne move {"direction":"S"}
+🤖 General Reyne Cannot move to (12, 5): Cannot move into water tiles
+🤖 General Reyne move {"direction":"SE"}
+🤖 General Reyne Moved from (12, 4) to (13, 4)
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne No unowned tiles within 1 tile to settle
+🤖 General Reyne end_turn {}
+🤖 General Reyne Turn ended
+✅ General Reyne AI finished thinking
+Len of new items:  8
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 0. | Borders: our territory to north, northeast, southeast, south, southwest and northwest
+🤖 General Baratheon All surrounding tiles are owned, with no unclaimed land nearby.
+
+I will move one tile north to continue leading from the front and maintain pressure on the northern expansion front.
+
+After moving, I will prepare to initiate fortifications on the newly gained tiles as per mission orders.
+
+Proceeding to move one tile north.
+🤖 General Baratheon move {"direction":"N"}
+🤖 General Baratheon Moved from (-7, 5) to (-7, 4)
+🤖 General Baratheon I have moved one tile north to maintain our forward position.
+
+With no unowned tiles nearby now, I will focus on planning fortification and defensive preparations for the newly acquired northern territories in upcoming turns.
+
+Ending turn here.
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  14
+🤖 Robert Baratheon Loyalty has hit 0%, our population is on the brink of rebellion with a 25% chance of revolt each turn. Food is low but better at 48, we have ample material, metal, and gold. Population is nearly 960 with increased territory of 29 tiles after recent expansions. Two generals have disbanded due to morale issues, freeing up command capacity.
+
+Immediate actions:
+- Allocate 90% workers and 10% soldiers, maximizing food while maintaining some defense.
+- Keep tax rate at minimum 10% to try to avoid further unrest.
+- Redeploy generals to patrol and stabilize key regions to prevent revolt.
+- Prioritize reinforcement and garrisoning of the most vulnerable border tiles within the territory.
+- Consider sending ravens to both House Stark and House Lannister, urgently seeking diplomatic support or alliance in face of internal instability.
+
+Our top priority is restoring order and preventing further rebellion while safeguarding our expanded territories.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.9,"soldier_ratio":0.1}
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon deploy_general {"direction":"S","soldiers_assigned":40,"workers_assigned":20,"general_name":"Commander Resolve","orders":"Patrol southern and central territories, maintain order, and improve population loyalty."}
+🤖 Robert Baratheon send_raven {"recipient":"Stark","message":"House Baratheon faces internal unrest and loyalty crisis. We seek your counsel and possible alliance to restore peace and strength to our realm."}
+🤖 Robert Baratheon send_raven {"recipient":"Lannister","message":"House Baratheon is in a critical state of unrest. We request your aid or alliance to stabilize our territories and protect our mutual interests."}
+🤖 Robert Baratheon Household management updated: 791 workers (90%), 87 soldiers (10%). Resource efficiency: 0.88 (-0.06), Expansion bonus: +5.0% (+0.03)
+🤖 Robert Baratheon Collected 144 gold from 959 population with 10% tax rate. Gold: 413 → 557 (+144). Population loyalty: 0 → 0 (-0)
+🤖 Robert Baratheon Successfully deployed Commander Resolve to the S with 60 people (40 soldiers, 20 workers). Position: (-5, 7). Group strength: 60, combat strength 90 and settlement capability 100.0%. Orders: 'Patrol southern and central territories, maintain order, and improve population loyalty.'. The general will act independently within 3 tiles operational range and interpret these orders autonomously.
+🤖 Robert Baratheon Raven sent to Stark: 'House Baratheon faces internal unrest and loyalty crisis. We seek your counsel and possible alliance to restore peace and strength to our realm.' - message will arrive in 2 weeks.
+🤖 Robert Baratheon Raven sent to Lannister: 'House Baratheon is in a critical state of unrest. We request your aid or alliance to stabilize our territories and protect our mutual interests.' - message will arrive in 2 weeks.
+🤖 Robert Baratheon I have allocated 90% workers and 10% soldiers to maximize food production while maintaining moderate defense. Taxes remain at the minimum 10% to try to minimize unrest, though loyalty remains at zero. I deployed Commander Resolve south to patrol and stabilize the southern and central territories. I have also sent ravens to Houses Stark and Lannister requesting counsel, aid, or alliance to help stabilize House Baratheon's critical state of unrest. We focus now on internal peace and strength restoration.
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.6,"soldier_ratio":0.4}
+🤖 Lord/Lady of House Lannister Household management updated: 1566 workers (60%), 1044 soldiers (40%). Resource efficiency: 0.54 (-0.05), Expansion bonus: +20.0% (+0.03)
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"SW","soldiers_assigned":80,"workers_assigned":40,"general_name":"General Tarbeck","orders":"Expand our territory southwestward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 130 gold and 150 material
+🤖 Lord/Lady of House Lannister I have adjusted the household composition to 60% workers and 40% soldiers to enhance our military strength, supporting territorial expansion.
+
+There is a steppe tile available for expansion to the southwest, requiring 20 material and 20 gold.
+
+However, I currently lack sufficient resources (need 130 gold and 150 material) to deploy a general with enough forces for a successful expansion.
+
+I will focus on accumulating resources this turn and hold off on deploying a general.
+
+I end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+🧠 Found 4 generals
+Press Enter to continue...
+
+⚙️  Events Phase - Year 1, Winter, Week 2, Events Phase
+📬 3 ravens delivered this turn
+🧠 Found 4 generals
+Press Enter to continue...
+
+⚙️  Cleanup Phase - Year 1, Winter, Week 2, Cleanup Phase
+📊 Turn Summary - winter Year 1
+House Stark Resources: {'food': 666, 'material': 86, 'metal': 515, 'gold': 31}
+House Stark Population: 2952, Loyalty: 92
+House Lannister Resources: {'food': 359, 'material': 69, 'metal': 251, 'gold': 565}
+House Lannister Population: 2731, Loyalty: 66
+House Baratheon Resources: {'food': 48, 'material': 143, 'metal': 631, 'gold': 467}
+House Baratheon Population: 959, Loyalty: 0
+🧠 Found 4 generals
+Press Enter to continue...
+
+⚙️  Production Phase - Year 1, Winter, Week 3, Production Phase
+Baratheon is experiencing a population revolt!
+🧠 Found 4 generals
+Press Enter to continue...
+
+⚙️  Actions Phase - Year 1, Winter, Week 3, Actions Phase
+🛑 Disbanded General Karstark due to upkeep/morale failure
+🧠 All entities (3 houses, 3 generals) making decisions concurrently...
+🧠 Stark AI is thinking...
+👀 Lord/Lady of House Stark [Events] 📜 Your raven to Baratheon was delivered
+👀 Lord/Lady of House Stark [Events] 📜 A raven arrived from General Karstark: 'Secured three nearby hills and mountain tiles to the north and northeast. Territory control expanding as per orders. Preparing for further scouting and fortifications next turns.'
+👀 Lord/Lady of House Stark [Production] Your territories produced +28 food, +39 material, +48 metal this turn
+👀 Lord/Lady of House Stark [Production] Your population grew by 347 people (now 3299)
+👀 Lord/Lady of House Stark [Production] Population loyalty increased to 93
+👀 Lord/Lady of House Stark [Actions] General General Karstark has disbanded due to upkeep/morale issues (assigned 110 people returned)
+👀 [Lord/Lady of House Stark] Week 3 - Actions Phase
+Winter, Year 1
+
+Resources: 694.0 food, 125.0 material, 563.0 metal, 31.0 gold
+Population: 3299, Loyalty: 93.0
+Territory: 19 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Lannister AI is thinking...
+👀 Lord/Lady of House Lannister [Production] Your territories produced +19 food, +19 material, +17 metal this turn
+👀 Lord/Lady of House Lannister [Production] Your population grew by 189 people (now 2920)
+👀 Lord/Lady of House Lannister [Production] Population loyalty increased to 67
+👀 [Lord/Lady of House Lannister] Week 3 - Actions Phase
+Winter, Year 1
+
+Resources: 258.0 food, 88.0 material, 268.0 metal, 485.0 gold
+Population: 2920, Loyalty: 67.0
+Territory: 12 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 Baratheon AI is thinking...
+👀 Robert Baratheon [Events] 📜 A raven arrived from Stark: 'Lord Stark acknowledges and appreciates House Baratheon's proposal for alliance and mutual support. We welcome further discussions to secure peace and strengthen our realms together. May our talks be fruitful.'
+👀 Robert Baratheon [Events] 📜 A raven arrived from General Baratheon: 'Winter expansion progressing with three northern tiles secured. Territory grows as ordered. Despite seasonal hardships, morale and supplies remain stable. Fortification plans underway.'
+👀 Robert Baratheon [Production] Your territories produced +44 food, +75 metal, +54 gold this turn
+👀 Robert Baratheon [Production] 🐦 Raven in transit to Stark: 'House Baratheon faces internal...' (arriving in 1 week)
+👀 Robert Baratheon [Production] 🐦 Raven in transit to Lannister: 'House Baratheon is in a critic...' (arriving in 1 week)
+👀 Robert Baratheon [Production] Your population grew by 46 people (now 1005)
+👀 Robert Baratheon [Production] ⚠️ REVOLT RISK: Population loyalty (0) is below 40! There's a 25% chance of revolt each turn, which could cause territory loss and resource damage (15% food, 10% material, 10% metal, 10% gold)!
+👀 [Robert Baratheon] Week 3 - Actions Phase
+Winter, Year 1
+
+Resources: 12.0 food, 212.0 material, 706.0 metal, 417.0 gold
+Population: 1005, Loyalty: 0.0
+Territory: 29 tiles, 0 pending expansions
+
+What actions do you take this turn?
+🧠 General Baratheon AI is thinking...
+👀 General Baratheon [Actions] Moved one tile north — 2 movement points remain
+👀 General Baratheon [Actions] Can act within 3 tiles this turn
+👀 [General Baratheon] Week 3 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 General Reyne AI is thinking...
+👀 General Reyne [Actions] Moved one tile southeast — 2 movement points remain
+👀 General Reyne [Actions] Can act within 3 tiles this turn
+👀 [General Reyne] Week 3 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+🧠 Commander Resolve AI is thinking...
+👀 [Commander Resolve] Week 3 - Actions Phase
+Winter, Year 1
+
+
+What actions do you take this turn?
+Len of new items:  7
+🤖 Commander Resolve observe_area {}
+🤖 Commander Resolve From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 3. | Borders: our territory to north, southwest and northwest; unclaimed to northeast, southeast and south
+🤖 Commander Resolve We currently occupy a strategic position surrounded largely by our own territories to the north, southwest, and northwest, with some unclaimed land to the northeast, southeast, and south. Given our mission to patrol and improve loyalty in the southern and central lands, the prudent course is to begin settling the unclaimed tiles nearby to secure these areas and solidify control.
+
+I will settle all unowned land tiles within one tile radius to expand our territory and strengthen our presence. This will also aid in maintaining order and improving population loyalty.
+
+Following that, we will scout and remain vigilant for any disturbances or threats.
+
+Proceeding to settle nearby unowned tiles.
+🤖 Commander Resolve settle_tiles {}
+🤖 Commander Resolve Settled 3 nearby tiles for your house
+🤖 Commander Resolve end_turn {}
+🤖 Commander Resolve Turn ended
+✅ Commander Resolve AI finished thinking
+Len of new items:  7
+🤖 Robert Baratheon Our population loyalty remains at zero, with a continued 25% revolt risk. Food is low at 12, but material, metal, and gold reserves remain robust. Population is 1005, and territory is stable at 29 tiles.
+
+Actions:
+- Maintain 90% workers and 10% soldiers to focus on food production and basic defense.
+- Keep taxes at minimum 10% to prevent further unrest.
+- Command Commander Resolve to intensify efforts on stabilizing loyalty in southern and central territories.
+- Begin preparations to develop one or two key cities to improve population capacity and tax efficiency, emphasizing loyalty and resource gains.
+- Continue fortifying northern expansions as supplied by General Baratheon.
+- Await responses from Stark and Lannister to coordinate any aid or joint efforts.
+
+Focus remains on internal loyalty repair, resource stability, and long-term fortification.
+🤖 Robert Baratheon manage_household {"worker_ratio":0.9,"soldier_ratio":0.1}
+🤖 Robert Baratheon Household management updated: 778 workers (90%), 86 soldiers (10%). Resource efficiency: 0.88 (0.00), Expansion bonus: +5.0% (0.00)
+🤖 Robert Baratheon collect_taxes {"tax_rate":0.1}
+🤖 Robert Baratheon Collected 151 gold from 1005 population with 10% tax rate. Gold: 417 → 568 (+151). Population loyalty: 0 → 0 (-0)
+🤖 Robert Baratheon end_turn {}
+🤖 Robert Baratheon Turn ended
+✅ Baratheon AI finished thinking
+Len of new items:  10
+🤖 General Baratheon observe_area {}
+🤖 General Baratheon From our current position, the immediate surroundings are mostly plains with some hills. Unowned tiles nearby: 3. | Borders: our territory to southeast, south and southwest; unclaimed to north, northeast and northwest
+🤖 General Baratheon From my current position, I observe mostly plains with some hills and three unowned tiles nearby to the north, northeast, and northwest. Our territory borders southeast, south, and southwest, with unclaimed lands to the north.
+
+To continue our expansion northward despite winter, I will settle these three unowned tiles within 1 tile radius for our house.
+
+Proceeding to settle the three unowned tiles now.
+🤖 General Baratheon settle_tiles {}
+🤖 General Baratheon Settled 3 nearby tiles for your house
+🤖 General Baratheon The three nearby unowned tiles to the north, northeast, and northwest have been successfully settled, further expanding our territory northward as ordered.
+
+Now, I will send a raven to our lord reporting this successful expansion and reaffirm our commitment to fortify and defend the newly acquired northern hills despite the winter challenges.
+
+Sending the raven with the report now.
+🤖 General Baratheon send_raven_to_lord {"message":"Despite winter's harshness, we've secured three additional northern tiles, expanding territory further as ordered. Fortification and defense plans remain a priority. Morale and supplies hold firm."}
+🤖 General Baratheon Raven dispatched to your lord
+🤖 General Baratheon end_turn {}
+🤖 General Baratheon Turn ended
+✅ General Baratheon AI finished thinking
+Len of new items:  14
+🤖 General Reyne observe_area {}
+🤖 General Reyne From our current position, the immediate surroundings are mostly grassland with some ocean. Unowned tiles nearby: 3. | Borders: our territory to north, northeast and northwest; unclaimed to southeast, south and southwest
+🤖 General Reyne settle_tiles {}
+🤖 General Reyne No unowned tiles within 1 tile to settle
+🤖 General Reyne move {"direction":"SE"}
+🤖 General Reyne Cannot move to (14, 4): Cannot move into water tiles
+🤖 General Reyne move {"direction":"S"}
+🤖 General Reyne Cannot move to (13, 5): Cannot move into water tiles
+🤖 General Reyne move {"direction":"SW"}
+🤖 General Reyne Cannot move to (12, 5): Cannot move into water tiles
+🤖 General Reyne move {"direction":"NW"}
+🤖 General Reyne Moved from (13, 4) to (12, 4)
+🤖 General Reyne end_turn {}
+🤖 General Reyne Turn ended
+✅ General Reyne AI finished thinking
+Len of new items:  10
+🤖 Lord/Lady of House Stark General Karstark has reported securing three nearby hills and mountain tiles to the north and northeast, expanding our territory further. The general has now disbanded due to morale and upkeep issues, and his 110 assigned people have returned to our population.
+
+With our territory now at 19 tiles and resources strong, I will adjust household management to 65% workers and 35% soldiers to balance growth and defense as winter persists.
+
+I will send a raven to House Baratheon acknowledging their message and expressing interest in formalizing our alliance.
+
+Meanwhile, I will assess the northern border again to identify additional expansion opportunities.
+
+No new taxes will be levied this turn to maintain loyalty.
+
+This plan strengthens our realm diplomatically and militarily while preserving internal stability.
+
+Proceeding with these actions.
+🤖 Lord/Lady of House Stark manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Stark send_raven {"recipient":"Baratheon","message":"Lord Stark acknowledges and welcomes your message. We seek to formalize our alliance for mutual defense and prosperity in these uncertain times. We await your terms."}
+🤖 Lord/Lady of House Stark assess_border {"direction":"N"}
+🤖 Lord/Lady of House Stark Household management updated: 2144 workers (65%), 1154 soldiers (35%). Resource efficiency: 0.60 (-0.06), Expansion bonus: +17.5% (+0.02)
+🤖 Lord/Lady of House Stark Raven sent to Baratheon: 'Lord Stark acknowledges and welcomes your message. We seek to formalize our alliance for mutual defense and prosperity in these uncertain times. We await your terms.' - message will arrive in 2 weeks.
+🤖 Lord/Lady of House Stark Border assessment: 5 tiles (mountain, grassland, hill (and 2 more tiles)). Cost: 100 material, 100 gold
+🤖 Lord/Lady of House Stark I have adjusted our household to 65% workers, 35% soldiers, keeping a balance between production and defense during winter.
+
+I have sent a raven to House Baratheon proposing to formalize our alliance for mutual defense and prosperity and await their terms.
+
+The northern border assessment reveals 5 promising tiles including mountain, grassland, and hill, but expansion would cost 100 material and 100 gold.
+
+Given this information, we may prepare to expand north in upcoming turns.
+
+No taxes will be imposed this season to maintain loyalty.
+
+I will now end this turn.
+🤖 Lord/Lady of House Stark end_turn {}
+🤖 Lord/Lady of House Stark Turn ended
+✅ Stark AI finished thinking
+Len of new items:  7
+🤖 Lord/Lady of House Lannister manage_household {"worker_ratio":0.65,"soldier_ratio":0.35}
+🤖 Lord/Lady of House Lannister Household management updated: 1820 workers (65%), 979 soldiers (35%). Resource efficiency: 0.60 (+0.05), Expansion bonus: +17.5% (-0.03)
+🤖 Lord/Lady of House Lannister deploy_general {"direction":"SW","soldiers_assigned":80,"workers_assigned":40,"general_name":"General Tarbeck","orders":"Expand our territory southwestward into the steppe territory, secure it, and establish a settlement."}
+🤖 Lord/Lady of House Lannister Cannot deploy general - insufficient resources: need 130 gold and 150 material
+🤖 Lord/Lady of House Lannister I have adjusted the household allocation to 65% workers and 35% soldiers to improve resource production efficiency and build material reserves.
+
+I attempted to deploy General Tarbeck with 80 soldiers and 40 workers to expand southwestward into the steppe territory.
+
+However, I still lack sufficient resources (need 130 gold and 150 material) to deploy the general for this expansion.
+
+I will continue to accumulate resources and strengthen my position before attempting the expansion.
+
+I will end this turn.
+🤖 Lord/Lady of House Lannister end_turn {}
+🤖 Lord/Lady of House Lannister Turn ended
+✅ Lannister AI finished thinking
+🧠 Found 3 generals
+Press Enter to continue...

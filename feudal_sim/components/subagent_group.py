@@ -12,6 +12,7 @@ from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
 from feudal_sim.components.population import AssignedPopulation
+from feudal_sim.config.subagents import get_upkeep_costs, get_upkeep_thresholds
 
 
 @dataclass
@@ -56,6 +57,8 @@ class SubAgentGroup(Component):
         # Mission management
         self.mission_parameters = MissionParameters(mission_type="patrol")
         self.mission_status = "active"  # "active", "completed", "failed", "recalled"
+        self.unpaid_turns = 0  # consecutive turns we failed to pay upkeep
+        self.should_disband = False  # signal for auto-disband when upkeep/morale failures persist
         
         # Group state tracking
         self.morale = 100  # Group morale (affects performance)
@@ -329,7 +332,7 @@ class SubAgentGroup(Component):
                 failed_actions=self.failed_actions
             )
     
-    def update_turn(self, hex_grid=None, current_turn=None):
+    def update_turn(self, hex_grid=None, current_turn=None, entity_manager=None):
         """
         Update group state for a new turn.
         Should be called each turn to handle supply consumption and status updates.
@@ -337,6 +340,7 @@ class SubAgentGroup(Component):
         Args:
             hex_grid: Hex grid for terrain observation (optional)
             current_turn: Current turn number for observation tracking (optional)
+            entity_manager: Optional entity manager to resolve parent house for upkeep
         """
         self.turns_deployed += 1
         
@@ -370,11 +374,86 @@ class SubAgentGroup(Component):
                     if threats > 0:
                         self.adjust_morale(-1)
         
-        # Check for mission completion conditions
-        if not had_supplies and self.supplies == 0:
-            # Out of supplies - mission may need to be aborted
-            self.mission_status = "supply_critical"
-            self.adjust_morale(-5)
+        # Apply upkeep costs (food/gold) for assigned personnel
+        try:
+            from feudal_sim.components.resource import ResourceComponent
+            gold_cost, food_cost = get_upkeep_costs(
+                self.assigned_population.soldiers, self.assigned_population.workers
+            )
+            
+            if entity_manager and self.parent_house_id:
+                parent_house = entity_manager.get_entity(self.parent_house_id)
+                if parent_house:
+                    res_comp: ResourceComponent = parent_house.get_component(ResourceComponent)
+                    if res_comp:
+                        costs = {}
+                        if gold_cost > 0:
+                            costs['gold'] = gold_cost
+                        if food_cost > 0:
+                            costs['food'] = food_cost
+                        if costs and not res_comp.consume_for_action(costs, 'SubAgent Upkeep'):
+                            # Could not pay upkeep - apply morale penalty
+                            self.adjust_morale(-5)
+                            # Consume extra supplies as improvised upkeep
+                            self.consume_supplies(5)
+                            self.unpaid_turns += 1
+                        else:
+                            # Paid successfully: minor morale stabilization
+                            self.adjust_morale(1)
+                            self.unpaid_turns = 0
+                    else:
+                        # Paid successfully: minor morale stabilization
+                        self.adjust_morale(1)
+                        self.unpaid_turns = 0
+        except Exception:
+            pass
+        
+        # Auto-resupply when on owned territory (quick win to reduce disband churn)
+        try:
+            if self.entity and hex_grid:
+                from feudal_sim.components.position import PositionComponent
+                pos = self.entity.get_component(PositionComponent)
+                if pos and pos.position:
+                    q, r = pos.position
+                    tile = hex_grid.get_tile(q, r)
+                    owner = getattr(tile, 'owner', None) if tile else None
+                    if owner and hasattr(owner, 'id') and owner.id == self.parent_house_id:
+                        from feudal_sim.core.config import config
+                        resupply_amt = config.get('simulation.subagents.resupply_per_turn_on_owned', 20)
+                        self.supplies = min(100, self.supplies + max(0, int(resupply_amt)))
+        except Exception:
+            pass
+        
+        # Pre-disband warnings to parent house AI
+        try:
+            if entity_manager and self.parent_house_id:
+                from feudal_sim.components.ai import AIComponent
+                parent_house = entity_manager.get_entity(self.parent_house_id)
+                ai = parent_house.get_component(AIComponent) if parent_house else None
+                if ai:
+                    low_supply_threshold = 25
+                    low_morale_threshold = 30
+                    warnings = []
+                    if self.supplies <= low_supply_threshold:
+                        warnings.append(f"supplies low ({self.supplies}%)")
+                    if self.morale <= low_morale_threshold:
+                        warnings.append(f"morale low ({self.morale}%)")
+                    if self.unpaid_turns > 0:
+                        warnings.append(f"unpaid upkeep ({self.unpaid_turns} turn{'s' if self.unpaid_turns != 1 else ''})")
+                    if warnings:
+                        gen_name = getattr(self.entity, 'name', self.entity_id)
+                        ai.add_observation(
+                            f"General {gen_name}: " + ", ".join(warnings) + "; resupply or support recommended",
+                            phase="Actions"
+                        )
+        except Exception:
+            pass
+        
+        # Check for mission completion/disband conditions
+        max_unpaid, morale_thresh = get_upkeep_thresholds()
+        if self.unpaid_turns >= max_unpaid or (self.morale <= morale_thresh and self.supplies == 0):
+            self.mission_status = "disbanded"
+            self.should_disband = True
     
     def get_group_status(self) -> Dict[str, Any]:
         """Get current group status for AI context or debugging."""

@@ -13,6 +13,8 @@ from typing import Callable, Dict
 from enum import Enum
 
 from feudal_sim.ai.context import SimulationContext
+from feudal_sim.utils.observations import ObservationFormatter
+from feudal_sim.config.subagents import get_general_cap, get_deploy_costs
 
 
 def create_send_raven_tool(house_entity) -> Callable:
@@ -514,6 +516,32 @@ def create_deploy_general_tool(house_entity) -> Callable:
                     if hasattr(entity, 'house_id') and entity.house_id == house_entity.id:
                         return f"You already have a unit positioned at {deployment_position} in the {direction} direction"
         
+        # Enforce general cap and deployment costs
+        from feudal_sim.components.resource import ResourceComponent
+        
+        # Cap: base + territory-based scaling
+        current_generals = len(getattr(territory_component, 'deployed_generals', []))
+        territory_size = len(getattr(territory_component, 'territory', []))
+        max_generals = get_general_cap(territory_size)
+        if current_generals >= max_generals:
+            return (
+                f"Cannot deploy another general: cap reached ({current_generals}/{max_generals}). "
+                f"Gain more territory to increase your command capacity."
+            )
+        
+        # Costs: base + per-person equipping
+        resource_component = house_entity.get_component(ResourceComponent)
+        if not resource_component:
+            return "Cannot deploy general - missing resource management"
+        costs = get_deploy_costs(soldiers_assigned, workers_assigned)
+        if not resource_component.can_afford_action(costs):
+            return (
+                "Cannot deploy general - insufficient resources: "
+                f"need {costs['gold']} gold and {costs['material']} material"
+            )
+        # Consume costs up front
+        resource_component.consume_for_action(costs, "Deploy General")
+        
         # Ensure tracking list exists before generating ID
         if not hasattr(territory_component, 'deployed_generals'):
             territory_component.deployed_generals = []
@@ -588,7 +616,7 @@ def create_deploy_general_tool(house_entity) -> Callable:
         # Track deployed generals in territory component
         if not hasattr(territory_component, 'deployed_generals'):
             territory_component.deployed_generals = []
-        territory_component.deployed_generals.append({
+        territory_component.register_general({
             'entity_id': general_id,
             'name': general_name,
             'position': deployment_position,
@@ -740,8 +768,74 @@ def create_house_toolset(house) -> list:
     # Military deployment tools
     tools.append(create_deploy_general_tool(house))
     
-    # Resource management tools
+    # Tax collection tools
     tools.append(create_collect_taxes_tool(house))
+    
+    # Management: list current generals
+    from agents import function_tool, RunContextWrapper
+    from feudal_sim.components.subagent_group import SubAgentGroup
+    
+    @function_tool
+    def list_generals(ctx: RunContextWrapper["SimulationContext"]) -> str:
+        """
+        List all currently deployed generals for your house with key details.
+        """
+        sim_context = ctx.context
+        if not sim_context or not sim_context.entity_manager:
+            return "No access to entity manager"
+        mine = sim_context.entity_manager.get_entities_by_house_and_type(house.id, 'general')
+        if not mine:
+            return "No generals currently deployed"
+        reports = []
+        for g in mine:
+            grp = g.get_component(SubAgentGroup)
+            people = grp.assigned_population.total if grp else 0
+            morale = grp.morale if grp else None
+            supplies = grp.supplies if grp else None
+            status = grp.mission_status if grp else "unknown"
+            reports.append(f"{g.name} — {people} assigned, morale {morale}%, supplies {supplies}%, status {status}")
+        return " | ".join(reports)
+    list_generals.action_description = "**List Generals**: See all currently deployed generals and their status"
+    tools.append(list_generals)
+
+    # Management: disband a general (recall population and remove unit)
+    @function_tool
+    def disband_general(ctx: RunContextWrapper["SimulationContext"], general_name: str) -> str:
+        """
+        Disband a deployed general by name, recalling assigned population.
+        """
+        sim_context = ctx.context
+        if not sim_context or not sim_context.entity_manager:
+            return "No access to entity manager"
+        # Find general by name and house
+        candidates = [g for g in sim_context.entity_manager.get_entities_by_type('general')
+                        if getattr(g, 'house_id', None) == house.id and getattr(g, 'name', '') == general_name]
+        if not candidates:
+            return f"No general found named '{general_name}'"
+        g = candidates[0]
+        # Recall population
+        from feudal_sim.components.population import PopulationComponent
+        from feudal_sim.components.territory import TerritoryComponent
+        pop_comp: PopulationComponent = house.get_component(PopulationComponent)
+        if pop_comp:
+            pop_comp.recall_population_from_agent(g.id)
+        # Remove entity
+        sim_context.entity_manager.destroy_entity(g.id)
+        # Remove tracking entry
+        territory_component = house.get_component(TerritoryComponent)
+        if territory_component:
+            territory_component.unregister_general(g.id)
+        # Add observation to house AI
+        try:
+            from feudal_sim.components.ai import AIComponent
+            ai: AIComponent = house.get_component(AIComponent)
+            if ai:
+                ai.add_observation(f"General {general_name} has been disbanded and assigned population recalled", phase="Actions")
+        except Exception:
+            pass
+        return f"Disbanded general '{general_name}' and recalled assigned population"
+    disband_general.action_description = "**Disband General**: Recall a general and return assigned population"
+    tools.append(disband_general)
     
     # City management tools
     tools.append(create_view_cities_tool(house))
@@ -756,59 +850,6 @@ def create_house_toolset(house) -> list:
     return tools
 
 
-def create_move_tool(entity) -> Callable:
-    """
-    Factory function to create a move tool for positioned entities (generals, scouts, etc.).
-    """
-    from feudal_sim.components.position import PositionComponent
-    
-    position_component = entity.get_component(PositionComponent)
-    
-    if not position_component:
-        @function_tool
-        def move_unavailable(target_q: int, target_r: int) -> str:
-            """Movement unavailable - no position component."""
-            return f"{entity.name} cannot move - no position component"
-        return move_unavailable
-    
-    @function_tool
-    def move(ctx: RunContextWrapper["SimulationContext"], target_q: int, target_r: int) -> str:
-        """
-        Move to a target position on the map.
-        Movement consumes movement points and is limited by terrain.
-        
-        Args:
-            target_q: Target Q coordinate
-            target_r: Target R coordinate
-            
-        Returns:
-            Result of movement attempt
-        """
-        # Get simulation context
-        sim_context = ctx.context
-        if not sim_context or not hasattr(sim_context, 'hex_grid') or not sim_context.hex_grid:
-            return "Movement failed - map access not available"
-        
-        hex_grid = sim_context.hex_grid
-        target_position = (target_q, target_r)
-        current_turn = sim_context.current_turn if sim_context else None
-        
-        # Attempt movement
-        result = position_component.move_to(
-            target_position=target_position,
-            hex_grid=hex_grid,
-            current_turn=current_turn,
-            validate_movement=True
-        )
-        
-        return result['message']
-    
-    # Add action description for dynamic prompts
-    move.action_description = "**Move**: Travel to a different position on the map (costs movement points)"
-    
-    return move
-
-
 def create_observe_area_tool(general_entity) -> Callable:
     """
     Factory function to create an observe_area tool for generals with TerrainObservation.
@@ -816,8 +857,8 @@ def create_observe_area_tool(general_entity) -> Callable:
     from feudal_sim.components.terrain_observation import TerrainObservation
     from feudal_sim.components.position import PositionComponent
     
-    observation_comp = general_entity.get_component(TerrainObservation)
-    position_comp = general_entity.get_component(PositionComponent)
+    observation_comp: TerrainObservation = general_entity.get_component(TerrainObservation)
+    position_comp: PositionComponent = general_entity.get_component(PositionComponent)
     
     if not observation_comp or not position_comp:
         @function_tool
@@ -859,7 +900,6 @@ def create_observe_area_tool(general_entity) -> Callable:
         # Get intelligence summary
         status = observation_comp.get_observation_status()
         threats = observation_comp.get_threats_in_area(position_comp.position)
-        opportunities = observation_comp.get_opportunities_in_area(position_comp.position)
         
         # Build intelligence report
         report_parts = []
@@ -904,9 +944,9 @@ def create_assess_expansion_tool(general_entity) -> Callable:
     from feudal_sim.components.position import PositionComponent
     from feudal_sim.components.subagent_group import SubAgentGroup
     
-    observation_comp = general_entity.get_component(TerrainObservation)
-    position_comp = general_entity.get_component(PositionComponent)
-    group_comp = general_entity.get_component(SubAgentGroup)
+    observation_comp: TerrainObservation = general_entity.get_component(TerrainObservation)
+    position_comp: PositionComponent = general_entity.get_component(PositionComponent)
+    group_comp: SubAgentGroup = general_entity.get_component(SubAgentGroup)
     
     if not all([observation_comp, position_comp, group_comp]):
         @function_tool
@@ -1017,11 +1057,10 @@ def create_settle_territory_tool(general_entity) -> Callable:
     from feudal_sim.components.position import PositionComponent
     from feudal_sim.components.subagent_group import SubAgentGroup
     from feudal_sim.components.territory import TerritoryComponent
-    from feudal_sim.components.population import PopulationComponent
     
-    observation_comp = general_entity.get_component(TerrainObservation)
-    position_comp = general_entity.get_component(PositionComponent)
-    group_comp = general_entity.get_component(SubAgentGroup)
+    observation_comp: TerrainObservation = general_entity.get_component(TerrainObservation)
+    position_comp: PositionComponent = general_entity.get_component(PositionComponent)
+    group_comp: SubAgentGroup = general_entity.get_component(SubAgentGroup)
     
     if not all([observation_comp, position_comp, group_comp]):
         @function_tool
@@ -1070,7 +1109,7 @@ def create_settle_territory_tool(general_entity) -> Callable:
             targets.append(tile)
         
         if not targets:
-            return "No unowned land tiles within 1 tile to settle"
+            return ObservationFormatter.settlement_result(0)
         
         # Execute settlement via house wrapper for proper updates
         try:
@@ -1087,8 +1126,7 @@ def create_settle_territory_tool(general_entity) -> Callable:
         except Exception:
             pass
         
-        coords = [(t.q, t.r) for t in targets]
-        return f"Settled {len(targets)} nearby tiles: {coords}"
+        return ObservationFormatter.settlement_result(len(targets))
     
     # Add action description for dynamic prompts
     settle_territory.action_description = "**Settle Nearby Tiles**: Claim unowned tiles within 1-tile radius for your house"
@@ -1100,17 +1138,49 @@ def create_general_toolset(general_entity) -> list:
     """Create tools for general entities."""
     tools = []
     
-    # Basic movement tool
-    tools.append(create_move_tool(general_entity))
+    # Basic movement tool (direction-based for generals)
+    from feudal_sim.components.position import PositionComponent
+    from agents import function_tool, RunContextWrapper
+    from feudal_sim.ai.context import SimulationContext
     
-    # Observation and intelligence tools
-    # tools.append(create_observe_area_tool(general_entity))
-    # tools.append(create_assess_expansion_tool(general_entity))
+    @function_tool
+    def move(ctx: RunContextWrapper["SimulationContext"], direction: str) -> str:
+        """
+        Move one tile in a direction (N, NE, SE, S, SW, NW).
+        Consumes movement points and respects terrain/movement validation.
+        """
+        sim_context = ctx.context
+        if not sim_context or not hasattr(sim_context, 'hex_grid') or not sim_context.hex_grid:
+            return "Movement failed - map access not available"
+        pos: PositionComponent = general_entity.get_component(PositionComponent)
+        if not pos or not pos.position:
+            return "Movement failed - position unknown"
+        valid_dirs = ["N", "NE", "SE", "S", "SW", "NW"]
+        dir_upper = (direction or "").upper()
+        if dir_upper not in valid_dirs:
+            return f"Invalid direction '{direction}'. Valid directions: {', '.join(valid_dirs)}"
+        q, r = pos.position
+        # Find neighbor in the requested direction
+        target = None
+        for neigh, dirn in sim_context.hex_grid.get_neighbors(q, r):
+            if dirn == dir_upper and neigh is not None:
+                target = (neigh.q, neigh.r)
+                break
+        if not target:
+            return f"Cannot move {dir_upper.lower()} from current position"
+        result = pos.move_to(
+            target_position=target,
+            hex_grid=sim_context.hex_grid,
+            current_turn=getattr(sim_context, 'current_turn', None),
+            validate_movement=True,
+        )
+        return result.get('message', 'Move attempted')
+    move.action_description = "**Move (direction)**: Advance one tile N/NE/SE/S/SW/NW (costs movement points)"
+    tools.append(move)
     
     # General → Lord communication via raven (simple)
     from feudal_sim.components.rookery import RookeryComponent
     from agents import function_tool, RunContextWrapper
-    from feudal_sim.ai.context import SimulationContext
     
     @function_tool
     def send_raven_to_lord(ctx: RunContextWrapper["SimulationContext"], message: str) -> str:
@@ -1179,16 +1249,22 @@ def create_general_toolset(general_entity) -> list:
         threat_counts: Dict[str, int] = {}
         for t in threats:
             threat_counts[t.threat_level] = threat_counts.get(t.threat_level, 0) + 1
-        opp_type_counts: Dict[str, int] = {}
-        for o in opportunities:
-            opp_type_counts[o.opportunity_type] = opp_type_counts.get(o.opportunity_type, 0) + 1
-        best_local = None
-        if opportunities:
-            best_local = max(opportunities, key=lambda x: x.value_assessment)
         
+        # Helper: map hex grid direction labels to prose
+        dir_prose = {
+            "N": "north",
+            "NE": "northeast",
+            "SE": "southeast",
+            "S": "south",
+            "SW": "southwest",
+            "NW": "northwest",
+            "CENTER": "here"
+        }
+
         # Natural language landscape summary within 1 tile
         hex_grid = sim_context.hex_grid
         from feudal_sim.map.types import HexTileType
+        from feudal_sim.map.city_extensions import has_city, format_city_display
         tiles_in_radius = []
         center_tile = hex_grid.get_tile(pos.position[0], pos.position[1])
         if center_tile:
@@ -1197,97 +1273,115 @@ def create_general_toolset(general_entity) -> list:
             if neigh:
                 tiles_in_radius.append((neigh, dirn))
         
-        terrain_counts_local: Dict[str, int] = {}
-        ownership = {"ours": 0, "unowned": 0, "other": 0}
-        richest_tile = None
-        richest_value = -1.0
-        for tile, _d in tiles_in_radius:
-            terrain_name = str(getattr(tile, 'terrain_type', 'unknown'))
-            terrain_counts_local[terrain_name] = terrain_counts_local.get(terrain_name, 0) + 1
-            owner = getattr(tile, 'owner', None)
-            if not owner:
-                ownership["unowned"] += 1
-            elif hasattr(owner, 'id') and owner.id == getattr(general_entity, 'house_id', None):
-                ownership["ours"] += 1
-            else:
-                ownership["other"] += 1
-            # crude resource score
-            val = float(getattr(tile, 'food_output', 0)) + float(getattr(tile, 'material_output', 0)) + float(getattr(tile, 'metal_output', 0))
-            if val > richest_value:
-                richest_value = val
-                richest_tile = tile
-        
-        # Terrain mix text
-        terrain_sorted = sorted(terrain_counts_local.items(), key=lambda kv: kv[1], reverse=True)
-        if terrain_sorted:
-            primary = terrain_sorted[0][0]
-            mix_text = f"mostly {primary.lower()}"
-            if len(terrain_sorted) > 1:
-                secondary = terrain_sorted[1][0]
-                mix_text += f" with some {secondary.lower()}"
-        else:
-            mix_text = "mixed terrain"
-        
-        # Directional highlights (owned and unowned)
-        dir_highlights = []
-        # Simple human-friendly names for some terrains
+        # Simple human-friendly names for some terrains (moved up for reuse)
         def friendly_terrain(terr):
+            if terr is None:
+                return 'unknown'
             name = getattr(terr, 'value', str(terr)).lower()
+            # Remove the "hextiletype." prefix if present
+            if '.' in name:
+                name = name.split('.')[-1]
             mapping = {
                 'grassland': 'plains',
                 'temperate_forest': 'forest',
                 'boreal_forest': 'forest',
                 'rainforest': 'rainforest',
                 'ice_cap': 'ice',
+                'tundra': 'tundra',
+                'desert': 'desert',
+                'steppe': 'grassland',
+                'hill': 'hills',
+                'mountain': 'mountains',
+                'ocean': 'ocean',
+                'lake': 'lake',
+                'river': 'river'
             }
             return mapping.get(name, name.replace('_', ' '))
         
-        for neigh, dirn in hex_grid.get_neighbors(pos.position[0], pos.position[1]):
-            if not neigh:
-                continue
-            terr = getattr(neigh, 'terrain_type', None)
-            terr_name = friendly_terrain(terr)
-            owner = getattr(neigh, 'owner', None)
+        terrain_counts_local: Dict[str, int] = {}
+        ownership = {"ours": 0, "unowned": 0, "other": 0}
+        owner_dirs: Dict[str, list] = {"ours": [], "unowned": []}
+        other_owner_dirs: Dict[str, list] = {}
+        city_highlights: list = []
+        for tile, dirn in tiles_in_radius:
+            terr_name = friendly_terrain(getattr(tile, 'terrain_type', None))
+            terrain_counts_local[terr_name] = terrain_counts_local.get(terr_name, 0) + 1
+            owner = getattr(tile, 'owner', None)
             if not owner:
-                owner_text = 'unclaimed'
+                ownership["unowned"] += 1
+                if dirn != "CENTER":
+                    owner_dirs.setdefault("unowned", []).append(dir_prose.get(dirn, dirn))
+            elif hasattr(owner, 'id') and owner.id == getattr(general_entity, 'house_id', None):
+                ownership["ours"] += 1
+                if dirn != "CENTER":
+                    owner_dirs.setdefault("ours", []).append(dir_prose.get(dirn, dirn))
             else:
-                # Our house or other
-                if hasattr(owner, 'id') and owner.id == getattr(general_entity, 'house_id', None):
-                    owner_text = 'our'
-                else:
-                    owner_text = getattr(owner, 'name', getattr(owner, 'id', 'other')).lower()
-            # Optional resource hint for unclaimed land
-            res_text = ''
-            if not owner:
-                food = getattr(neigh, 'food_output', 0)
-                material = getattr(neigh, 'material_output', 0)
-                metal = getattr(neigh, 'metal_output', 0)
-                bits = []
-                if food > 0:
-                    bits.append(f"food {int(food)}")
-                if material > 0:
-                    bits.append(f"material {int(material)}")
-                if metal > 0:
-                    bits.append(f"metal {int(metal)}")
-                if bits:
-                    res_text = f" (resources: {', '.join(bits)})"
-            dir_highlights.append(f"{dirn}: {owner_text} {terr_name}{res_text}")
+                ownership["other"] += 1
+                if dirn != "CENTER":
+                    name = getattr(owner, 'name', getattr(owner, 'id', 'other'))
+                    other_owner_dirs.setdefault(name, []).append(dir_prose.get(dirn, dirn))
+            # City presence
+            if dirn != "CENTER" and has_city(tile):
+                city_text = format_city_display(tile)
+                if city_text:
+                    city_highlights.append(f"{dirn}: {city_text}")
         
-        intro = f"From {pos.position}, the immediate surroundings are {mix_text}."
+        # Terrain mix text
+        terrain_sorted = sorted(terrain_counts_local.items(), key=lambda kv: kv[1], reverse=True)
+        if terrain_sorted:
+            primary = terrain_sorted[0][0]
+            mix_text = f"mostly {primary}"
+            if len(terrain_sorted) > 1:
+                secondary = terrain_sorted[1][0]
+                mix_text += f" with some {secondary}"
+        else:
+            mix_text = "mixed terrain"
+        
+        # Directional ownership summary (compact)
+        claims_text = ObservationFormatter.borders_summary(
+            owner_dirs.get("ours", []), owner_dirs.get("unowned", []), other_owner_dirs
+        )
+        
+        # Nearby units summary (within 1 tile)
+        units_text = ""
+        if hasattr(sim_context, 'entity_manager') and sim_context.entity_manager:
+            nearby = sim_context.entity_manager.get_positioned_entities_near(pos.position, 1)
+            friendly: list[str] = []
+            enemy: list[str] = []
+            for ent, _d in nearby:
+                if ent.id == general_entity.id:
+                    continue
+                ent_pos = ent.get_component(PositionComponent)
+                ent_dir = None
+                if ent_pos and ent_pos.position:
+                    for nn, nd in hex_grid.get_neighbors(pos.position[0], pos.position[1]):
+                        if nn and (nn.q, nn.r) == ent_pos.position:
+                            ent_dir = dir_prose.get(nd, nd)
+                            break
+                house_id = getattr(ent, 'house_id', None)
+                if house_id == getattr(general_entity, 'house_id', None):
+                    friendly.append(ent_dir or "adjacent")
+                else:
+                    enemy.append(ent_dir or "adjacent")
+            summary = ObservationFormatter.units_summary(friendly, enemy)
+            if summary:
+                units_text = " | " + summary
+        
+        intro = f"From our current position, the immediate surroundings are {mix_text}."
         own_text = f" Unowned tiles nearby: {ownership['unowned']}."
         threat_text = ""
         if threats:
             breakdown = ", ".join(f"{cnt} {lvl}" for lvl, cnt in threat_counts.items())
             threat_text = f" Threats detected: {breakdown}."
-        best_text = ""
-        if best_local:
-            best_text = (f" Best local target: {best_local.opportunity_type} at {best_local.position} "
-                         f"(value {best_local.value_assessment:.0%}, {best_local.estimated_difficulty}).")
-        dirs_text = ""
-        if dir_highlights:
-            dirs_text = " Nearby tiles → " + "; ".join(dir_highlights)
         
-        nl_report = intro + own_text + threat_text + best_text + ("" if not dirs_text else " | " + dirs_text)
+        # City info
+        city_text = ""
+        if city_highlights:
+            city_text = " | Settlements: " + "; ".join(city_highlights[:3])
+        
+        dirs_text = f" | Borders: {claims_text}"
+        
+        nl_report = intro + own_text + threat_text + dirs_text + city_text + units_text
         
         return nl_report
     observe_area.action_description = "**Observe (1 tile)**: Scan the immediate surroundings"

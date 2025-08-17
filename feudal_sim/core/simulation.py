@@ -208,6 +208,10 @@ class Simulation:
     
     async def execute_actions_phase(self):
         """Handle AI decisions and actions."""
+        from feudal_sim.components.position import PositionComponent
+        from feudal_sim.components.subagent_group import SubAgentGroup
+        from feudal_sim.components.ai import AIComponent
+        
         status = self.time_manager.get_current_status()
         
         # Prepare all houses for AI decision making (synchronous setup)
@@ -224,47 +228,50 @@ class Simulation:
         generals = self.entity_manager.get_entities_by_type('general')
         for general in generals:
             # Reset movement points for new turn
-            from feudal_sim.components.position import PositionComponent
-            from feudal_sim.components.subagent_group import SubAgentGroup
             position_comp = general.get_component(PositionComponent)
             if position_comp:
                 position_comp.reset_movement(status['turn'])
             
-            # Update sub-agent group state (supplies, morale, terrain observation)
+            # Update sub-agent group state (supplies, morale, terrain observation, upkeep)
             group_comp = general.get_component(SubAgentGroup)
             if group_comp:
-                group_comp.update_turn(self.hex_grid, status['turn'])
+                group_comp.update_turn(self.hex_grid, status['turn'], self.entity_manager)
+                # Auto-disband handling
+                if getattr(group_comp, 'should_disband', False):
+                    # Return assigned population to parent house
+                    from feudal_sim.components.population import PopulationComponent
+                    parent = self.entity_manager.get_entity(getattr(group_comp, 'parent_house_id', None))
+                    if parent:
+                        pop_comp: PopulationComponent = parent.get_component(PopulationComponent)
+                        if pop_comp:
+                            # remove assignment entry for this general id
+                            pop_comp.recall_population_from_agent(general.id)
+                    # Remove general entity
+                    self.entity_manager.destroy_entity(general.id)
+                    # Notify parent house AI via observation
+                    try:
+                        if parent:
+                            ai: AIComponent = parent.get_component(AIComponent)
+                            if ai:
+                                gen_name = getattr(general, 'name', general.id)
+                                people = group_comp.assigned_population.total if group_comp and hasattr(group_comp, 'assigned_population') else None
+                                msg = f"General {gen_name} has disbanded due to upkeep/morale issues" + (f" (assigned {people} people returned)" if people is not None else "")
+                                ai.add_observation(msg, phase="Actions")
+                    except Exception:
+                        pass
+                    print(f"🛑 Disbanded {getattr(general, 'name', general.id)} due to upkeep/morale failure")
             
             # Add basic observations for generals
             ai_comp = general.get_component(AIComponent)
             if ai_comp and position_comp:
                 position_comp.add_movement_observation(ai_comp, "Actions")
-                
-                # Add terrain intelligence observations if available
-                from feudal_sim.components.terrain_observation import TerrainObservation
-                terrain_obs = general.get_component(TerrainObservation)
-                if terrain_obs:
-                    # Add intelligence about threats and opportunities
-                    threats = terrain_obs.get_threats_in_area(position_comp.position, 3)
-                    opportunities = terrain_obs.get_opportunities_in_area(position_comp.position, 3)
-                    
-                    if threats:
-                        threat_count = len(threats)
-                        high_threats = len([t for t in threats if t.threat_level == "high"])
-                        ai_comp.add_observation(
-                            f"Intelligence: {threat_count} threats detected in area" + 
-                            (f" ({high_threats} high priority)" if high_threats > 0 else ""),
-                            "Actions"
-                        )
-                    
-                    if opportunities:
-                        best_opportunity = terrain_obs.get_best_expansion_target()
-                        if best_opportunity:
-                            ai_comp.add_observation(
-                                f"Intelligence: Best expansion opportunity is {best_opportunity.opportunity_type} "
-                                f"at {best_opportunity.position} (value: {best_opportunity.value_assessment:.1%})",
-                                "Actions"
-                            )
+                # Rely on explicit observe_area tool for terrain reporting
+            
+            # Keep territory general list in sync after updates
+            for house in self.houses:
+                terr = house.get_component(TerritoryComponent)
+                if terr:
+                    terr.sync_generals(self.entity_manager)
         
         # Collect all AI entities (houses + generals)
         all_ai_entities = []

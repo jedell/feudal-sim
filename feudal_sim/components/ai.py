@@ -116,7 +116,7 @@ class AIComponent(Component):
             # Create the agent with tools
             self.agent = Agent[SimulationContext](
                 name=self.agent_name,
-                instructions=instructions,
+                instructions=instructions + "\n\nGrounding: Use directional language (north, NE, etc.) and avoid raw grid coordinates in observations and plans.",
                 tools=tools,
                 model=config.get("simulation.ai.model", "gpt-4o-mini"),
                 tool_use_behavior=StopAtTools(

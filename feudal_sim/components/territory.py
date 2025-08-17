@@ -370,6 +370,40 @@ Territory expansion takes time - orders given this week resolve next week based 
         # Could be used for passive territory effects if needed
         pass
     
+    # ---- Sub-agent tracking helpers (generals) ----
+    def register_general(self, general_info: Dict[str, Any]):
+        """Register a deployed general for this house.
+        Expects a dict with keys: entity_id, name, position, direction, orders,
+        soldiers_assigned, workers_assigned, deployment_turn
+        """
+        if not hasattr(self, 'deployed_generals') or not isinstance(getattr(self, 'deployed_generals'), list):
+            self.deployed_generals = []
+        # Ensure uniqueness by entity_id
+        self.deployed_generals = [g for g in self.deployed_generals if g.get('entity_id') != general_info.get('entity_id')]
+        self.deployed_generals.append(general_info)
+    
+    def unregister_general(self, general_entity_id: str):
+        """Remove a general from tracking by entity id."""
+        if hasattr(self, 'deployed_generals') and isinstance(self.deployed_generals, list):
+            self.deployed_generals = [g for g in self.deployed_generals if g.get('entity_id') != general_entity_id]
+    
+    def sync_generals(self, entity_manager) -> int:
+        """Ensure tracked generals exist in the entity manager. Returns remaining count."""
+        if not hasattr(self, 'deployed_generals') or not isinstance(self.deployed_generals, list):
+            self.deployed_generals = []
+            return 0
+        existing_ids = set()
+        try:
+            generals = entity_manager.get_entities_by_type('general') if entity_manager else []
+            for g in generals:
+                # Keep only those that belong to this house
+                if hasattr(g, 'house_id') and g.house_id == (self.entity.id if self.entity else None):
+                    existing_ids.add(g.id)
+        except Exception:
+            pass
+        self.deployed_generals = [g for g in self.deployed_generals if g.get('entity_id') in existing_ids]
+        return len(self.deployed_generals)
+
     
     def _estimate_expansion_cost(self, num_tiles: int) -> Dict[str, int]:
         """

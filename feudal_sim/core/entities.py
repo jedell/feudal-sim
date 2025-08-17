@@ -552,3 +552,9 @@ class EntityManager:
             }
         }
         return stats
+
+    def get_entities_by_house_and_type(self, house_id: str, entity_type: str) -> List['Entity']:
+        """Get entities by house and type using internal indexing."""
+        typed = self._entities_by_type.get(entity_type, [])
+        return [entity for entity in typed
+                if hasattr(entity, 'house_id') and entity.house_id == house_id and entity.is_active()]
