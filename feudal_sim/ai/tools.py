@@ -1385,65 +1385,38 @@ def create_general_toolset(general_entity) -> list:
         
         # Consume resources, build, and claim
         if costs:
-            res_comp.consume_for_action(costs, 'Build Outpost')
+            res_comp.consume_for_action(costs, 'Build Outpost (Order)')
         
-        # Register outpost on territory component for future mechanics
-        if not hasattr(house_territory, 'outposts') or not isinstance(getattr(house_territory, 'outposts'), list):
-            house_territory.outposts = []
+        # Create delayed outpost construction order (resolves next week)
+        from feudal_sim.components.territory import TerritoryComponent as _Terr
         current_turn = getattr(sim_context, 'current_turn', 0)
-        if (q0, r0) not in [op.get('position') for op in house_territory.outposts]:
-            house_territory.outposts.append({'position': (q0, r0), 'built_turn': current_turn, 'type': 'outpost'})
+        house_territory: _Terr = parent_house.get_component(_Terr)
+        delay = int(config.get('simulation.settlements.outpost_delay_turns', 1))
+        house_territory.create_outpost_order((q0, r0), current_turn, delay_turns=delay, resource_cost=costs)
         
-        # Also register an outpost in CityComponent and encode on tile for rendering
-        try:
-            from feudal_sim.components.city import CityComponent
-            city_comp: CityComponent = parent_house.get_component(CityComponent)
-            # Use a generated name for the outpost
-            base_name = getattr(parent_house, 'name', 'House')
-            outpost_name = f"{base_name} Outpost"
-            # Ensure uniqueness by suffixing with count
-            if city_comp:
-                count = len(city_comp.get_all_cities()) + 1
-                outpost_name = f"{outpost_name} {count}"
-                # Add to city registry
-                city_comp.add_city(outpost_name, (q0, r0), city_type="outpost", founded_turn=current_turn)
-                # Encode for renderer
-                if center_tile:
-                    parent_house._encode_city_on_tile(center_tile, "outpost", 1, outpost_name)
-        except Exception:
-            pass
-        
-        # Expand territory from outpost effect
-        if to_claim:
-            try:
-                parent_house.expand_territory(to_claim, hex_grid)
-            except Exception:
-                house_territory.expand_territory(to_claim, hex_grid, house_territory.territory_color)
-        
-        # Group adjustments and observations
+        # Group adjustments and observations (order placed)
         try:
             from feudal_sim.components.subagent_group import SubAgentGroup
             grp = general_entity.get_component(SubAgentGroup)
             if grp:
-                grp.consume_supplies(5)
-                grp.record_action_result(True, experience_gained=2)
+                grp.consume_supplies(2)
+                grp.record_action_result(True, experience_gained=1)
         except Exception:
             pass
         
-        # Notify house AI
+        # Notify house AI about order timing
         try:
             from feudal_sim.components.ai import AIComponent
             ai = parent_house.get_component(AIComponent)
             if ai:
-                claimed_count = len(to_claim)
                 ai.add_observation(
-                    f"Outpost established on controlled land; {claimed_count} nearby unowned tiles brought into our domain",
+                    f"Outpost construction ordered at a controlled site; completion expected next week",
                     phase="Actions"
                 )
         except Exception:
             pass
         
-        return f"Outpost established. Claimed {len(to_claim)} nearby tiles."
+        return "Outpost construction ordered; it will complete next week."
     build_outpost.action_description = "**Build Outpost**: Establish a small camp on controlled land to claim adjacent unowned tiles (costs resources)"
     tools.append(build_outpost)
     

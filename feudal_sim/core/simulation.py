@@ -338,6 +338,9 @@ class Simulation:
         # Process expansion orders
         self.process_expansion_orders(status['turn'])
         
+        # Process outpost construction orders
+        self.process_outpost_orders(status['turn'])
+        
         # Process population revolts
         self.process_population_revolts(status['turn'])
             
@@ -582,4 +585,63 @@ class Simulation:
         
         # Clear raven turn data
         RavenDeliverySystem.clear_turn_data_for_all(self.entity_manager)
+            
+    def process_outpost_orders(self, current_turn: int):
+        """Resolve any outpost orders that complete this turn."""
+        from feudal_sim.components.territory import TerritoryComponent
+        from feudal_sim.components.city import CityComponent
+        from feudal_sim.components.ai import AIComponent
+        from feudal_sim.map.types import HexTileType
+        
+        for house in self.houses:
+            terr: TerritoryComponent = house.get_component(TerritoryComponent)
+            if not terr:
+                continue
+            ready = terr.get_outposts_ready_for_resolution(current_turn)
+            for order in ready:
+                tile = self.hex_grid.get_tile(order.q, order.r)
+                success = False
+                claimed = 0
+                if tile:
+                    # verify still controlled by house
+                    owner = getattr(tile, 'owner', None)
+                    if owner and hasattr(owner, 'id') and owner.id == house.id:
+                        # Claim adjacent unowned land tiles
+                        to_claim = []
+                        for neigh, _dirn in self.hex_grid.get_neighbors(order.q, order.r):
+                            if not neigh:
+                                continue
+                            if getattr(neigh, 'owner', None):
+                                continue
+                            terr_type = getattr(neigh, 'terrain_type', None)
+                            if terr_type in {HexTileType.OCEAN, HexTileType.LAKE, HexTileType.RIVER}:
+                                continue
+                            to_claim.append(neigh)
+                        if to_claim:
+                            house.expand_territory(to_claim, self.hex_grid)
+                            claimed = len(to_claim)
+                        # Register outpost in CityComponent and encode on tile
+                        try:
+                            city: CityComponent = house.get_component(CityComponent)
+                            if city:
+                                outpost_name = f"{house.get_name()} Outpost {len(city.get_all_cities()) + 1}"
+                                city.add_city(outpost_name, (order.q, order.r), city_type="outpost", founded_turn=current_turn)
+                                house._encode_city_on_tile(tile, "outpost", 1, outpost_name)
+                        except Exception:
+                            pass
+                        success = True
+                terr.resolve_outpost_order(order, success)
+                # Notify AI
+                ai: AIComponent = house.get_component(AIComponent)
+                if ai:
+                    if success:
+                        ai.add_observation(
+                            f"Outpost completed at our controlled site; {claimed} nearby tiles brought into our domain",
+                            "Events",
+                        )
+                    else:
+                        ai.add_observation(
+                            "Outpost construction failed to complete (site lost or invalid)",
+                            "Events",
+                        )
             

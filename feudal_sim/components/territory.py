@@ -28,6 +28,18 @@ class ExpansionOrder:
     success_probability: float = 1.0  # Base success probability
     status: str = "pending"  # pending, resolved_success, resolved_failure, contested
 
+@dataclass
+class OutpostOrder:
+    """Represents a pending outpost construction order that resolves after a delay."""
+    entity_id: str
+    entity_name: str
+    q: int
+    r: int
+    turn_ordered: int
+    turn_resolves: int
+    resource_cost: Dict[str, int]
+    status: str = "pending"  # pending, resolved_success, resolved_failure, cancelled
+
 
 class TerritoryComponent(Component):
     """
@@ -53,6 +65,10 @@ class TerritoryComponent(Component):
         # Expansion order management
         self.pending_expansions: List[ExpansionOrder] = []  # Active expansion orders
         self.expansion_history: List[ExpansionOrder] = []  # Completed expansion orders
+
+        # Outpost construction orders
+        self.pending_outposts: List[OutpostOrder] = []
+        self.outpost_history: List[OutpostOrder] = []
     
     def expand_territory(self, new_territory: List, hex_grid, owner_color=None):
         """
@@ -618,3 +634,50 @@ Territory expansion takes time - orders given this week resolve next week based 
         # Calculate final probability with soldier bonus
         final_probability = base_probability + soldier_bonus - tile_penalty - terrain_penalty
         return max(0.1, min(1.0, final_probability))  # Clamp between 10% and 100%
+
+    # ---- Outpost order helpers ----
+    def create_outpost_order(self, position: tuple[int, int], current_turn: int, delay_turns: int = 1, resource_cost: Dict[str, int] | None = None) -> OutpostOrder:
+        """Create a delayed outpost construction order."""
+        order = OutpostOrder(
+            entity_id=self.entity_id,
+            entity_name=self.entity.name if self.entity else self.entity_id,
+            q=position[0],
+            r=position[1],
+            turn_ordered=current_turn,
+            turn_resolves=current_turn + max(1, delay_turns),
+            resource_cost=resource_cost or {},
+            status="pending",
+        )
+        self.pending_outposts.append(order)
+        if event_bus:
+            event_bus.emit(
+                EventType.VALUE_CHANGED,
+                self,
+                entity_type='territory_component',
+                entity_name=order.entity_name,
+                property='outpost_order_created',
+                q=order.q,
+                r=order.r,
+                turn_resolves=order.turn_resolves,
+            )
+        return order
+
+    def get_outposts_ready_for_resolution(self, current_turn: int) -> List[OutpostOrder]:
+        return [o for o in self.pending_outposts if o.status == "pending" and o.turn_resolves <= current_turn]
+
+    def resolve_outpost_order(self, outpost_order: OutpostOrder, success: bool):
+        outpost_order.status = "resolved_success" if success else "resolved_failure"
+        self.outpost_history.append(outpost_order)
+        if outpost_order in self.pending_outposts:
+            self.pending_outposts.remove(outpost_order)
+        if event_bus:
+            event_bus.emit(
+                EventType.VALUE_CHANGED,
+                self,
+                entity_type='territory_component',
+                entity_name=outpost_order.entity_name,
+                property='outpost_resolved',
+                success=success,
+                q=outpost_order.q,
+                r=outpost_order.r,
+            )

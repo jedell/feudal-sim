@@ -61,7 +61,8 @@
       "material_cost": 15,
       "gold_cost": 10
     },
-    "min_spacing_tiles": 3
+    "min_spacing_tiles": 5,
+    "outpost_delay_turns": 1
   },
   "time": {
     "turns_per_season": 4,
