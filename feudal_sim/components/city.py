@@ -213,7 +213,6 @@ class CityComponent(Component):
         level_name = level_names.get(city.development_level, "Unknown")
         
         info = f"{city.name} ({city.city_type.title()} {level_name})\n"
-        info += f"Position: ({city.position[0]}, {city.position[1]})\n"
         info += f"Population Bonus: +{(city.population_bonus - 1) * 100:.0f}%\n"
         info += f"Tax Efficiency: +{(city.tax_efficiency - 1) * 100:.0f}%\n"
         info += f"Founded: Turn {city.founded_turn}"
@@ -232,7 +231,7 @@ class CityComponent(Component):
         for city in self.cities.values():
             level_names = {1: "Village", 2: "Town", 3: "City", 4: "Metropolis"}
             level_name = level_names.get(city.development_level, "Unknown")
-            summary += f"• {city.name} ({city.city_type.title()} {level_name}) at ({city.position[0]}, {city.position[1]})\n"
+            summary += f"• {city.name} ({city.city_type.title()} {level_name})\n"
         
         return summary
     

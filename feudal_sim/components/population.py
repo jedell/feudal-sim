@@ -71,6 +71,8 @@ class PopulationComponent(Component):
         # Revolt mechanics
         self.last_revolt_turn = -999  # Track when last revolt occurred for cooldown
         self.consecutive_low_loyalty_turns = 0  # Track how long loyalty has been low
+        # Social events (e.g., feasts) cooldown tracking
+        self.last_feast_turn = -999
 
     @property
     def loyalty(self) -> int:

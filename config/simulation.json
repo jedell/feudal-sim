@@ -27,7 +27,18 @@
         "metal_percent": 0.1,
         "gold_percent": 0.1
       }
+    },
+    "feast": {
+      "cooldown_turns": 4,
+      "base_loyalty_boost": 8,
+      "food_factor": 0.02,
+      "gold_factor": 0.03
     }
+  },
+  "subagents": {
+    "supply_consumption_per_turn": 3,
+    "low_supply_threshold": 25,
+    "resupply_per_turn_on_owned": 20
   },
   "resources": {
     "gathering_multiplier": 10,
@@ -44,6 +55,13 @@
       "base_gold_cost": 20,
       "base_population_cost": 5
     }
+  },
+  "settlements": {
+    "outpost": {
+      "material_cost": 15,
+      "gold_cost": 10
+    },
+    "min_spacing_tiles": 3
   },
   "time": {
     "turns_per_season": 4,

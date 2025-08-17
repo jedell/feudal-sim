@@ -236,7 +236,8 @@ enum class CityType {
     CAPITAL = 1,
     TRADE = 2,
     MILITARY = 3,
-    AGRICULTURAL = 4
+    AGRICULTURAL = 4,
+    OUTPOST = 5
 };
 
 // Positioned entity types
@@ -464,6 +465,11 @@ private:
         // If trees work, try keeps with a larger sprite size
         if (sprite_manager.load_sprite_sheet("keeps", "render/assets/Keep.png", 32, 32)) {
             std::cout << "Successfully loaded keep sprites" << std::endl;
+        }
+        
+        // Load huts for outposts (assume 16x16 tiles in the sheet)
+        if (sprite_manager.load_sprite_sheet("huts", "render/assets/Huts.png", 16, 16)) {
+            std::cout << "Successfully loaded huts sprites" << std::endl;
         }
         
         // Try knight sprites
@@ -747,12 +753,8 @@ public:
 
         // Trees will be drawn in a separate pass after all tiles
         
-        // Draw cities if present
-        CityInfo city = get_city_info(tile);
-        if (city.type != CityType::NONE) {
-            draw_city_on_tile(tile, city, x, y);
-        }
-   }
+        // City sprites are collected and drawn in a separate depth-sorted pass
+    }
 
    void draw_terrain_sprites(const HexTile& tile) {
         // Draw tree sprites on forest tiles
@@ -848,7 +850,7 @@ public:
         int house_id = encoded % 10;
         
         CityType city_type = CityType::NONE;
-        if (city_type_value >= 1 && city_type_value <= 4) {
+        if (city_type_value >= 1 && city_type_value <= 5) {
             city_type = static_cast<CityType>(city_type_value);
         }
         
@@ -940,6 +942,7 @@ public:
             case CityType::TRADE: return 0x2666;        // ♦ Black Diamond (Trade)
             case CityType::MILITARY: return 0x2694;     // ⚔ Crossed Swords (Military)
             case CityType::AGRICULTURAL: return 0x2660; // ♠ Black Spade (Agricultural)
+            case CityType::OUTPOST: return 0x2691;      // ⚑ White Flag (Outpost)
             default: return 0x25CF;                     // ● Black Circle
         }
    }
@@ -950,6 +953,7 @@ public:
             case CityType::TRADE: return "Trade City";
             case CityType::MILITARY: return "Military Fortress";
             case CityType::AGRICULTURAL: return "Agricultural Center";
+            case CityType::OUTPOST: return "Outpost";
             default: return "Unknown";
         }
    }
@@ -1029,28 +1033,36 @@ public:
         CityInfo city = get_city_info(tile);
         if (city.type == CityType::NONE) return;
         
-        if (!sprite_manager.has_sprite_sheet("keeps")) return;
-        
         auto [x, y] = get_tile_position(tile);
         
-        // Same keep sprite logic as before
-        int keep_sprite_index = std::min(city.development_level - 1, 5);
-        keep_sprite_index = std::max(keep_sprite_index, 0);
-        
-        float sprite_scale = (tile_size * 0.7f) / 32.0f;
-        Vector2 sprite_pos = {
-            x - (32 * sprite_scale / 2),
-            y - (32 * sprite_scale / 2)
-        };
-        
-        sprites.push_back({
-            "keeps",
-            keep_sprite_index,
-            sprite_pos,
-            sprite_scale,
-            y,  // Use tile center Y for depth
-            WHITE
-        });
+        if (city.type == CityType::OUTPOST && sprite_manager.has_sprite_sheet("huts")) {
+            // Use the second hut sprite (index 1) for outposts
+            int hut_index = 1;
+            float sprite_scale = (tile_size * 0.5f) / 16.0f; // huts are 16px; slightly smaller than keeps
+            Vector2 sprite_pos = { x - (16 * sprite_scale / 2), y - (16 * sprite_scale / 2) };
+            sprites.push_back({
+                "huts",
+                hut_index,
+                sprite_pos,
+                sprite_scale,
+                y,
+                WHITE
+            });
+        } else if (sprite_manager.has_sprite_sheet("keeps")) {
+            // Same keep sprite logic as before for cities
+            int keep_sprite_index = std::min(city.development_level - 1, 5);
+            keep_sprite_index = std::max(keep_sprite_index, 0);
+            float sprite_scale = (tile_size * 0.7f) / 32.0f;
+            Vector2 sprite_pos = { x - (32 * sprite_scale / 2), y - (32 * sprite_scale / 2) };
+            sprites.push_back({
+                "keeps",
+                keep_sprite_index,
+                sprite_pos,
+                sprite_scale,
+                y,
+                WHITE
+            });
+        }
     }
 
     void draw_sprites_depth_sorted(HexTile* tiles, int num_tiles) {

@@ -108,13 +108,13 @@ class RookeryComponent(Component):
             self.current_observations.append(f"❌ Cannot send raven to unknown recipient: {recipient_id}")
             return False
         
-        # Calculate arrival time (1-2 weeks from now)
+        # Calculate arrival time (1 week from now)
         current_turn = getattr(self, '_current_turn', 1)  # Fallback for testing
         current_date = getattr(self, '_current_date', "Week 1, Spring, Year 1")  # Fallback
-        arrival_turn = current_turn + 1 # 2 weeks total
+        arrival_turn = current_turn + 1  # arrives next week
 
         # For now, just update the week number (could be enhanced with proper date calculation)
-        arrival_date = current_date.replace(f"Week {current_turn}", f"Week {arrival_turn}") # 2 weeks
+        arrival_date = current_date.replace(f"Week {current_turn}", f"Week {arrival_turn}")
         
         # Get recipient name for display
         recipient_name = recipient_id  # Could be enhanced with entity lookup
@@ -286,9 +286,9 @@ class RookeryComponent(Component):
         """Return lore explanation of raven communication mechanics for AI prompts."""
         return """
 **The Raven Network:**
-Messages between houses travel by raven, taking two weeks to reach their destination. A wise lord sends missives sparingly and waits patiently for replies. Flooding another lord with ravens marks you as desperate or foolish - patience in correspondence is the hallmark of wisdom and proper breeding.
+Messages between houses travel by raven, typically arriving the following week. A wise lord sends missives sparingly and waits patiently for replies. Flooding another lord with ravens marks you as desperate or foolish — patience in correspondence is the hallmark of wisdom and proper breeding.
 
-Ravens can only reach known recipients - houses you have discovered or been introduced to through prior correspondence. Each message takes time to compose, dispatch, and receive response."""
+Ravens can only reach known recipients — houses you have discovered or been introduced to through prior correspondence. Each message takes time to compose, dispatch, and receive response."""
 
     def update(self, dt: float, event_bus=None):
         """

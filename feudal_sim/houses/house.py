@@ -314,7 +314,8 @@ You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic,
             "capital": CityType.CAPITAL,
             "trade": CityType.TRADE,
             "military": CityType.MILITARY,
-            "agricultural": CityType.AGRICULTURAL
+            "agricultural": CityType.AGRICULTURAL,
+            "outpost": CityType.OUTPOST
         }
         
         city_type_enum = type_mapping.get(city_type, CityType.CAPITAL)

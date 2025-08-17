@@ -17,6 +17,7 @@ class CityType(Enum):
     TRADE = 2
     MILITARY = 3
     AGRICULTURAL = 4
+    OUTPOST = 5
 
 
 
@@ -235,7 +236,8 @@ def get_city_type_name(city_type: CityType) -> str:
         CityType.CAPITAL: "Capital",
         CityType.TRADE: "Trade City",
         CityType.MILITARY: "Military Fortress", 
-        CityType.AGRICULTURAL: "Agricultural Center"
+        CityType.AGRICULTURAL: "Agricultural Center",
+        CityType.OUTPOST: "Outpost"
     }
     return names.get(city_type, "Unknown")
 

@@ -8,7 +8,7 @@ each phase, then makes decisions during the Actions phase.
 
 import os
 from typing import List, Optional, Dict, Any
-from agents import Agent, Runner, set_trace_processors, RunConfig
+from agents import Agent, Runner, set_trace_processors
 from agents.agent import StopAtTools
 import mlflow
 from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor

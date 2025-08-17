@@ -71,7 +71,7 @@ class SubAgentGroup(Component):
         self.failed_actions = 0
         
         # Supply consumption rates (configurable)
-        self.supply_consumption_per_turn = config.get('simulation.subagents.supply_consumption_per_turn', 5)
+        self.supply_consumption_per_turn = config.get('simulation.subagents.supply_consumption_per_turn', 3)
         self.low_supply_threshold = config.get('simulation.subagents.low_supply_threshold', 25)
     
     def get_group_strength(self) -> int:
@@ -166,7 +166,7 @@ class SubAgentGroup(Component):
         if amount is None:
             # Base consumption plus population-based consumption
             base_consumption = self.supply_consumption_per_turn
-            population_consumption = max(1, self.assigned_population.total // 5)  # 1 supply per 5 people
+            population_consumption = max(1, self.assigned_population.total // 8)  # 1 supply per 8 people
             amount = base_consumption + population_consumption
         
         if self.supplies >= amount:

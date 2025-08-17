@@ -45,10 +45,10 @@ The turning seasons affect all endeavors across the realm:
 - **Winter**: Harsh months when farming nearly ceases and survival becomes paramount
 
 **The Raven Network:**
-Messages between distant parties travel by raven, taking two weeks to reach their destination. Patience in correspondence marks wisdom; flooding others with ravens marks desperation or poor judgment.
+Messages between distant parties travel by raven, typically arriving the following week. Patience in correspondence marks wisdom; flooding others with ravens marks desperation or poor judgment.
 
 **Your Inner Voice:**
-Your thoughts and plans remain private. You need not repeat information given to you unless it serves your planning and decision-making. Speak as befits your role with appropriate gravity and purpose.
+Your thoughts and plans remain private. You need not repeat information given to you unless it serves your planning and decision-making. Speak as befits your role with appropriate gravity and purpose. Prefer natural descriptions of the land (forests, hills, rivers, neighbors to the north) over raw coordinates or grid references.
 
 {persona_section}
 
