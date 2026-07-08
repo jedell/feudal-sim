@@ -623,90 +623,144 @@ class Simulation:
                         ai_component.add_observation(observation, "Events")
     
     def process_expansion_orders(self, current_turn: int):
-        """Process expansion orders that are ready for resolution."""
+        """Resolve expansion orders due this turn.
+
+        Two-phase so rival houses' same-turn orders can be adjudicated: first
+        every order pays its costs and rolls, then tiles claimed by more than
+        one successful order go to the roll with the largest success margin —
+        losers learn who beat them to the ground (contested expansion).
+        """
+        # Phase 1: gather due orders with their houses/components
+        pending = []
         for house in self.houses:
             territory_component: TerritoryComponent = house.get_component(TerritoryComponent)
-            resource_component: ResourceComponent = house.get_component(ResourceComponent)
-            population_component: PopulationComponent = house.get_component(PopulationComponent)
-            ai_component: AIComponent = house.get_component(AIComponent)
-            
             if not territory_component:
                 continue
-                
-            # Get expansion orders ready for resolution
-            ready_orders = territory_component.get_expansions_ready_for_resolution(current_turn)
-            
-            for order in ready_orders:
-                log.info(f"🏰 Resolving expansion order for {house.get_name()} ({order.direction}) - {order.success_probability:.0%} base chance")
-                
-                # Step 1: Check resource and loyalty requirements
-                can_afford = True
-                insufficient_resources = []
-                
-                if resource_component:
-                    resources = resource_component.resources
-                    for resource_type, cost in order.resource_cost.items():
-                        current_amount = resources.get(resource_type)
-                        if current_amount < cost:
-                            can_afford = False
-                            insufficient_resources.append(f"{resource_type} (need {cost}, have {current_amount:.0f})")
-                
-                # Check population loyalty cost
-                population_loyalty_ok = True
-                if population_component and order.population_loyalty_cost > 0:
-                    if population_component.loyalty < order.population_loyalty_cost:
-                        population_loyalty_ok = False
-                        insufficient_resources.append(f"loyalty (need {order.population_loyalty_cost}, have {population_component.loyalty:.0f})")
-                
-                # Step 2: If resources are available, roll for success based on probability
-                if can_afford and population_loyalty_ok:
-                    # Apply resource costs first
-                    if resource_component:
-                        resource_component.consume_for_action(order.resource_cost, f"Territory Expansion ({order.direction})")
-                    
-                    # Apply population loyalty cost
-                    if population_component and order.population_loyalty_cost > 0:
-                        population_component.adjust_loyalty(-order.population_loyalty_cost)
-                    
-                    # Roll for success using the calculated probability
-                    roll = random.random()
-                    success = roll <= order.success_probability
-                    
-                    if success:
-                        # Execute successful expansion
-                        result = territory_component.resolve_expansion_order(order, True, self.hex_grid)
-                        log.info(f"✅ {result['message']} (rolled {roll:.2f} vs {order.success_probability:.2f})")
-                        
-                        # Add detailed AI observation
-                        if ai_component:
-                            observation = f"Expansion {order.direction} succeeded! {result['message']} Your forces proved capable despite the challenges."
-                            ai_component.add_observation(observation, "Events")
-                            ai_component.record_journal_entry(
-                                f"Expansion {order.direction} succeeded: +{len(order.target_tiles)} tile(s)")
-                    else:
-                        # Expansion failed despite having resources
-                        result = territory_component.resolve_expansion_order(order, False, self.hex_grid)
-                        
-                        # Generate detailed failure reasoning
-                        failure_reason = self._generate_expansion_failure_reason(order, roll)
-                        log.info(f"❌ {result['message']} - {failure_reason} (rolled {roll:.2f} vs {order.success_probability:.2f})")
-                        
-                        # Add detailed AI observation
-                        if ai_component:
-                            observation = f"Expansion {order.direction} failed! {result['message']} {failure_reason}"
-                            ai_component.add_observation(observation, "Events")
-                            ai_component.record_journal_entry(
-                                f"Expansion {order.direction} failed (costs paid, no land gained)")
+            for order in territory_component.get_expansions_ready_for_resolution(current_turn):
+                pending.append({
+                    'house': house,
+                    'territory': territory_component,
+                    'resources': house.get_component(ResourceComponent),
+                    'population': house.get_component(PopulationComponent),
+                    'ai': house.get_component(AIComponent),
+                    'order': order,
+                })
+        if not pending:
+            return
+
+        # Drop tiles that were claimed by anyone (outposts, rivals) since the
+        # order was placed — stale orders must not overwrite ownership
+        for p in pending:
+            p['order'].target_tiles = [t for t in p['order'].target_tiles
+                                       if not getattr(t, 'owner', None)]
+
+        # Phase 2: affordability, payment, and roll for every order
+        for p in pending:
+            order = p['order']
+            log.info(f"🏰 Resolving expansion order for {p['house'].get_name()} "
+                     f"({order.direction}) - {order.success_probability:.0%} base chance")
+            insufficient = []
+            if p['resources']:
+                for resource_type, cost in order.resource_cost.items():
+                    have = p['resources'].resources.get(resource_type)
+                    if have < cost:
+                        insufficient.append(f"{resource_type} (need {cost}, have {have:.0f})")
+            if p['population'] and order.population_loyalty_cost > 0:
+                if p['population'].loyalty < order.population_loyalty_cost:
+                    insufficient.append(f"loyalty (need {order.population_loyalty_cost}, "
+                                        f"have {p['population'].loyalty:.0f})")
+            p['insufficient'] = insufficient
+            if insufficient or not order.target_tiles:
+                p['success'] = None  # cancelled, no costs paid
+                continue
+            if p['resources']:
+                p['resources'].consume_for_action(order.resource_cost,
+                                                  f"Territory Expansion ({order.direction})")
+            if p['population'] and order.population_loyalty_cost > 0:
+                p['population'].adjust_loyalty(-order.population_loyalty_cost)
+            p['roll'] = random.random()
+            p['success'] = p['roll'] <= order.success_probability
+
+        # Phase 3: adjudicate tiles claimed by 2+ successful orders from
+        # different houses — largest success margin keeps the ground
+        claims: dict[tuple, list] = {}
+        for p in pending:
+            if not p.get('success'):
+                continue
+            for t in p['order'].target_tiles:
+                claims.setdefault((t.q, t.r), []).append(p)
+        contested_rivals: dict[str, set] = {}  # house.id -> rival house names
+        for coord, claimants in claims.items():
+            houses_here = {id(p['house']) for p in claimants}
+            if len(houses_here) < 2:
+                continue
+            winner = max(claimants, key=lambda p: p['order'].success_probability - p['roll'])
+            for p in claimants:
+                if p is winner or p['house'] is winner['house']:
+                    continue
+                p['order'].target_tiles = [t for t in p['order'].target_tiles
+                                           if (t.q, t.r) != coord]
+                p['order'].status = "contested"
+                contested_rivals.setdefault(p['house'].id, set()).add(winner['house'].name)
+                contested_rivals.setdefault(winner['house'].id, set()).add(p['house'].name)
+
+        # Rivals who raced for the same ground now know each other — open the
+        # raven channel both ways
+        for p in pending:
+            rivals = contested_rivals.get(p['house'].id)
+            if not rivals:
+                continue
+            rookery = p['house'].get_component(RookeryComponent)
+            for rival_name in rivals:
+                rival = next((h for h in self.houses if h.name == rival_name), None)
+                if rival and rookery:
+                    rookery.add_known_recipient(rival.id)
+                    rival_rookery = rival.get_component(RookeryComponent)
+                    if rival_rookery:
+                        rival_rookery.add_known_recipient(p['house'].id)
+
+        # Phase 4: apply outcomes and notify lords
+        for p in pending:
+            order, ai_component = p['order'], p['ai']
+            rivals = contested_rivals.get(p['house'].id, set())
+            rival_note = (f" Our settlers raced House {', House '.join(sorted(rivals))} "
+                          f"for the same ground." if rivals else "")
+            if p['success'] is None:
+                result = p['territory'].resolve_expansion_order(order, False, self.hex_grid)
+                reason = (f"Insufficient resources: {', '.join(p['insufficient'])}"
+                          if p['insufficient'] else "No unclaimed land remained at the site")
+                log.info(f"❌ {result['message']} - {reason}")
+                if ai_component:
+                    ai_component.add_observation(
+                        f"Expansion {order.direction} cancelled! {result['message']} {reason}",
+                        "Events")
+            elif p['success'] and order.target_tiles:
+                result = p['territory'].resolve_expansion_order(order, True, self.hex_grid)
+                log.info(f"✅ {result['message']} (rolled {p['roll']:.2f} vs {order.success_probability:.2f})")
+                if ai_component:
+                    ai_component.add_observation(
+                        f"Expansion {order.direction} succeeded! {result['message']} "
+                        f"Your forces proved capable despite the challenges.{rival_note}",
+                        "Events")
+                    ai_component.record_journal_entry(
+                        f"Expansion {order.direction} succeeded: +{len(order.target_tiles)} tile(s)")
+            else:
+                # Failed the roll, or every targeted tile lost to a rival
+                result = p['territory'].resolve_expansion_order(order, False, self.hex_grid)
+                if p['success'] and not order.target_tiles:
+                    failure_reason = ("Rival settlers claimed the ground first — "
+                                      "the land is no longer ours to take.")
                 else:
-                    # Expansion failed due to insufficient resources - no costs applied
-                    result = territory_component.resolve_expansion_order(order, False, self.hex_grid)
-                    failure_reason = f"Insufficient resources: {', '.join(insufficient_resources)}"
-                    log.info(f"❌ {result['message']} - {failure_reason}")
-                    
-                    # Add AI observation
-                    if ai_component:
-                        observation = f"Expansion {order.direction} cancelled! {result['message']} {failure_reason}"
-                        ai_component.add_observation(observation, "Events")
+                    failure_reason = self._generate_expansion_failure_reason(order, p['roll'])
+                log.info(f"❌ {result['message']} - {failure_reason}")
+                if ai_component:
+                    ai_component.add_observation(
+                        f"Expansion {order.direction} failed! {result['message']} "
+                        f"{failure_reason}{rival_note}", "Events")
+                    ai_component.record_journal_entry(
+                        f"Expansion {order.direction} failed"
+                        + (f" — lost the race to House {', House '.join(sorted(rivals))}"
+                           if rivals else " (costs paid, no land gained)"))
     
     def _generate_expansion_failure_reason(self, order, roll: float) -> str:
         """Generate detailed failure reasoning for territorial expansion (non-combat)."""
