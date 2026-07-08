@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <optional>
 #include <string>
+#include <sstream>
 #include <map>
 #include <limits>
 #include <mutex>
@@ -213,6 +214,8 @@ struct House {
     int population;
     int population_loyalty;
     int military_power;
+    int ravens_in_transit;   // outgoing ravens count
+    int at_war;              // number of active wars
 };
 #pragma pack(pop)
 
@@ -220,13 +223,17 @@ struct House {
 struct PositionedEntity {
     int q, r;                                    // Position coordinates
     std::array<char, 50> name;                   // Entity name (e.g., "General Snow")
-    std::array<char, 50> house_name;            // Parent house name
+    std::array<char, 50> house_name;             // Parent house name
     std::array<unsigned char, 4> color;          // Display color (from house)
-    int entity_type;                             // 0=general, 1=scout, 2=army, etc.
+    int entity_type;                             // 0=general, 1=scout, 2=army, 3=merchant, 4=caravan
     int assigned_soldiers;                       // Military strength
     int movement_points;                         // Current movement points
-    int max_movement;                           // Maximum movement per turn
-    int operational_range;                      // Operational range in tiles
+    int max_movement;                            // Maximum movement per turn
+    int operational_range;                       // Operational range in tiles
+    uint8_t morale;                              // 0-100 group morale
+    uint8_t supplies;                            // 0-100 group supplies
+    uint8_t equipment_level;                     // 0-100 equipment quality
+    std::array<char, 60> orders;                 // Current mission/orders summary
 };
 #pragma pack(pop)
 
@@ -245,7 +252,8 @@ enum class EntityType {
     GENERAL = 0,
     SCOUT = 1,
     ARMY = 2,
-    MERCHANT = 3
+    MERCHANT = 3,
+    CARAVAN = 4
 };
 
 struct CityInfo {
@@ -412,11 +420,30 @@ class HexGridRenderer {
     std::string title;
     Camera2D camera;
     std::shared_ptr<std::vector<House>> houses;
+    
+    // Entity data for hover info
+    PositionedEntity* current_entity_data;
+    int current_num_entities;
 
     // flags
     bool show_territory = false;
     bool show_resources = true;
+    bool show_entity_list = false;        // 'I' key overlay
+    bool show_minimap = true;             // 'M' key
+    bool show_event_log = false;          // 'L' key
+    int selected_entity_index = -1;       // index into entity_data, -1 = none
     std::vector<bool> house_panels_expanded; // Track which house panels are expanded
+
+    // Minimap cache
+    int mm_min_q = 0, mm_max_q = 0, mm_min_r = 0, mm_max_r = 0;
+    bool mm_bounds_computed = false;
+
+    // Event log shared memory
+    int events_fd = -1;
+    void* events_raw = MAP_FAILED;
+    static constexpr int EVENTS_MAX = 20;
+    static constexpr int EVENT_STR_SIZE = 80;
+    static constexpr int EVENTS_TOTAL = 4 + EVENTS_MAX * EVENT_STR_SIZE;
     SpriteManager sprite_manager; // Sprite management system
 public:
     HexGridRenderer(int width = 800, int height = 600, const std::string& title = "Hex Grid Renderer")
@@ -437,6 +464,8 @@ public:
         camera.zoom = 1.0f;
         min_zoom = 1.0f;
         max_zoom = 3.0f;
+        current_entity_data = nullptr;
+        current_num_entities = 0;
     }
 
     void setup(const std::vector<HexTile>& new_tiles) {
@@ -478,6 +507,28 @@ private:
             std::cout << "Successfully loaded red knight sprites" << std::endl;
         } else {
             std::cout << "Failed to load red knight sprites" << std::endl;
+        }
+        if (sprite_manager.load_sprite_sheet("cyan_knights", "render/assets/Soliders/Mounted/CyanKnight.png", 32, 32)) {
+            std::cout << "Successfully loaded cyan knight sprites" << std::endl;
+        } else {
+            std::cout << "Failed to load cyan knight sprites" << std::endl;
+        }
+        if (sprite_manager.load_sprite_sheet("lime_knights", "render/assets/Soliders/Mounted/LimeKnight.png", 32, 32)) {
+            std::cout << "Successfully loaded lime knight sprites" << std::endl;
+        } else {
+            std::cout << "Failed to load lime knight sprites" << std::endl;
+        }
+        if (sprite_manager.load_sprite_sheet("purple_knights", "render/assets/Soliders/Mounted/PurpleKnight.png", 32, 32)) {
+            std::cout << "Successfully loaded purple knight sprites" << std::endl;
+        } else {
+            std::cout << "Failed to load purple knight sprites" << std::endl;
+        }
+
+        // Load farmer sprites for caravans
+        if (sprite_manager.load_sprite_sheet("farmers", "render/assets/FarmerTemplate.png", 16, 32)) {
+            std::cout << "Successfully loaded farmer sprites" << std::endl;
+        } else {
+            std::cout << "Failed to load farmer sprites" << std::endl;
         }
         
         std::cout << "Sprite loading completed." << std::endl;
@@ -556,14 +607,26 @@ public:
             return;
         }
 
-        assert(memory_size % sizeof(HexTile) == 0);
-        assert(memory_size / sizeof(HexTile) == num_tiles);
+        if (memory_size % sizeof(HexTile) != 0) {
+            std::cerr << "ERROR: memory_size (" << memory_size << ") is not a multiple of sizeof(HexTile) (" << sizeof(HexTile) << ")" << std::endl;
+            munmap(mapped_memory, memory_size);
+            close(fd);
+            return;
+        }
+        if (memory_size / sizeof(HexTile) != (size_t)num_tiles) {
+            std::cerr << "ERROR: tile count mismatch: memory has " << memory_size / sizeof(HexTile) << " tiles but expected " << num_tiles << std::endl;
+            munmap(mapped_memory, memory_size);
+            close(fd);
+            return;
+        }
         std::unordered_map<std::pair<int, int>, HexTile*> shared_tile_map;
         for (int i = 0; i < memory_size / sizeof(HexTile); ++i) {
             HexTile* tile = &tile_data[i];
             shared_tile_map[{tile->q, tile->r}] = tile;
         }
-        assert(shared_tile_map.size() == num_tiles);
+        if (shared_tile_map.size() != (size_t)num_tiles) {
+            std::cerr << "WARNING: " << (num_tiles - shared_tile_map.size()) << " duplicate tile coordinates detected (sizeof(HexTile)=" << sizeof(HexTile) << "). Continuing with " << shared_tile_map.size() << " unique tiles." << std::endl;
+        }
 
         House* house_data = init_house_shared_memory(house_shared_memory_name, house_memory_size, num_houses);
         if (!house_data) {
@@ -583,8 +646,22 @@ public:
             }
         }
 
+        // Open event log shared memory (optional — fails silently if Python side not ready)
+        events_fd = shm_open("/psm_events", O_RDONLY, 0666);
+        if (events_fd != -1) {
+            events_raw = mmap(nullptr, EVENTS_TOTAL, PROT_READ, MAP_SHARED, events_fd, 0);
+            if (events_raw == MAP_FAILED) {
+                close(events_fd);
+                events_fd = -1;
+            }
+        }
+
         // Initialize house panel expansion state
         house_panels_expanded.resize(num_houses, false);
+        
+        // Store entity data for hover info
+        current_entity_data = entity_data;
+        current_num_entities = num_entities;
 
         InitWindow(width, height, title.c_str());
         SetTargetFPS(60);
@@ -593,7 +670,7 @@ public:
         load_sprites();
 
         while (!WindowShouldClose()) {
-            handle_input();
+            handle_input(shared_tile_map);
             BeginDrawing();
             ClearBackground(RAYWHITE);
 
@@ -612,25 +689,71 @@ public:
                 for (int i = 0; i < num_entities; ++i) {
                     PositionedEntity* entity = &entity_data[i];
                     // Check for valid position and non-empty name to avoid rendering zeroed-out entities
-                    if (entity->q != -1 && entity->r != -1 && 
-                        strlen(entity->name.data()) > 0) { // Must have a name
+                    if (entity->q != -1 && entity->r != -1 &&
+                        strlen(entity->name.data()) > 0 &&
+                        std::string(entity->name.data()).find("__") != 0) { // skip sentinels
                         draw_positioned_entity(*entity);
                     }
                 }
             }
 
-            on_mouse_hover(shared_tile_map);
+            // Contact highlight — pulsing red line between adjacent opposing generals
+            if (entity_data && num_entities > 0) {
+                float pulse = 0.5f + 0.5f * std::sin(GetTime() * 4.0f);
+                for (int ai = 0; ai < num_entities; ++ai) {
+                    PositionedEntity* a = &entity_data[ai];
+                    if (a->entity_type != 0 || strlen(a->name.data()) == 0) continue;
+                    if (std::string(a->name.data()) == "__meta__") continue;
+                    for (int bi = ai + 1; bi < num_entities; ++bi) {
+                        PositionedEntity* b = &entity_data[bi];
+                        if (b->entity_type != 0 || strlen(b->name.data()) == 0) continue;
+                        if (std::string(b->name.data()) == "__meta__") continue;
+                        // Different house, adjacent tiles (hex distance 1)
+                        std::string ha(a->house_name.data()), hb(b->house_name.data());
+                        if (ha == hb) continue;
+                        int dq = a->q - b->q, dr = a->r - b->r;
+                        int dist = (std::abs(dq) + std::abs(dr) + std::abs(-dq-dr)) / 2;
+                        if (dist > 1) continue;
+                        auto [ax, ay] = get_tile_position_from_coords(a->q, a->r);
+                        auto [bx, by] = get_tile_position_from_coords(b->q, b->r);
+                        unsigned char alpha = (unsigned char)(180 * pulse + 75);
+                        DrawLineEx({ax, ay}, {bx, by}, 3.0f, {220, 30, 30, alpha});
+                        // Small sword icon at midpoint
+                        float mx = (ax + bx) / 2, my = (ay + by) / 2;
+                        DrawCircle((int)mx, (int)my, 5, {220, 30, 30, alpha});
+                    }
+                }
+            }
+
+            on_mouse_hover(shared_tile_map, entity_data, num_entities);
             if (selected_tile) {
                 draw_tile_highlight(*selected_tile);
+            }
+
+            // Highlight tile of selected entity with a pulsing gold outline
+            if (selected_entity_index >= 0 && current_entity_data &&
+                selected_entity_index < current_num_entities) {
+                PositionedEntity* se = &current_entity_data[selected_entity_index];
+                if (strlen(se->name.data()) > 0) {
+                    float pulse = 0.5f + 0.5f * std::sin(GetTime() * 3.0f);
+                    unsigned char alpha = (unsigned char)(180 + 75 * pulse);
+                    auto [sx, sy] = get_tile_position_from_coords(se->q, se->r);
+                    DrawPolyLines({sx, sy}, 6, tile_size * 1.05f, 0,
+                                  {255, 215, 0, alpha});
+                }
             }
 
             EndMode2D();
 
             if (selected_tile) {
-                draw_tile_info(*selected_tile);
+                draw_tile_info(*selected_tile, entity_data, num_entities);
             }
 
             draw_house_info(house_data, num_houses);
+            draw_entity_inspector();
+            draw_entity_list_overlay();
+            draw_minimap(tile_data, memory_size / sizeof(HexTile));
+            draw_event_log_panel();
             
             // Draw status indicators (top right)
             int status_x = width - 150;
@@ -643,6 +766,41 @@ public:
             std::string resources_status = show_resources ? "Resources: ON" : "Resources: OFF";
             Color resources_color = show_resources ? GREEN : RED;
             DrawTextEx(GetFontDefault(), resources_status.c_str(), {(float)status_x, (float)(status_y + 15)}, 10, 1, resources_color);
+
+            // Turn / season from meta entity (name == "__meta__", q=turn, r=season, mp=year)
+            if (entity_data && num_entities > 0) {
+                const char* season_names[4] = {"Spring", "Summer", "Autumn", "Winter"};
+                const Color season_colors[4] = {{100,200,100,255},{255,200,50,255},{210,120,30,255},{180,220,255,255}};
+                for (int mi = 0; mi < num_entities; ++mi) {
+                    PositionedEntity* me = &entity_data[mi];
+                    if (std::string(me->name.data()) == "__meta__" && me->q > 0) {
+                        int turn = me->q;
+                        int season_idx = std::max(0, std::min(3, me->r));
+                        int year = me->movement_points;
+                        std::string hud = std::string(season_names[season_idx]) +
+                                          " Y" + std::to_string(year) + " T" + std::to_string(turn);
+                        DrawTextEx(GetFontDefault(), hud.c_str(),
+                                   {(float)status_x, (float)(status_y + 30)}, 10, 1, season_colors[season_idx]);
+                        break;
+                    }
+                }
+            }
+
+            // House legend (bottom-left)
+            if (house_data && num_houses > 0) {
+                int leg_x = 10, leg_y = height - 18 * num_houses - 8;
+                for (int hi = 0; hi < num_houses; ++hi) {
+                    House* h = &house_data[hi];
+                    std::string hname(h->name.data());
+                    if (hname.empty() || hname == "None") continue;
+                    Color hcol = {h->color[0], h->color[1], h->color[2], 220};
+                    int row_y = leg_y + hi * 18;
+                    DrawRectangle(leg_x, row_y + 2, 12, 12, hcol);
+                    DrawRectangleLines(leg_x, row_y + 2, 12, 12, {0,0,0,180});
+                    DrawTextEx(GetFontDefault(), hname.c_str(),
+                               {(float)(leg_x + 16), (float)row_y}, 10, 1, WHITE);
+                }
+            }
             
             // Draw controls panel
             int controls_panel_width = 520;
@@ -656,7 +814,7 @@ public:
             DrawRectangle(controls_x, controls_y, controls_panel_width, controls_panel_height, controls_bg);
             DrawRectangleLines(controls_x, controls_y, controls_panel_width, controls_panel_height, controls_border);
             
-            std::string controls = "WASD: Move | Wheel: Zoom | T: Territory | R: Resources | Click: House Info";
+            std::string controls = "WASD: Move | Wheel: Zoom | T: Territory | R: Resources | Click: Select | I: Entities | M: Map | L: Events | ESC: Deselect";
             Vector2 text_size = MeasureTextEx(GetFontDefault(), controls.c_str(), 10, 1);
             float text_x = controls_x + (controls_panel_width - text_size.x) / 2;
             DrawTextEx(GetFontDefault(), controls.c_str(), {text_x, (float)(controls_y + 6)}, 10, 1, WHITE);
@@ -665,6 +823,9 @@ public:
         }
         munmap(tile_data, memory_size);
         close(fd);
+
+        if (events_raw != MAP_FAILED) munmap(events_raw, EVENTS_TOTAL);
+        if (events_fd != -1) close(events_fd);
 
         CloseWindow();
     }
@@ -746,13 +907,41 @@ public:
             }
         }
 
+        // Territory border outline — thin line around owned tiles
+        if (show_territory) {
+            std::string owner_str(tile.owner.data());
+            bool has_owner = !owner_str.empty() && owner_str != "None" &&
+                             owner_str.find("PENDING:") != 0;
+            if (has_owner) {
+                Color border_color = {(unsigned char)(tile.owner_color[0] * 0.6f),
+                                      (unsigned char)(tile.owner_color[1] * 0.6f),
+                                      (unsigned char)(tile.owner_color[2] * 0.6f), 200};
+                DrawPolyLines({x, y}, 6, tile_size - 0.5f, 0, border_color);
+            }
+        }
+
         // Draw resource nodes if enabled
         if (show_resources && has_special_resource(tile)) {
             draw_resource_node(tile, x, y);
         }
 
+        // Draw pending outpost construction indicator
+        {
+            std::string owner_str(tile.owner.data());
+            if (owner_str.find("PENDING:") == 0) {
+                // Construction indicator — top-right corner of tile, away from the general sprite
+                float pulse = 0.6f + 0.4f * std::sin(GetTime() * 3.0f);
+                float corner_x = x + tile_size * 0.45f;
+                float corner_y = y - tile_size * 0.55f;
+                float dot_r = tile_size * 0.12f * pulse;
+                Color dot_color = {255, 220, 0, (unsigned char)(220 * pulse)};
+                DrawCircle((int)corner_x, (int)corner_y, dot_r + 1, {100, 80, 0, 160});
+                DrawCircle((int)corner_x, (int)corner_y, dot_r, dot_color);
+            }
+        }
+
         // Trees will be drawn in a separate pass after all tiles
-        
+
         // City sprites are collected and drawn in a separate depth-sorted pass
     }
 
@@ -1111,21 +1300,53 @@ public:
             knight_sprite_sheet = "purple_knights";
         }
         
-        // Use knight sprite if available, otherwise fallback to circles
-        if (sprite_manager.has_sprite_sheet(knight_sprite_sheet) && entity.entity_type == 0) { // GENERAL
-            // Calculate sprite scale based on tile size
-            float sprite_scale = tile_size / 40.0f; // 16x24 sprite scaled to fit tile
+        // Handle caravan rendering with farmer sprites (convoy effect)
+        // Fall back to farmer sheet or red_knights if farmers not loaded
+        std::string caravan_sheet = sprite_manager.has_sprite_sheet("farmers") ? "farmers" : "red_knights";
+        if (entity.entity_type == 4 && sprite_manager.has_sprite_sheet(caravan_sheet)) { // CARAVAN
+            // Use farmer sprites in a convoy formation
+            // FarmerTemplate.png: 16x24 pixel sprites, first row has walking animation
+            float sprite_scale = tile_size / 50.0f; // Smaller than other units to fit multiple
             
-            // Center the sprite on the tile (32x32 sprite dimensions)
+            // Convoy formation: 3 farmers in a line to represent caravan
+            const int CARAVAN_SIZE = 3;
+            float convoy_spacing = tile_size * 0.3f; // Space between convoy members
+            
+            // Calculate starting position to center the convoy
+            float start_x = x - (convoy_spacing * (CARAVAN_SIZE - 1)) / 2;
+            
+            for (int i = 0; i < CARAVAN_SIZE; i++) {
+                // Position each farmer sprite in convoy formation
+                Vector2 farmer_pos = {
+                    start_x + (i * convoy_spacing) - (16 * sprite_scale / 2), // Center 16px sprite
+                    y - (32 * sprite_scale / 2) // Center 32px sprite vertically
+                };
+                
+                // Use different walking animation frames for variety
+                // First row of FarmerTemplate.png has walking down animation (frames 0-4)
+                int frame_offset = i % 5; // Cycle through frames 0-4
+                float animation_time = GetTime() + (i * 0.2f); // Stagger animations
+                int current_frame = (int)(animation_time / 0.4f) % 5; // 5 frames in first row
+                int sprite_index = (current_frame + frame_offset) % 5; // First row only
+                
+                // Draw farmer sprite with entity color tint for house identification
+                Color farmer_tint = {entity_color.r, entity_color.g, entity_color.b, 200};
+                sprite_manager.draw_sprite(caravan_sheet, sprite_index, farmer_pos, sprite_scale, farmer_tint);
+            }
+        }
+        // Use knight sprite for generals — fall back to red_knights with color tint if variant not loaded
+        else if (entity.entity_type == 0 && sprite_manager.has_sprite_sheet("red_knights")) { // GENERAL
+            // Use the specific colored sheet if loaded, otherwise use red_knights tinted with entity color
+            bool has_variant = sprite_manager.has_sprite_sheet(knight_sprite_sheet);
+            std::string draw_sheet = has_variant ? knight_sprite_sheet : "red_knights";
+
+            float sprite_scale = tile_size / 40.0f;
             Vector2 sprite_pos = {
                 x - (32 * sprite_scale / 2),
                 y - (32 * sprite_scale / 2)
             };
-            
-            // Skip glow circle for cleaner sprite appearance
-            
-            // Draw the animated knight sprite
-            sprite_manager.draw_animated_sprite(knight_sprite_sheet, sprite_pos, tile_size, sprite_scale);
+
+            sprite_manager.draw_animated_sprite(draw_sheet, sprite_pos, tile_size, sprite_scale);
         } else {
             // Fallback to original circle rendering
             
@@ -1161,6 +1382,42 @@ public:
             }
         }
         
+        // Draw general name above sprite (generals only, tile large enough)
+        if (entity.entity_type == 0 && tile_size > 30) {
+            std::string name_str(entity.name.data());
+            if (!name_str.empty()) {
+                int name_font_size = std::max(7, std::min(10, (int)(tile_size * 0.13f)));
+                Vector2 name_size = MeasureTextEx(GetFontDefault(), name_str.c_str(), name_font_size, 1);
+                float name_x = x - name_size.x / 2;
+                float name_y = y - entity_radius - name_size.y - 2;
+                DrawRectangle((int)(name_x - 2), (int)(name_y - 1),
+                              (int)(name_size.x + 4), (int)(name_size.y + 2), {0, 0, 0, 160});
+                DrawTextEx(GetFontDefault(), name_str.c_str(), {name_x, name_y},
+                           name_font_size, 1, WHITE);
+            }
+        }
+
+        // Draw morale & supply bars for generals (tile large enough)
+        if (entity.entity_type == 0 && tile_size > 28) {
+            float bar_w = tile_size * 0.55f;
+            float bar_h = 3.0f;
+            float bar_x = x - bar_w / 2;
+            float bar_y = y + entity_radius + 3;
+            // Morale bar (blue)
+            DrawRectangle((int)bar_x - 1, (int)bar_y - 1, (int)bar_w + 2, (int)bar_h + 2, {0,0,0,140});
+            float morale_fill = (entity.morale / 100.0f) * bar_w;
+            Color morale_color = entity.morale > 60 ? Color{30,144,255,220} :
+                                 entity.morale > 30 ? Color{255,165,0,220} : Color{220,20,60,220};
+            DrawRectangle((int)bar_x, (int)bar_y, (int)morale_fill, (int)bar_h, morale_color);
+            // Supply bar (green) — one pixel below
+            float sup_y = bar_y + bar_h + 2;
+            DrawRectangle((int)bar_x - 1, (int)sup_y - 1, (int)bar_w + 2, (int)bar_h + 2, {0,0,0,140});
+            float sup_fill = (entity.supplies / 100.0f) * bar_w;
+            Color sup_color = entity.supplies > 60 ? Color{50,205,50,220} :
+                              entity.supplies > 25 ? Color{255,165,0,220} : Color{220,20,60,220};
+            DrawRectangle((int)bar_x, (int)sup_y, (int)sup_fill, (int)bar_h, sup_color);
+        }
+
         // Draw troop count if it's a military unit and tile is large enough
         if (entity.assigned_soldiers > 0 && tile_size > 25) {
             std::string troop_text = std::to_string(entity.assigned_soldiers);
@@ -1183,6 +1440,7 @@ public:
             case EntityType::SCOUT: return 0x1F441;     // 👁 Eye
             case EntityType::ARMY: return 0x1F6E1;      // 🛡 Shield
             case EntityType::MERCHANT: return 0x1F4B0;  // 💰 Money Bag
+            case EntityType::CARAVAN: return 0x1F69A;   // 🚚 Delivery Truck
             default: return 0x25CF;                     // ● Black Circle
         }
    }
@@ -1218,6 +1476,32 @@ public:
    bool has_encoded_city_name(const std::string& owner_field) {
         return owner_field.find("CITY:") == 0;
    }
+   
+   // Entity helper functions
+   std::vector<PositionedEntity*> find_entities_at_tile(int q, int r, PositionedEntity* entity_data, int num_entities) {
+        std::vector<PositionedEntity*> entities_on_tile;
+        if (!entity_data) return entities_on_tile;
+        
+        for (int i = 0; i < num_entities; ++i) {
+            PositionedEntity* entity = &entity_data[i];
+            if (entity->q == q && entity->r == r && 
+                strlen(entity->name.data()) > 0) { // Valid entity with name
+                entities_on_tile.push_back(entity);
+            }
+        }
+        return entities_on_tile;
+   }
+   
+   std::string get_entity_type_name(EntityType entity_type) {
+        switch (entity_type) {
+            case EntityType::GENERAL: return "General";
+            case EntityType::SCOUT: return "Scout";
+            case EntityType::ARMY: return "Army";
+            case EntityType::MERCHANT: return "Merchant";
+            case EntityType::CARAVAN: return "Trade Caravan";
+            default: return "Unknown";
+        }
+   }
 
 private:
 
@@ -1227,7 +1511,7 @@ private:
         return {x, y};
     }
 
-    void on_mouse_hover(const std::unordered_map<std::pair<int, int>, HexTile*>& shared_tile_map) {
+    void on_mouse_hover(const std::unordered_map<std::pair<int, int>, HexTile*>& shared_tile_map, PositionedEntity* entity_data, int num_entities) {
         Vector2 mouse_pos = GetMousePosition();
         auto new_selected_tile = get_tile_at_position(mouse_pos.x, mouse_pos.y, shared_tile_map);
         
@@ -1288,12 +1572,17 @@ private:
         DrawPolyLines({x, y}, 6, tile_size, 0, WHITE);
     }
 
-    void draw_tile_info(HexTile* tile) {
+    void draw_tile_info(HexTile* tile, PositionedEntity* entity_data, int num_entities) {
         std::string owner_field = std::string(tile->owner.data());
         
-        // Panel dimensions and styling - smaller and more compact
+        // Find entities on this tile
+        std::vector<PositionedEntity*> entities_on_tile = find_entities_at_tile(tile->q, tile->r, entity_data, num_entities);
+        
+        // Panel dimensions and styling - adjust height based on content
         int panel_width = 200;
-        int panel_height = 120;
+        int base_panel_height = 120;
+        int entity_info_height = entities_on_tile.size() * 24; // 24 pixels per entity (2 lines)
+        int panel_height = base_panel_height + entity_info_height;
         int panel_x = width - panel_width - 10; // Right side of screen
         int panel_y = height - panel_height - 40; // Bottom right
         int header_font_size = 11;
@@ -1354,6 +1643,17 @@ private:
                 DrawTextEx(GetFontDefault(), ("Owner: " + original_owner).c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, SKYBLUE);
                 text_y += line_height;
             }
+        } else if (owner_field.find("PENDING:") == 0) {
+            // Pending outpost — extract owner after '#' or show as under construction
+            size_t hash_pos = owner_field.find('#');
+            std::string pending_owner = (hash_pos != std::string::npos)
+                ? owner_field.substr(hash_pos + 1) : "";
+            DrawTextEx(GetFontDefault(), "Construction in progress", {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, {255, 220, 0, 255});
+            text_y += line_height;
+            if (!pending_owner.empty() && pending_owner != "None") {
+                DrawTextEx(GetFontDefault(), ("Owner: " + pending_owner).c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, SKYBLUE);
+                text_y += line_height;
+            }
         } else if (owner_field != "None") {
             DrawTextEx(GetFontDefault(), ("Owner: " + owner_field).c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, SKYBLUE);
             text_y += line_height;
@@ -1381,10 +1681,387 @@ private:
             std::string development_name = get_city_development_name(city.development_level);
             DrawTextEx(GetFontDefault(), (city_type_name + " (" + development_name + ")").c_str(), 
                       {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, ORANGE);
+            text_y += line_height;
+        }
+        
+        // Entity information
+        if (!entities_on_tile.empty()) {
+            text_y += 3; // Small gap before entity section
+            
+            // Entity section header
+            DrawTextEx(GetFontDefault(), "Entities:", {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, LIGHTGRAY);
+            text_y += line_height;
+            
+            for (PositionedEntity* entity : entities_on_tile) {
+                // Entity type and name
+                std::string entity_name = std::string(entity->name.data());
+                std::string entity_type = get_entity_type_name(static_cast<EntityType>(entity->entity_type));
+                std::string entity_house = std::string(entity->house_name.data());
+                
+                // Main entity info line
+                std::string entity_info = entity_type + ": " + entity_name;
+                Color entity_color = {entity->color[0], entity->color[1], entity->color[2], 255};
+                DrawTextEx(GetFontDefault(), entity_info.c_str(), {(float)(panel_x + 8), (float)text_y}, body_font_size, 1, entity_color);
+                text_y += line_height;
+                
+                // Additional info line (house and military strength if applicable)
+                std::string additional_info = "House: " + entity_house;
+                if (entity->assigned_soldiers > 0) {
+                    additional_info += " | Troops: " + std::to_string(entity->assigned_soldiers);
+                }
+                DrawTextEx(GetFontDefault(), additional_info.c_str(), {(float)(panel_x + 12), (float)text_y}, body_font_size - 1, 1, LIGHTGRAY);
+                text_y += line_height;
+            }
         }
     }
 
-    void check_house_panel_click(float mouse_x, float mouse_y) {
+    // ── Minimap ───────────────────────────────────────────────────────────────
+
+    void draw_minimap(HexTile* tile_data, int num_tiles) {
+        if (!show_minimap) return;
+
+        const int MM_W = 160, MM_H = 120, MM_MARGIN = 10;
+        const int MM_X = width - MM_W - MM_MARGIN;
+        // Sit above tile info panel (base height ~120) + margin
+        const int MM_Y = height - MM_H - 200;
+
+        // Compute bounds once
+        if (!mm_bounds_computed && num_tiles > 0) {
+            mm_min_q = mm_max_q = tile_data[0].q;
+            mm_min_r = mm_max_r = tile_data[0].r;
+            for (int i = 1; i < num_tiles; ++i) {
+                if (tile_data[i].q < mm_min_q) mm_min_q = tile_data[i].q;
+                if (tile_data[i].q > mm_max_q) mm_max_q = tile_data[i].q;
+                if (tile_data[i].r < mm_min_r) mm_min_r = tile_data[i].r;
+                if (tile_data[i].r > mm_max_r) mm_max_r = tile_data[i].r;
+            }
+            mm_bounds_computed = true;
+        }
+        if (!mm_bounds_computed) return;
+
+        int qrange = mm_max_q - mm_min_q + 1;
+        int rrange = mm_max_r - mm_min_r + 1;
+
+        // Panel background
+        DrawRectangle(MM_X - 2, MM_Y - 2, MM_W + 4, MM_H + 4, {0, 0, 0, 200});
+        DrawRectangleLines(MM_X - 2, MM_Y - 2, MM_W + 4, MM_H + 4, {120, 120, 120, 200});
+
+        // Draw each tile as a 1-2px rectangle
+        for (int i = 0; i < num_tiles; ++i) {
+            HexTile* t = &tile_data[i];
+            float nx = (float)(t->q - mm_min_q) / qrange;
+            float ny = (float)(t->r - mm_min_r) / rrange;
+            int px = MM_X + (int)(nx * MM_W);
+            int py = MM_Y + (int)(ny * MM_H);
+
+            Color col;
+            bool owned = (t->owner_color[3] > 10);
+            if (owned) {
+                col = {t->owner_color[0], t->owner_color[1], t->owner_color[2], 200};
+            } else {
+                col = terrain_colors.count(t->terrain_type)
+                      ? terrain_colors[t->terrain_type] : Color{80, 80, 80, 255};
+                col.a = 160;
+            }
+            DrawRectangle(px, py, 2, 2, col);
+        }
+
+        // Entity dots
+        if (current_entity_data) {
+            for (int i = 0; i < current_num_entities; ++i) {
+                PositionedEntity* e = &current_entity_data[i];
+                if (strlen(e->name.data()) == 0 || std::string(e->name.data()).find("__") == 0)
+                    continue;
+                float nx = (float)(e->q - mm_min_q) / qrange;
+                float ny = (float)(e->r - mm_min_r) / rrange;
+                int px = MM_X + (int)(nx * MM_W);
+                int py = MM_Y + (int)(ny * MM_H);
+                Color ec = {e->color[0], e->color[1], e->color[2], 255};
+                DrawRectangle(px - 1, py - 1, 3, 3, ec);
+            }
+        }
+
+        // Viewport rectangle
+        Vector2 tl_world = GetScreenToWorld2D({0.0f, 0.0f}, camera);
+        Vector2 br_world = GetScreenToWorld2D({(float)width, (float)height}, camera);
+        auto world_to_mm = [&](float wx, float wy) -> std::pair<int,int> {
+            // Invert hex_to_pixel: wx = center_x + q*hex_width  →  q ≈ (wx - center_x) / hex_width
+            float q_f = (wx - center_x) / hex_width;
+            float r_f = (wy - center_y - q_f * hex_height) / (hex_height * 2.0f);
+            float nx = (q_f - mm_min_q) / qrange;
+            float ny = (r_f - mm_min_r) / rrange;
+            return {MM_X + (int)(nx * MM_W), MM_Y + (int)(ny * MM_H)};
+        };
+        auto [vx1, vy1] = world_to_mm(tl_world.x, tl_world.y);
+        auto [vx2, vy2] = world_to_mm(br_world.x, br_world.y);
+        vx1 = std::max(MM_X, std::min(MM_X + MM_W, vx1));
+        vy1 = std::max(MM_Y, std::min(MM_Y + MM_H, vy1));
+        vx2 = std::max(MM_X, std::min(MM_X + MM_W, vx2));
+        vy2 = std::max(MM_Y, std::min(MM_Y + MM_H, vy2));
+        DrawRectangleLines(vx1, vy1, vx2 - vx1, vy2 - vy1, {255, 255, 255, 200});
+
+        // Label
+        DrawTextEx(GetFontDefault(), "Map [M]", {(float)(MM_X), (float)(MM_Y - 12)}, 9, 1, LIGHTGRAY);
+    }
+
+    // ── Event Log Panel ───────────────────────────────────────────────────────
+
+    void draw_event_log_panel() {
+        if (!show_event_log || events_raw == MAP_FAILED) return;
+
+        const int PANEL_W = 230, LINE_H = 13, SHOW_N = 8;
+        const int PANEL_H = SHOW_N * LINE_H + 30;
+        const int PANEL_X = width - PANEL_W - 10;
+        const int PANEL_Y = 60;  // Below entity inspector header area
+
+        DrawRectangle(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, {10, 10, 30, 225});
+        DrawRectangleLines(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, {120, 120, 180, 255});
+        DrawRectangle(PANEL_X, PANEL_Y, PANEL_W, 20, {30, 30, 80, 255});
+        DrawTextEx(GetFontDefault(), "Event Log [L]",
+                   {(float)(PANEL_X + 6), (float)(PANEL_Y + 4)}, 10, 1, WHITE);
+
+        int head = *static_cast<int*>(events_raw);
+        const char* events_base = static_cast<char*>(events_raw) + 4;
+
+        int y = PANEL_Y + 24;
+        for (int i = 0; i < SHOW_N; ++i) {
+            int idx = ((head - 1 - i) + EVENTS_MAX) % EVENTS_MAX;
+            const char* entry = events_base + idx * EVENT_STR_SIZE;
+            if (entry[0] == '\0') continue;
+            std::string line(entry, strnlen(entry, EVENT_STR_SIZE - 1));
+            if (line.size() > 35) line = line.substr(0, 34) + "...";
+            Color lc = (i == 0) ? WHITE : LIGHTGRAY;
+            DrawTextEx(GetFontDefault(), line.c_str(),
+                       {(float)(PANEL_X + 5), (float)y}, 9, 1, lc);
+            y += LINE_H;
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    void draw_stat_bar(int x, int y, int bar_w, int bar_h, int value,
+                       Color filled_col, Color bg_col) {
+        DrawRectangle(x, y, bar_w, bar_h, bg_col);
+        int filled = (int)(bar_w * std::min(100, std::max(0, value)) / 100.0f);
+        if (filled > 0) DrawRectangle(x, y, filled, bar_h, filled_col);
+        DrawRectangleLines(x, y, bar_w, bar_h, {100, 100, 100, 180});
+    }
+
+    void draw_wrapped_text(int x, int& y, int max_w, const std::string& text,
+                           int font_size, Color col) {
+        // Simple word-wrap: split on spaces, accumulate until line exceeds max_w
+        std::istringstream iss(text);
+        std::string word, line;
+        while (std::getline(iss, word, ' ')) {
+            std::string candidate = line.empty() ? word : line + " " + word;
+            if (MeasureTextEx(GetFontDefault(), candidate.c_str(), font_size, 1).x > max_w && !line.empty()) {
+                DrawTextEx(GetFontDefault(), line.c_str(), {(float)x, (float)y}, font_size, 1, col);
+                y += font_size + 2;
+                line = word;
+            } else {
+                line = candidate;
+            }
+        }
+        if (!line.empty()) {
+            DrawTextEx(GetFontDefault(), line.c_str(), {(float)x, (float)y}, font_size, 1, col);
+            y += font_size + 2;
+        }
+    }
+
+    // ── Entity click-select ───────────────────────────────────────────────────
+
+    void check_entity_click(float mouse_x, float mouse_y,
+                             const std::unordered_map<std::pair<int,int>, HexTile*>& shared_tile_map) {
+        if (!current_entity_data) { selected_entity_index = -1; return; }
+
+        auto tile_opt = get_tile_at_position((int)mouse_x, (int)mouse_y, shared_tile_map);
+        if (!tile_opt) { selected_entity_index = -1; return; }
+
+        int tq = (*tile_opt)->q, tr = (*tile_opt)->r;
+        std::vector<int> indices;
+        for (int i = 0; i < current_num_entities; ++i) {
+            PositionedEntity* e = &current_entity_data[i];
+            if (e->q == tq && e->r == tr && strlen(e->name.data()) > 0 &&
+                std::string(e->name.data()).find("__") != 0) {
+                indices.push_back(i);
+            }
+        }
+        if (indices.empty()) { selected_entity_index = -1; return; }
+
+        // Cycle through entities on the same tile on repeated clicks
+        auto it = std::find(indices.begin(), indices.end(), selected_entity_index);
+        if (it != indices.end()) {
+            ++it;
+            selected_entity_index = (it != indices.end()) ? *it : indices[0];
+        } else {
+            selected_entity_index = indices[0];
+        }
+    }
+
+    // ── Entity Inspector Panel ────────────────────────────────────────────────
+
+    void draw_entity_inspector() {
+        if (selected_entity_index < 0 || !current_entity_data) return;
+        if (selected_entity_index >= current_num_entities) {
+            selected_entity_index = -1; return;
+        }
+        PositionedEntity* e = &current_entity_data[selected_entity_index];
+        if (strlen(e->name.data()) == 0) { selected_entity_index = -1; return; }
+
+        std::string name      = std::string(e->name.data());
+        std::string house     = std::string(e->house_name.data());
+        std::string orders_s  = std::string(e->orders.data());
+        std::string type_name = get_entity_type_name(static_cast<EntityType>(e->entity_type));
+        Color ec = {e->color[0], e->color[1], e->color[2], 255};
+
+        int panel_w = 240;
+        int panel_x = width - panel_w - 10;
+        int panel_y = 10;
+
+        // Estimate height
+        int orders_h = 0;
+        if (!orders_s.empty()) {
+            int chars_per_line = std::max(1, (panel_w - 16) / 6);
+            orders_h = ((int)orders_s.size() / chars_per_line + 2) * 13 + 18;
+        }
+        bool has_soldiers = (e->assigned_soldiers > 0);
+        int panel_h = 200 + (has_soldiers ? 14 : 0) + orders_h;
+
+        Color bg     = {15, 15, 35, 225};
+        Color border = {ec.r, ec.g, ec.b, 200};
+        DrawRectangle(panel_x, panel_y, panel_w, panel_h, bg);
+        DrawRectangleLines(panel_x, panel_y, panel_w, panel_h, border);
+
+        // Header bar
+        Color hdr_bg = {(unsigned char)(ec.r/3), (unsigned char)(ec.g/3), (unsigned char)(ec.b/3), 255};
+        DrawRectangle(panel_x, panel_y, panel_w, 22, hdr_bg);
+        DrawTextEx(GetFontDefault(), (type_name + ": " + name).c_str(),
+                   {(float)(panel_x + 6), (float)(panel_y + 5)}, 11, 1, WHITE);
+        DrawTextEx(GetFontDefault(), "[ESC]",
+                   {(float)(panel_x + panel_w - 40), (float)(panel_y + 6)}, 9, 1, LIGHTGRAY);
+
+        int y   = panel_y + 28;
+        int lh  = 14;
+        int fs  = 10;
+        int ix  = panel_x + 8;
+        int bar_w = panel_w - 16;
+
+        DrawTextEx(GetFontDefault(), ("House: " + house).c_str(), {(float)ix, (float)y}, fs, 1, ec); y += lh;
+        std::string pos_str = "Position: (" + std::to_string(e->q) + ", " + std::to_string(e->r) + ")";
+        DrawTextEx(GetFontDefault(), pos_str.c_str(), {(float)ix, (float)y}, fs, 1, WHITE); y += lh;
+
+        if (has_soldiers) {
+            DrawTextEx(GetFontDefault(), ("Soldiers: " + std::to_string(e->assigned_soldiers)).c_str(),
+                       {(float)ix, (float)y}, fs, 1, WHITE); y += lh;
+        }
+
+        y += 4;
+
+        // Equipment bar
+        DrawTextEx(GetFontDefault(), "Equipment:", {(float)ix, (float)y}, fs, 1, LIGHTGRAY); y += lh;
+        draw_stat_bar(ix, y, bar_w, 8, e->equipment_level, {200, 160, 50, 255}, {50, 40, 10, 255});
+        DrawTextEx(GetFontDefault(), (std::to_string(e->equipment_level) + "%").c_str(),
+                   {(float)(panel_x + panel_w - 32), (float)(y - 1)}, 8, 1, LIGHTGRAY);
+        y += 12;
+
+        // Morale bar
+        DrawTextEx(GetFontDefault(), "Morale:", {(float)ix, (float)y}, fs, 1, LIGHTGRAY); y += lh;
+        Color mc = e->morale >= 70 ? Color{50, 200, 50, 255} :
+                   e->morale >= 40 ? Color{220, 180, 0, 255} : Color{220, 50, 50, 255};
+        draw_stat_bar(ix, y, bar_w, 8, e->morale, mc, {40, 20, 20, 255});
+        DrawTextEx(GetFontDefault(), (std::to_string(e->morale) + "%").c_str(),
+                   {(float)(panel_x + panel_w - 32), (float)(y - 1)}, 8, 1, LIGHTGRAY);
+        y += 12;
+
+        // Supplies bar
+        DrawTextEx(GetFontDefault(), "Supplies:", {(float)ix, (float)y}, fs, 1, LIGHTGRAY); y += lh;
+        Color sc = e->supplies >= 60 ? Color{50, 120, 220, 255} :
+                   e->supplies >= 30 ? Color{220, 140, 50, 255} : Color{220, 50, 50, 255};
+        draw_stat_bar(ix, y, bar_w, 8, e->supplies, sc, {20, 20, 50, 255});
+        DrawTextEx(GetFontDefault(), (std::to_string(e->supplies) + "%").c_str(),
+                   {(float)(panel_x + panel_w - 32), (float)(y - 1)}, 8, 1, LIGHTGRAY);
+        y += 12;
+
+        y += 4;
+        std::string mov = "Movement: " + std::to_string(e->movement_points) +
+                          " / " + std::to_string(e->max_movement);
+        DrawTextEx(GetFontDefault(), mov.c_str(), {(float)ix, (float)y}, fs, 1, WHITE); y += lh;
+
+        if (!orders_s.empty()) {
+            y += 4;
+            DrawTextEx(GetFontDefault(), "Orders:", {(float)ix, (float)y}, fs, 1, YELLOW); y += lh;
+            draw_wrapped_text(ix, y, bar_w, orders_s, 9, LIGHTGRAY);
+        }
+    }
+
+    // ── Entity List Overlay ───────────────────────────────────────────────────
+
+    void draw_entity_list_overlay() {
+        if (!show_entity_list || !current_entity_data) return;
+
+        std::vector<PositionedEntity*> valid;
+        for (int i = 0; i < current_num_entities; ++i) {
+            PositionedEntity* e = &current_entity_data[i];
+            if (strlen(e->name.data()) > 0 &&
+                std::string(e->name.data()).find("__") != 0) {
+                valid.push_back(e);
+            }
+        }
+
+        int row_h   = 16;
+        int panel_w = 580;
+        int hdr_h   = 30;
+        int panel_h = hdr_h + row_h + 6 + (int)valid.size() * row_h + 16;
+        int panel_x = (width - panel_w) / 2;
+        int panel_y = (height - panel_h) / 2;
+
+        DrawRectangle(panel_x, panel_y, panel_w, panel_h, {10, 10, 30, 235});
+        DrawRectangleLines(panel_x, panel_y, panel_w, panel_h, {140, 140, 200, 255});
+
+        DrawRectangle(panel_x, panel_y, panel_w, hdr_h, {30, 30, 80, 255});
+        DrawTextEx(GetFontDefault(), "Entity Overview  [I to close | click row to select]",
+                   {(float)(panel_x + 10), (float)(panel_y + 8)}, 12, 1, WHITE);
+
+        int y  = panel_y + hdr_h + 4;
+        int fs = 9;
+
+        // Column headers
+        DrawTextEx(GetFontDefault(), "Type",     {(float)(panel_x +   8), (float)y}, fs, 1, LIGHTGRAY);
+        DrawTextEx(GetFontDefault(), "Name",     {(float)(panel_x +  80), (float)y}, fs, 1, LIGHTGRAY);
+        DrawTextEx(GetFontDefault(), "House",    {(float)(panel_x + 200), (float)y}, fs, 1, LIGHTGRAY);
+        DrawTextEx(GetFontDefault(), "Pos",      {(float)(panel_x + 310), (float)y}, fs, 1, LIGHTGRAY);
+        DrawTextEx(GetFontDefault(), "Mo/Su/Eq", {(float)(panel_x + 370), (float)y}, fs, 1, LIGHTGRAY);
+        DrawTextEx(GetFontDefault(), "Soldiers", {(float)(panel_x + 460), (float)y}, fs, 1, LIGHTGRAY);
+        DrawTextEx(GetFontDefault(), "Orders",   {(float)(panel_x + 510), (float)y}, fs, 1, LIGHTGRAY);
+        y += row_h;
+        DrawLine(panel_x + 5, y - 2, panel_x + panel_w - 5, y - 2, {80, 80, 120, 200});
+
+        for (PositionedEntity* e : valid) {
+            std::string type_s    = get_entity_type_name(static_cast<EntityType>(e->entity_type));
+            std::string name_s    = std::string(e->name.data());
+            std::string house_s   = std::string(e->house_name.data());
+            std::string orders_s  = std::string(e->orders.data());
+            Color ec = {e->color[0], e->color[1], e->color[2], 255};
+            std::string pos_s  = "(" + std::to_string(e->q) + "," + std::to_string(e->r) + ")";
+            std::string stat_s = std::to_string(e->morale) + "/" +
+                                 std::to_string(e->supplies) + "/" +
+                                 std::to_string(e->equipment_level);
+            std::string sol_s  = e->assigned_soldiers > 0 ? std::to_string(e->assigned_soldiers) : "-";
+            // Truncate orders for display
+            std::string ord_trunc = orders_s.size() > 8 ? orders_s.substr(0, 7) + "…" : orders_s;
+
+            DrawTextEx(GetFontDefault(), type_s.c_str(),     {(float)(panel_x +   8), (float)y}, fs, 1, ec);
+            DrawTextEx(GetFontDefault(), name_s.c_str(),     {(float)(panel_x +  80), (float)y}, fs, 1, WHITE);
+            DrawTextEx(GetFontDefault(), house_s.c_str(),    {(float)(panel_x + 200), (float)y}, fs, 1, LIGHTGRAY);
+            DrawTextEx(GetFontDefault(), pos_s.c_str(),      {(float)(panel_x + 310), (float)y}, fs, 1, LIGHTGRAY);
+            DrawTextEx(GetFontDefault(), stat_s.c_str(),     {(float)(panel_x + 370), (float)y}, fs, 1, LIGHTGRAY);
+            DrawTextEx(GetFontDefault(), sol_s.c_str(),      {(float)(panel_x + 460), (float)y}, fs, 1, LIGHTGRAY);
+            DrawTextEx(GetFontDefault(), ord_trunc.c_str(),  {(float)(panel_x + 510), (float)y}, fs, 1, {180, 180, 100, 255});
+            y += row_h;
+        }
+    }
+
+    bool check_house_panel_click(float mouse_x, float mouse_y) {
         int panel_width = 200;
         int collapsed_height = 30;
         int expanded_height = 120;
@@ -1407,9 +2084,10 @@ private:
             if (mouse_x >= panel_x && mouse_x <= panel_x + panel_width &&
                 mouse_y >= panel_y && mouse_y <= panel_y + 25) {
                 house_panels_expanded[i] = !house_panels_expanded[i];
-                break;
+                return true;
             }
         }
+        return false;
     }
 
     void draw_house_info(House* house_data, int num_houses) {
@@ -1458,8 +2136,21 @@ private:
             // House name header with colored background (always visible)
             DrawRectangle(panel_x, panel_y, panel_width, 25, panel_border);
             std::string header_text = "House " + display_name + (house_panels_expanded[i] ? " ▼" : " ▶");
-            DrawTextEx(GetFontDefault(), header_text.c_str(), 
+            DrawTextEx(GetFontDefault(), header_text.c_str(),
                       {(float)(panel_x + 8), (float)(panel_y + 5)}, header_font_size, 1, WHITE);
+            // Raven badge
+            if (house->ravens_in_transit > 0) {
+                std::string rb = "[R:" + std::to_string(house->ravens_in_transit) + "]";
+                DrawTextEx(GetFontDefault(), rb.c_str(),
+                           {(float)(panel_x + panel_width - 40), (float)(panel_y + 6)}, 9, 1, {180, 220, 255, 255});
+            }
+            // War badge
+            if (house->at_war > 0) {
+                std::string wb = "[WAR]";
+                float war_x = house->ravens_in_transit > 0 ? panel_x + panel_width - 75.0f : panel_x + panel_width - 44.0f;
+                DrawTextEx(GetFontDefault(), wb.c_str(),
+                           {war_x, (float)(panel_y + 6)}, 9, 1, {255, 80, 80, 255});
+            }
             
             // Only draw detailed info if expanded
             if (house_panels_expanded[i]) {
@@ -1489,24 +2180,28 @@ private:
         }
     }
 
-    void handle_input() {
+    void handle_input(const std::unordered_map<std::pair<int,int>, HexTile*>& shared_tile_map) {
         if (IsKeyDown(KEY_A)) camera.target.x -= 10 / camera.zoom;
         if (IsKeyDown(KEY_D)) camera.target.x += 10 / camera.zoom;
         if (IsKeyDown(KEY_S)) camera.target.y += 10 / camera.zoom;
         if (IsKeyDown(KEY_W)) camera.target.y -= 10 / camera.zoom;
 
-        if (IsKeyPressed(KEY_T)) {
-            show_territory = !show_territory;
+        if (IsKeyPressed(KEY_T)) show_territory = !show_territory;
+        if (IsKeyPressed(KEY_R)) show_resources = !show_resources;
+        if (IsKeyPressed(KEY_I)) show_entity_list = !show_entity_list;
+        if (IsKeyPressed(KEY_M)) show_minimap = !show_minimap;
+        if (IsKeyPressed(KEY_L)) show_event_log = !show_event_log;
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            selected_entity_index = -1;
+            show_entity_list = false;
         }
 
-        if (IsKeyPressed(KEY_R)) {
-            show_resources = !show_resources;
-        }
-
-        // Handle mouse clicks on house panels
+        // Left click: house panel first, then entity select
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mouse_pos = GetMousePosition();
-            check_house_panel_click(mouse_pos.x, mouse_pos.y);
+            if (!check_house_panel_click(mouse_pos.x, mouse_pos.y)) {
+                check_entity_click(mouse_pos.x, mouse_pos.y, shared_tile_map);
+            }
         }
 
         float wheel = GetMouseWheelMove();
