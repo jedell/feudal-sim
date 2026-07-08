@@ -127,19 +127,20 @@ def create_deploy_general_tool(house_entity) -> Callable:
         return deploy_general_unavailable
 
     @function_tool
-    def deploy_general(ctx: RunContextWrapper["SimulationContext"], direction: str, soldiers_assigned: int, workers_assigned: int = 0, general_name: str = "General", orders: str = "Patrol the area and await further orders") -> str:
+    def deploy_general(ctx: RunContextWrapper["SimulationContext"], direction: str, soldiers_assigned: int, workers_assigned: int = 0, general_name: str = "General", orders: str = "Patrol the area and await further orders", strategic_intent: str = "") -> str:
         """
         Deploy a general in a specific direction from your territory with assigned population forces.
         Generals can act independently and will interpret natural language orders to accomplish their mission.
         They lead their assigned group of soldiers and workers on missions like expansion, patrol, and fortification.
-        
+
         Args:
             direction: Direction to deploy the general (N, NE, SE, S, SW, NW, or "center")
             soldiers_assigned: Number of soldiers to assign to this general (from your available military)
-            workers_assigned: Number of workers to assign to this general (for settlement/construction) 
+            workers_assigned: Number of workers to assign to this general (for settlement/construction)
             general_name: Name for the general (e.g., "General snow", "Commander Stark")
             orders: Natural language orders for the general (e.g., "Expand our territory eastward", "Fortify the northern border")
-            
+            strategic_intent: Why you are sending them — the larger goal the general should keep in mind (e.g., "Secure the iron deposits before House Stark reaches them")
+
         Returns:
             Result of general deployment
         """
@@ -275,7 +276,9 @@ def create_deploy_general_tool(house_entity) -> Callable:
         )
         # Set mission based on natural language orders
         mission_type = "expansion" if "expand" in orders.lower() else "patrol"
-        group_comp.set_mission(mission_type, target_area=deployment_position, orders=orders)
+        group_comp.set_mission(mission_type, target_area=deployment_position, orders=orders,
+                               strategic_intent=strategic_intent or None,
+                               assigned_turn=getattr(sim_context, 'current_turn', 0))
         general_entity.add_component(group_comp)
 
         # Add TerrainObservation component for autonomous intelligence gathering

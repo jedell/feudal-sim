@@ -708,6 +708,20 @@ class AIComponent(Component):
             ""
         ]
         
+        # Mission block for generals — rendered from component state every turn
+        # so orders survive message-history compaction
+        if self.agent_type == AgentType.GENERAL and self.entity:
+            group_comp = self.entity.get_component(SubAgentGroup)
+            mp = group_comp.mission_parameters if group_comp else None
+            if mp:
+                context_parts.append(f"Mission: {mp.mission_type} — {mp.orders or 'no specific orders'}")
+                if mp.strategic_intent:
+                    context_parts.append(f"Strategic intent: {mp.strategic_intent}")
+                turns_in_field = self.context.current_turn - mp.assigned_turn
+                if mp.assigned_turn and turns_in_field > 0:
+                    context_parts.append(f"Orders issued turn {mp.assigned_turn} ({turns_in_field} turns ago)")
+                context_parts.append("")
+
         # Expire any stale situations
         self._expire_situations(self.context.current_turn)
 

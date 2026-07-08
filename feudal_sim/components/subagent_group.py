@@ -28,14 +28,18 @@ class MissionParameters:
     target_area: Optional[tuple] = None  # (q, r) coordinates if applicable
     orders: Optional[str] = None  # Specific orders from parent house
     priority: str = "medium"  # "high", "medium", "low"
-    
+    strategic_intent: Optional[str] = None  # The lord's why behind the orders
+    assigned_turn: int = 0  # Turn the current orders were issued
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'mission_type': self.mission_type,
             'target_area': self.target_area,
             'orders': self.orders,
-            'priority': self.priority
+            'priority': self.priority,
+            'strategic_intent': self.strategic_intent,
+            'assigned_turn': self.assigned_turn
         }
 
 
@@ -277,23 +281,27 @@ class SubAgentGroup(Component):
                 change=amount
             )
     
-    def set_mission(self, mission_type: str, target_area: tuple = None, orders: str = None, priority: str = "medium"):
+    def set_mission(self, mission_type: str, target_area: tuple = None, orders: str = None, priority: str = "medium", strategic_intent: str = None, assigned_turn: int = 0):
         """
         Set new mission parameters for the group.
-        
+
         Args:
             mission_type: Type of mission ("patrol", "expansion", "settlement", "fortification")
             target_area: Target coordinates if applicable
             orders: Specific orders from parent house
             priority: Mission priority level
+            strategic_intent: The lord's reasoning behind the orders
+            assigned_turn: Turn the orders were issued
         """
         old_mission = self.mission_parameters.mission_type
-        
+
         self.mission_parameters = MissionParameters(
             mission_type=mission_type,
             target_area=target_area,
             orders=orders,
-            priority=priority
+            priority=priority,
+            strategic_intent=strategic_intent,
+            assigned_turn=assigned_turn
         )
         
         # Reset mission status when new mission assigned

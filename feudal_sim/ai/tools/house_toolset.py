@@ -258,6 +258,51 @@ def create_house_toolset(house) -> list:
     equip_general.action_description = "**Equip General**: Spend metal to arm your forces — critical before combat"
     tools.append(equip_general)
 
+    # Update orders for a deployed general — delivered next turn (courier delay)
+    @function_tool
+    def update_general_orders(ctx: RunContextWrapper["SimulationContext"], general_name: str, orders: str, strategic_intent: str = "") -> str:
+        """
+        Send new orders to a deployed general. The courier arrives at the start of the
+        next turn; the general will follow the new orders from then on.
+
+        Args:
+            general_name: Name of the deployed general
+            orders: New natural language orders (e.g., "Return home", "Besiege the eastern outpost")
+            strategic_intent: Why — the larger goal the general should keep in mind
+
+        Returns:
+            Confirmation that the courier was dispatched
+        """
+        sim_context = ctx.context
+        if not sim_context or not sim_context.entity_manager:
+            return "Cannot send orders — no entity manager access"
+        from feudal_sim.components.ai import AIComponent
+        from feudal_sim.components.subagent_group import SubAgentGroup
+        candidates = [g for g in sim_context.entity_manager.get_entities_by_type('general')
+                      if getattr(g, 'house_id', None) == house.id and g.name == general_name]
+        if not candidates:
+            return f"No general named '{general_name}' found"
+        general = candidates[0]
+        grp: SubAgentGroup = general.get_component(SubAgentGroup)
+        if not grp:
+            return "Cannot send orders — general missing group component"
+        mission_type = "expansion" if "expand" in orders.lower() else grp.mission_parameters.mission_type
+        grp.set_mission(mission_type,
+                        target_area=grp.mission_parameters.target_area,
+                        orders=orders,
+                        priority=grp.mission_parameters.priority,
+                        strategic_intent=strategic_intent or grp.mission_parameters.strategic_intent,
+                        assigned_turn=getattr(sim_context, 'current_turn', 0))
+        gen_ai: AIComponent = general.get_component(AIComponent)
+        if gen_ai:
+            intent_part = f" Strategic intent: {strategic_intent}" if strategic_intent else ""
+            gen_ai.add_observation(
+                f"New orders from your lord: {orders}.{intent_part}", "Events")
+        return (f"Courier dispatched to {general_name} with new orders. "
+                f"They will act on them starting next turn.")
+    update_general_orders.action_description = "**Update General Orders**: Redirect a deployed general with new orders and intent"
+    tools.append(update_general_orders)
+
     # Military deployment tools
     tools.append(create_deploy_general_tool(house))
 
