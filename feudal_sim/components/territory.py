@@ -720,29 +720,40 @@ Territory expansion takes time - orders given this week resolve next week based 
             'gold': base_gold_cost * num_tiles
         }
     
-    def create_expansion_order(self, direction: str, hex_grid, current_turn: int, delay_turns: int = 1) -> ExpansionOrder:
+    def create_expansion_order(self, direction: str, hex_grid, current_turn: int, delay_turns: int = 1, max_tiles: int = None) -> ExpansionOrder:
         """
         Create a new expansion order for future resolution.
-        
+
         Args:
             direction: Direction to expand (N, NE, SE, S, SW, NW)
             hex_grid: Hex grid for tile analysis
             current_turn: Current turn number
             delay_turns: Number of turns to delay before resolution
-            
+            max_tiles: Cap on tiles per order (default from config)
+
         Returns:
             Created ExpansionOrder or None if no opportunities
         """
         # Get expansion opportunities
         opportunities = self.get_expansion_opportunities(direction, hex_grid)
-        
+
         if not opportunities:
             return None
-        
+
+        # Cap order size, keeping the most valuable tiles
+        if max_tiles is None:
+            max_tiles = config.get('simulation.territory.expansion.max_tiles_per_order', 3)
+        if max_tiles and len(opportunities) > max_tiles:
+            opportunities = sorted(
+                opportunities,
+                key=lambda op: sum(op['resource_output'].values()) + op['population_capacity'] / 100.0,
+                reverse=True,
+            )[:max_tiles]
+
         # Calculate costs
         expansion_costs = self._estimate_expansion_cost(len(opportunities))
-        base_population_cost = 5  # Population loyalty cost per tile
-        loyalty_cost = base_population_cost * len(opportunities)
+        loyalty_cost_per_tile = config.get('simulation.territory.expansion.loyalty_cost_per_tile', 1)
+        loyalty_cost = loyalty_cost_per_tile * len(opportunities)
         
         # Create expansion order
         expansion_order = ExpansionOrder(

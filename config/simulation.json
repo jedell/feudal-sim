@@ -87,7 +87,8 @@
     "expansion": {
       "base_material_cost": 20,
       "base_gold_cost": 20,
-      "base_population_cost": 5
+      "loyalty_cost_per_tile": 1,
+      "max_tiles_per_order": 3
     }
   },
   "settlements": {

@@ -20,6 +20,7 @@ from feudal_sim.ai.tools.economy import (
 )
 from feudal_sim.ai.tools.territory import (
     create_deploy_general_tool,
+    create_order_expansion_tool,
     create_view_cities_tool,
 )
 from feudal_sim.ai.tools.trade import (
@@ -46,6 +47,7 @@ def create_house_toolset(house) -> list:
 
     # Territory management tools
     tools.append(create_assess_border_tool(house))
+    tools.append(create_order_expansion_tool(house))
 
     # assess_all_borders — scan all 6 directions in one call
     from feudal_sim.components.territory import TerritoryComponent as _TerritoryComponent

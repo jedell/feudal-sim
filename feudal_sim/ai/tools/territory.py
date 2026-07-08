@@ -42,6 +42,67 @@ def create_view_cities_tool(house_entity) -> Callable:
     return view_cities
 
 
+def create_order_expansion_tool(house_entity) -> Callable:
+    """
+    Factory function to create an order_expansion tool bound to a specific house entity.
+    """
+    from feudal_sim.components.territory import TerritoryComponent
+
+    territory_component = house_entity.get_component(TerritoryComponent)
+
+    if not territory_component:
+        @function_tool
+        def order_expansion_unavailable(direction: str) -> str:
+            """Territory expansion unavailable - no territory component."""
+            return f"House {house_entity.name} has no territory to expand from"
+        return order_expansion_unavailable
+
+    @function_tool
+    def order_expansion(ctx: RunContextWrapper["SimulationContext"], direction: str) -> str:
+        """
+        Order your people to settle unclaimed land bordering your territory in a direction.
+        The expansion resolves next turn: costs (material and gold per tile, plus a small
+        loyalty cost) are paid at resolution, and success is not guaranteed. Use
+        view_expansion_options or assess_border first to judge what lies in each direction.
+
+        Args:
+            direction: Direction to expand (N, NE, SE, S, SW, NW)
+
+        Returns:
+            Confirmation with targeted tiles, estimated cost, and odds — or why the order failed
+        """
+        direction = direction.strip().upper()
+        if direction not in {"N", "NE", "SE", "S", "SW", "NW"}:
+            return f"Invalid direction '{direction}'. Use one of: N, NE, SE, S, SW, NW"
+
+        # One pending order per direction
+        for existing in territory_component.get_pending_expansions():
+            if existing.direction == direction:
+                return (f"An expansion order {direction} is already underway "
+                        f"(resolves turn {existing.turn_resolves}). Await its outcome.")
+
+        sim_context = ctx.context
+        if not sim_context or not getattr(sim_context, 'hex_grid', None):
+            return "Expansion order failed - map access not available"
+
+        current_turn = getattr(sim_context, 'current_turn', 0)
+        order = territory_component.create_expansion_order(
+            direction, sim_context.hex_grid, current_turn
+        )
+        if not order:
+            return (f"No unclaimed land borders your territory to the {direction}. "
+                    f"Consider another direction or send a general to build a distant outpost.")
+
+        cost_str = ", ".join(f"{amt} {res}" for res, amt in order.resource_cost.items())
+        return (f"Expansion ordered {direction}: {len(order.target_tiles)} tile(s) targeted. "
+                f"Cost on resolution: {cost_str}, {order.population_loyalty_cost} loyalty. "
+                f"Success chance ~{order.success_probability:.0%}. Resolves turn {order.turn_resolves}.")
+
+    order_expansion.action_description = "**Order Expansion**: Settle unclaimed land bordering your territory"
+
+    return order_expansion
+
+
 def create_deploy_general_tool(house_entity) -> Callable:
     """
     Factory function to create a deploy_general tool bound to a specific house entity.
