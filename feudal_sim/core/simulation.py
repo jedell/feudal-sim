@@ -681,6 +681,8 @@ class Simulation:
                         if ai_component:
                             observation = f"Expansion {order.direction} succeeded! {result['message']} Your forces proved capable despite the challenges."
                             ai_component.add_observation(observation, "Events")
+                            ai_component.record_journal_entry(
+                                f"Expansion {order.direction} succeeded: +{len(order.target_tiles)} tile(s)")
                     else:
                         # Expansion failed despite having resources
                         result = territory_component.resolve_expansion_order(order, False, self.hex_grid)
@@ -693,6 +695,8 @@ class Simulation:
                         if ai_component:
                             observation = f"Expansion {order.direction} failed! {result['message']} {failure_reason}"
                             ai_component.add_observation(observation, "Events")
+                            ai_component.record_journal_entry(
+                                f"Expansion {order.direction} failed (costs paid, no land gained)")
                 else:
                     # Expansion failed due to insufficient resources - no costs applied
                     result = territory_component.resolve_expansion_order(order, False, self.hex_grid)
@@ -906,6 +910,8 @@ class Simulation:
                         
                         revolt_message += " Consider improving loyalty to prevent future revolts."
                         ai_component.add_observation(revolt_message, "Events")
+                        ai_component.record_journal_entry(
+                            "Revolt! Territory and resources lost to unrest")
                     
                     # Update population capacity after territory loss
                     territory_component: TerritoryComponent = house.get_component(TerritoryComponent)

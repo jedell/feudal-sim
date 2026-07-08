@@ -84,7 +84,7 @@ class AIComponent(Component):
         self.current_objectives: List[str] = []
 
         # Persistent realm journal — last 5 significant events
-        self.realm_journal: Deque[str] = deque(maxlen=5)
+        self.realm_journal: Deque[str] = deque(maxlen=10)
 
         # Snapshots for delta/trend computation
         self._resource_snapshot: Optional[Dict[str, float]] = None

@@ -985,6 +985,9 @@ def create_general_toolset(general_entity) -> list:
                     f"{settlement_name} of House {enemy_house_name}. {result_msg}",
                     phase="Events"
                 )
+                lord_ai.record_journal_entry(
+                    f"Siege of {settlement_name} ({enemy_house_name}) — "
+                    f"{'success, settlement destroyed' if success else 'repulsed'}")
         if enemy_house:
             enemy_ai = enemy_house.get_component(AIComponent)
             if enemy_ai:
@@ -994,6 +997,9 @@ def create_general_toolset(general_entity) -> list:
                     f"has {'destroyed' if success else 'attacked'} {settlement_name}!",
                     phase="Events"
                 )
+                enemy_ai.record_journal_entry(
+                    f"{settlement_name} {'destroyed' if success else 'attacked'} by "
+                    f"House {getattr(parent_house, 'name', '?') if parent_house else '?'}")
 
         return result_msg
     besiege.action_description = "**Besiege**: Assault an adjacent enemy settlement — destroy it and loot their resources"

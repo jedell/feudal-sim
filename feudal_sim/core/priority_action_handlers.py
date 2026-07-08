@@ -215,6 +215,15 @@ class TradeCaravanHandler(PriorityActionHandler):
         except Exception as _e:
             log.warning(f"⚠️  {_e}")
 
+        # Journal the delivery on the recipient lord
+        if transferred:
+            from feudal_sim.components.ai import AIComponent
+            recipient_ai = recipient.get_component(AIComponent)
+            if recipient_ai:
+                sender_name = event.context_data.get('sending_house', {}).get('name', 'unknown house')
+                recipient_ai.record_journal_entry(
+                    f"Caravan from {sender_name} delivered: {', '.join(transferred)}")
+
         return (f"{', '.join(transferred)} delivered to {recipient.name}."
                 if transferred else "caravan arrived with no goods.")
 
@@ -680,10 +689,18 @@ class GeneralContactHandler(PriorityActionHandler):
             house = em.get_entity(house_id)
             if not gen or not house:
                 continue
+            outcome_word = "victory" if won else "defeat"
+            # Record the battle in the lord's realm journal so the outcome
+            # survives message-history compaction
+            from feudal_sim.components.ai import AIComponent
+            house_ai = house.get_component(AIComponent)
+            if house_ai:
+                house_ai.record_journal_entry(
+                    f"Battle: {gen_name} vs {enemy_name} — {outcome_word}, "
+                    f"lost {own_cas} soldiers (enemy lost {enemy_cas})")
             rookery = gen.get_component(RookeryComponent)
             if not rookery:
                 continue
-            outcome_word = "victory" if won else "defeat"
             decisive_note = " — the engagement was decisive" if result.was_decisive else ""
             msg = (
                 f"Field report: engaged {enemy_name} at {cd.get('terrain_type','?').lower()}{decisive_note}. "
