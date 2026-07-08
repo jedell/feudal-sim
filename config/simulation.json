@@ -24,6 +24,9 @@
   "population": {
     "birth_rate": 0.035,
     "death_rate": 0.030,
+    "food_per_capita": 0.05,
+    "starvation_mortality": 0.10,
+    "immigration_per_surplus_food": 0.25,
     "loyalty_decay_rate": 1.0,
     "efficiency_curve_steepness": 1.0,
     "ratios": {
@@ -56,6 +59,8 @@
     "supply_consumption_per_turn": 3,
     "low_supply_threshold": 25,
     "resupply_per_turn_on_owned": 20,
+    "auto_resupply_food_cost_per_supply": 1.0,
+    "desertion_rate_at_zero_supplies": 0.05,
     "upkeep": {
       "gold_per_soldier": 1,
       "gold_per_worker": 0,

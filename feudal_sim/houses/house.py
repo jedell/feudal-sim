@@ -223,16 +223,19 @@ The world bends to dragonfire and steel. Your generals are instruments of conque
         
         if not population_component or not resource_component:
             return
-        
-        # Get total food available
-        total_food = resource_component.resources.food
-        
-        # Use PopulationComponent to manage population
-        population_component.manage_population_turn(total_food)
-        
+
+        # Population eats, grows/shrinks, and reacts (subsistence model)
+        result = population_component.manage_population_turn(resource_component)
+
         # Add observations for AI component
         ai_component = self.get_component(AIComponent)
         population_component.add_observation_for_changes(ai_component, "Production")
+        if ai_component and result.get('starved', 0) > 0:
+            ai_component.add_observation(
+                f"FAMINE: {result['starved']} subjects starved — the granary held "
+                f"{result['consumed']:.0f} food against {result['food_needed']:.0f} needed. "
+                f"Secure food or the dying continues.", "Production")
+            ai_component.record_journal_entry(f"Famine: {result['starved']} subjects starved")
         
         # Check for revolt and print warning
         if population_component.check_revolt_risk():

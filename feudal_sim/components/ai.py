@@ -762,6 +762,10 @@ class AIComponent(Component):
                 loyalty_line = self._format_stat_line("Loyalty", loyalty, prev_loyalty, depletion=False, suffix=f" ({mood})")
                 context_parts.append(f"{pop_line}")
                 context_parts.append(f"{loyalty_line}")
+                food_per_capita = config.get('simulation.population.food_per_capita', 0.05)
+                if pop > 0 and food_per_capita:
+                    context_parts.append(
+                        f"  Subsistence: ~{pop * food_per_capita:.0f} food/wk to feed {pop} subjects")
 
             territory_component: TerritoryComponent = self.entity.get_component(TerritoryComponent)
             if territory_component:

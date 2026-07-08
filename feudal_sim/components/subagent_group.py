@@ -437,7 +437,8 @@ class SubAgentGroup(Component):
         except Exception as _e:
             log.warning(f"⚠️  {_e}")
         
-        # Auto-resupply when on owned territory (quick win to reduce disband churn)
+        # Auto-resupply when on owned territory — provisions come from the
+        # house granary, not thin air: no food in the treasury, no resupply
         try:
             if self.entity and hex_grid:
                 pos = self.entity.get_component(PositionComponent)
@@ -446,8 +447,38 @@ class SubAgentGroup(Component):
                     tile = hex_grid.get_tile(q, r)
                     owner = getattr(tile, 'owner', None) if tile else None
                     if owner and hasattr(owner, 'id') and owner.id == self.parent_house_id:
-                        resupply_amt = config.get('simulation.subagents.resupply_per_turn_on_owned', 20)
-                        self.supplies = min(100, self.supplies + max(0, int(resupply_amt)))
+                        resupply_amt = max(0, int(config.get('simulation.subagents.resupply_per_turn_on_owned', 20)))
+                        needed = min(resupply_amt, 100 - self.supplies)
+                        if needed > 0 and entity_manager and self.parent_house_id:
+                            parent_house = entity_manager.get_entity(self.parent_house_id)
+                            res_comp = parent_house.get_component(ResourceComponent) if parent_house else None
+                            if res_comp:
+                                food_per_supply = config.get(
+                                    'simulation.subagents.auto_resupply_food_cost_per_supply', 1.0)
+                                affordable = int(min(needed, res_comp.resources.food / food_per_supply
+                                                     if food_per_supply > 0 else needed))
+                                if affordable > 0:
+                                    res_comp.resources.consume('food', affordable * food_per_supply)
+                                    self.supplies = min(100, self.supplies + affordable)
+        except Exception as _e:
+            log.warning(f"⚠️  {_e}")
+
+        # An army with empty supply wagons bleeds men — desertion until fed or home
+        try:
+            if self.supplies <= 0 and self.assigned_population.soldiers > 0:
+                desertion_rate = config.get('simulation.subagents.desertion_rate_at_zero_supplies', 0.05)
+                deserters = max(1, int(self.assigned_population.soldiers * desertion_rate))
+                self.assigned_population.soldiers = max(0, self.assigned_population.soldiers - deserters)
+                self.adjust_morale(-5)
+                log.info(f"🏃 {getattr(self.entity, 'name', self.entity_id)}: "
+                         f"{deserters} soldiers deserted (no supplies)")
+                from feudal_sim.components.ai import AIComponent  # deferred: circular with feudal_sim.components.ai
+                gen_ai = self.entity.get_component(AIComponent) if self.entity else None
+                if gen_ai:
+                    gen_ai.add_observation(
+                        f"DESERTION: {deserters} soldiers abandoned the ranks — no supplies. "
+                        f"Forage, request resupply, or return to friendly territory.",
+                        "Events")
         except Exception as _e:
             log.warning(f"⚠️  {_e}")
         

@@ -92,33 +92,74 @@ class PopulationComponent(Component):
         self.population_capacity = capacity
         return capacity
     
-    def manage_population_turn(self, total_food: float):
+    def manage_population_turn(self, resource_component):
         """
-        Manage population for one turn based on food availability.
-        This is the core logic from House.manage_population().
+        Manage population for one turn: subsistence consumption, demographics,
+        and loyalty. The population eats from the house granary every turn;
+        shortfalls cause starvation deaths and unrest, surpluses attract
+        settlers. Returns a dict describing what happened for observations.
         """
         # Store old values
         old_population = self.population
         old_loyalty = self.population_loyalty
-        
-        # Calculate population growth based on food availability (from House logic)
-        population_growth = min(total_food // 2, self.population_capacity - self.population)
-        
-        # Update population
-        self.population = min(self.population + population_growth, self.population_capacity)
-        
-        # Ensure population doesn't exceed capacity
-        if self.population > self.population_capacity:
-            self.population = self.population_capacity
-        
-        # Update population loyalty (from House logic)
-        self.population_loyalty = min(self.population_loyalty + 1, 100)
-        if total_food < 100:
-            self.population_loyalty = max(self.population_loyalty - 1, 0)
-        
+
+        # --- Subsistence: the population eats from the granary
+        food_per_capita = config.get('simulation.population.food_per_capita', 0.05)
+        food_needed = self.population * food_per_capita
+        available = resource_component.resources.food if resource_component else 0.0
+        consumed = min(food_needed, available)
+        if resource_component and consumed > 0:
+            resource_component.resources.consume('food', consumed)
+        shortfall_ratio = ((food_needed - consumed) / food_needed) if food_needed > 0 else 0.0
+        fed = 1.0 - shortfall_ratio
+
+        # --- Demographics: config birth/death rates (annual), scaled per turn
+        turns_per_year = config.get('simulation.time.turns_per_season', 4) * 4
+        birth_rate = config.get('simulation.population.birth_rate', 0.035)
+        death_rate = config.get('simulation.population.death_rate', 0.030)
+        births = self.population * (birth_rate / turns_per_year) * fed
+        deaths = self.population * (death_rate / turns_per_year) * (2.0 - fed)
+
+        # Starvation kills beyond baseline mortality
+        starvation_mortality = config.get('simulation.population.starvation_mortality', 0.10)
+        starved = 0
+        if shortfall_ratio > 0 and self.population > 0:
+            import math
+            starved = math.ceil(self.population * shortfall_ratio * starvation_mortality)
+
+        # Prosperity attracts settlers: surplus food draws migrants (bounded
+        # by carrying capacity)
+        immigration = 0.0
+        if shortfall_ratio == 0 and resource_component:
+            surplus = resource_component.resources.food
+            per_food = config.get('simulation.population.immigration_per_surplus_food', 0.25)
+            immigration = min(surplus * per_food,
+                              max(0, self.population_capacity - self.population))
+
+        # Fractional accumulator so sub-1 per-turn changes still add up
+        self._growth_residual = getattr(self, '_growth_residual', 0.0) + births - deaths + immigration
+        whole_change = int(self._growth_residual)
+        self._growth_residual -= whole_change
+        self.population = max(0, min(self.population + whole_change - starved,
+                                     self.population_capacity))
+        self._last_starved = starved
+
+        # --- Loyalty is earned, not automatic: recovery only when fully fed
+        if shortfall_ratio == 0:
+            self.population_loyalty = min(self.population_loyalty + 1, 100)
+        else:
+            penalty = int(round(1 + 4 * shortfall_ratio))
+            self.population_loyalty = max(self.population_loyalty - penalty, 0)
+
         # Store for next turn comparison
         self._previous_population = old_population
         self._previous_loyalty = old_loyalty
+        return {
+            'food_needed': food_needed,
+            'consumed': consumed,
+            'shortfall_ratio': shortfall_ratio,
+            'starved': starved,
+        }
     
     def check_revolt_risk(self) -> bool:
         """Check if population loyalty is low enough for revolt risk."""
