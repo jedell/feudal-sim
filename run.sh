@@ -14,8 +14,15 @@ LOG_FILE="$LOGS_DIR/sim_${TIMESTAMP}.log"
 echo "Logging to: $LOG_FILE"
 echo "---"
 
-# Point MLflow at the local tracking server to suppress file-URI warnings
-export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+# Point MLflow at the local tracking server if one is actually running;
+# otherwise fall back to the local file store (mlruns/). Hard-pointing at a
+# dead server makes mlflow.set_experiment() hang in HTTP retries at startup.
+if curl -s --max-time 1 http://127.0.0.1:5000/health >/dev/null 2>&1; then
+    export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+    echo "MLflow: using tracking server at 127.0.0.1:5000"
+else
+    echo "MLflow: no server on :5000, using local file store (mlruns/)"
+fi
 
 # Merge stderr into stdout so both go to the tee
 uv run main.py "$@" 2>&1 | tee "$LOG_FILE"
