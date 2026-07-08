@@ -80,18 +80,24 @@ class PromptBuilder:
         """Render the realm's victory conditions from config — the rules of
         the game are public knowledge; live standings are not."""
         conditions = []
-        dominance_pct = config.get('simulation.victory.territorial_dominance_pct', 0.60)
-        if dominance_pct:
+        hegemony_pct = config.get('simulation.victory.hegemony_land_pct', 0.40)
+        rival_multiple = config.get('simulation.victory.hegemony_rival_multiple', 2.0)
+        if hegemony_pct:
             conditions.append(
-                f"a house that controls more than {dominance_pct:.0%} of all land rules the realm")
+                f"a house that holds more than {hegemony_pct:.0%} of all land and commands "
+                f"at least {rival_multiple:g}x the territory of every rival rules as hegemon")
         if config.get('simulation.victory.last_survivor', True):
             conditions.append(
                 "a house that stands alone — the last with living subjects — rules by default")
         if not conditions:
             return ""
+        capital_warning = ""
+        if config.get('simulation.victory.capital_elimination', True):
+            capital_warning = (" And know this: a house whose CAPITAL falls is destroyed — "
+                               "its lands pass to the conqueror. Guard your seat well.")
         return (
             "**How the Realm Is Won:**\n"
-            f"The great game has an end: {'; or '.join(conditions)}. "
+            f"The great game has an end: {'; or '.join(conditions)}.{capital_warning} "
             "A year is 16 weeks — four turns to a season, four seasons to a year. "
             "Every season you do not advance toward victory, another house does."
         )

@@ -45,10 +45,12 @@ class Simulation:
         self._resource_lock = asyncio.Lock()
         # Use config for world generation
         map_size = config.get('simulation.world_generation.map_size', 80)
-        
-        # Define house names first to get accurate count
-        house_names = ["Stark", "Lannister", "Baratheon", "Targaryen"]
-        num_houses = len(house_names)
+
+        # House roster is fixed; config decides how many take the field
+        all_house_names = ["Stark", "Lannister", "Baratheon", "Targaryen"]
+        num_houses = max(2, min(len(all_house_names),
+                                config.get('simulation.world_generation.num_houses', 4)))
+        house_names = all_house_names[:num_houses]
         
         self.hex_grid = HexGrid(size=map_size, num_houses=num_houses, debug=debug)
         self.entity_manager = EntityManager()
@@ -82,36 +84,27 @@ class Simulation:
                       houses=[h.name for h in self.houses], 
                       step_count=self.step_count)
 
+    HOUSE_SPECS = {
+        "Stark": (Color(0, 0, 255, ALPHA), "Winterfell"),
+        "Lannister": (Color(255, 0, 0, ALPHA), "Casterly Rock"),
+        "Baratheon": (Color(0, 255, 0, ALPHA), "Storm's End"),
+        "Targaryen": (Color(160, 0, 160, ALPHA), "Dragonstone"),
+    }
+
     def create_houses(self, house_names: list[str]) -> list[House]:
         """Create the starting houses, assign their territories and capitals,
         and register them with the entity manager."""
-        # Use provided house names for known recipients
         starting_territories = self._assign_starting_territories(len(house_names))
-        
-        # Create houses with known recipients from the start
-        house_stark = House("Stark", color=Color(0, 0, 255, ALPHA), known_recipients=house_names)
-        house_stark.expand_territory(starting_territories[0], self.hex_grid)
-        house_stark.establish_capital_city("Winterfell")
-        
-        house_lannister = House("Lannister", color=Color(255, 0, 0, ALPHA), known_recipients=house_names)
-        house_lannister.expand_territory(starting_territories[1], self.hex_grid)
-        house_lannister.establish_capital_city("Casterly Rock")
-        
-        house_baratheon = House("Baratheon", color=Color(0, 255, 0, ALPHA), known_recipients=house_names)
-        house_baratheon.expand_territory(starting_territories[2], self.hex_grid)
-        house_baratheon.establish_capital_city("Storm's End")
 
-        house_targaryen = House("Targaryen", color=Color(160, 0, 160, ALPHA), known_recipients=house_names)
-        house_targaryen.expand_territory(starting_territories[3], self.hex_grid)
-        house_targaryen.establish_capital_city("Dragonstone")
-
-        # Register houses with entity manager
-        self.entity_manager._entities[house_stark.id] = house_stark
-        self.entity_manager._entities[house_lannister.id] = house_lannister
-        self.entity_manager._entities[house_baratheon.id] = house_baratheon
-        self.entity_manager._entities[house_targaryen.id] = house_targaryen
-
-        return [house_stark, house_lannister, house_baratheon, house_targaryen]
+        houses = []
+        for i, name in enumerate(house_names):
+            color, capital = self.HOUSE_SPECS[name]
+            house = House(name, color=color, known_recipients=house_names)
+            house.expand_territory(starting_territories[i], self.hex_grid)
+            house.establish_capital_city(capital)
+            self.entity_manager._entities[house.id] = house
+            houses.append(house)
+        return houses
     
     def _register_priority_action_handlers(self):
         """Register default priority action handlers."""
@@ -448,9 +441,9 @@ class Simulation:
                 if terr:
                     terr.sync_generals(self.entity_manager)
         
-        # Collect all AI entities (houses + generals)
+        # Collect all AI entities (houses + generals); eliminated houses take no turns
         all_ai_entities = []
-        all_ai_entities.extend(self.houses)
+        all_ai_entities.extend(h for h in self.houses if not getattr(h, 'eliminated', False))
         all_ai_entities.extend(generals)
         
         # Run all AI decision making concurrently (houses + generals)
@@ -883,12 +876,18 @@ class Simulation:
             owner_name = owner.name if (owner and hasattr(owner, 'name')) else None
             if owner_name and owner_name != 'None':
                 tile_counts[owner_name] = tile_counts.get(owner_name, 0) + 1
-        # Territorial dominance: configured share of land tiles
-        dominance_pct = config.get('simulation.victory.territorial_dominance_pct', 0.60)
-        if dominance_pct:
+        # Hegemony: configured share of land AND a configured multiple of
+        # every rival's holdings — reachable, and invites coalitions
+        hegemony_pct = config.get('simulation.victory.hegemony_land_pct', 0.40)
+        rival_multiple = config.get('simulation.victory.hegemony_rival_multiple', 2.0)
+        if hegemony_pct:
             for house_name, count in tile_counts.items():
-                if count / total_land > dominance_pct:
-                    self._trigger_victory(house_name, "territorial dominance", global_turn)
+                if count / total_land <= hegemony_pct:
+                    continue
+                largest_rival = max((c for n, c in tile_counts.items() if n != house_name),
+                                    default=0)
+                if count >= rival_multiple * max(1, largest_rival):
+                    self._trigger_victory(house_name, "hegemony over the realm", global_turn)
                     return True
         # Last survivor: only one house has living population
         if config.get('simulation.victory.last_survivor', True):
@@ -899,6 +898,53 @@ class Simulation:
                 self._trigger_victory(living[0].name, "last survivor", global_turn)
                 return True
         return False
+
+    def eliminate_house(self, loser, victor, cause: str):
+        """A house whose capital falls is destroyed: its lands pass to the
+        conqueror, its armies scatter, its wars end. Realm-shaking news —
+        every surviving house hears of it."""
+        log.info(f"💀 House {loser.name} eliminated — {cause}")
+        loser.eliminated = True
+
+        # Territory passes to the conqueror
+        loser_terr: TerritoryComponent = loser.get_component(TerritoryComponent)
+        if loser_terr and loser_terr.territory:
+            tiles = list(loser_terr.territory)
+            loser_terr.remove_territory(tiles, self.hex_grid)
+            victor.expand_territory(tiles, self.hex_grid)
+
+        # The line is ended
+        loser_pop: PopulationComponent = loser.get_component(PopulationComponent)
+        if loser_pop:
+            loser_pop.population = 0
+
+        # Its armies scatter
+        for gen in list(self.entity_manager.get_entities_by_type('general') or []):
+            if getattr(gen, 'house_id', None) == loser.id:
+                self.entity_manager.destroy_entity(gen.id)
+
+        # Its wars end with it
+        for enemy_id in list(self.war_registry.get_enemies(loser.id)):
+            self.war_registry.sue_for_peace(loser.id, enemy_id)
+
+        # Every surviving house hears of the fall
+        for house in self.houses:
+            if house is loser:
+                continue
+            ai: AIComponent = house.get_component(AIComponent)
+            if not ai:
+                continue
+            if house is victor:
+                ai.add_observation(
+                    f"House {loser.name} has FALLEN — {cause}. "
+                    f"Their lands now answer to your banner.", "Events")
+                ai.record_journal_entry(f"House {loser.name} eliminated — their lands are ours")
+            else:
+                ai.add_observation(
+                    f"Realm-shaking news: House {loser.name} has FALLEN to House {victor.name} "
+                    f"({cause}). Their lands pass to the conqueror.", "Events")
+                ai.record_journal_entry(f"House {loser.name} fell to House {victor.name}")
+        self._log_event(f"House {loser.name} FALLEN to {victor.name}")
 
     def _trigger_victory(self, winner_name: str, condition: str, global_turn: int):
         self.game_over = True

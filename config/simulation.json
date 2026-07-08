@@ -105,7 +105,9 @@
     "starting_season": "spring"
   },
   "victory": {
-    "territorial_dominance_pct": 0.60,
+    "hegemony_land_pct": 0.40,
+    "hegemony_rival_multiple": 2.0,
+    "capital_elimination": true,
     "last_survivor": true
   },
   "intelligence": {
@@ -114,7 +116,7 @@
   },
   "world_generation": {
     "map_size": 20,
-    "num_houses": 2,
+    "num_houses": 4,
     "num_rivers": 4,
     "resource_nodes": {
       "count_multiplier": 0.005,

@@ -966,6 +966,17 @@ def create_general_toolset(general_entity) -> list:
             result_msg = (f"SIEGE SUCCESSFUL: {settlement_name} has fallen! "
                           f"Loot: {loot_str}. Our casualties: {casualties}. "
                           f"The settlement is destroyed and its tiles freed.")
+
+            # A fallen CAPITAL ends the house: lands pass to the conqueror
+            from feudal_sim.core.config import config as _victory_cfg
+            if city_info == CityType.CAPITAL and _victory_cfg.get('simulation.victory.capital_elimination', True):
+                sim = getattr(sim_context, 'simulation', None)
+                if sim and enemy_house and parent_house:
+                    sim.eliminate_house(
+                        enemy_house, parent_house,
+                        cause=f"capital {settlement_name} stormed by {general_entity.name}")
+                    result_msg += (f" HOUSE {enemy_house_name.upper()} IS DESTROYED — "
+                                   f"their remaining lands pass to your house!")
         else:
             # Repulsed — heavy casualties
             casualty_pct = _random.uniform(0.20, 0.40)
