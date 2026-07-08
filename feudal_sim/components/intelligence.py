@@ -8,6 +8,7 @@ with the previous neighbor-intelligence interface used elsewhere in the codebase
 
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from feudal_sim.core.config import config
 from feudal_sim.core.entities import Component
 from feudal_sim.components.territory import TerritoryComponent
 
@@ -48,6 +49,23 @@ class IntelligenceComponent(Component):
         if not topic:
             return
         self._notes.setdefault(topic, []).append(Note(topic=topic, text=text, turn=turn))
+        self._enforce_retention(topic)
+
+    def _enforce_retention(self, written_topic: str):
+        """Keep the compendium bounded: cap notes per topic, and cap topic
+        count by evicting the least-recently-written topic."""
+        max_notes = config.get('simulation.intelligence.max_notes_per_topic', 20)
+        max_topics = config.get('simulation.intelligence.max_topics', 30)
+        notes = self._notes.get(written_topic)
+        if notes and len(notes) > max_notes:
+            self._notes[written_topic] = notes[-max_notes:]
+        if len(self._notes) > max_topics:
+            # Dict preserves insertion order; move the just-written topic to
+            # the end so eviction order approximates least-recently-written
+            self._notes[written_topic] = self._notes.pop(written_topic)
+            while len(self._notes) > max_topics:
+                oldest = next(iter(self._notes))
+                del self._notes[oldest]
 
     def read_topic(self, topic: str) -> str:
         entries = self._notes.get(topic, [])

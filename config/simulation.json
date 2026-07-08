@@ -108,6 +108,10 @@
     "territorial_dominance_pct": 0.60,
     "last_survivor": true
   },
+  "intelligence": {
+    "max_notes_per_topic": 20,
+    "max_topics": 30
+  },
   "world_generation": {
     "map_size": 20,
     "num_houses": 2,
