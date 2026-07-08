@@ -181,3 +181,7 @@ mlruns/
 mlartifacts/
 # Simulation logs
 logs/
+log.txt
+
+# macOS
+.DS_Store

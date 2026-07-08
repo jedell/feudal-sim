@@ -122,7 +122,7 @@ def test_ai_decision_with_ravens():
             print(f"❌ Error in {lannister.name} AI decision: {e}")
         
         # Test raven delivery
-        print(f"\n📬 Testing Raven Delivery (Turn 2)...")
+        print("\n📬 Testing Raven Delivery (Turn 2)...")
         delivered = RavenDeliverySystem.deliver_ravens_for_turn(entity_manager, 2)
         print(f"📨 Ravens delivered: {delivered}")
         

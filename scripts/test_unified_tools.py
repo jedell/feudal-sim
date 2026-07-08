@@ -95,10 +95,10 @@ def test_unified_tool_system():
     print(f"   Mixed entity detected type: {detected_type}")
     
     print("\n✅ Unified tool system tests completed!")
-    print(f"\n📊 Summary:")
+    print("\n📊 Summary:")
     print(f"   - House tools: {len(house_tools_via_ai)}")
     print(f"   - General tools: {len(general_tools_via_ai)}")
-    print(f"   - System successfully unified!")
+    print("   - System successfully unified!")
 
 
 if __name__ == "__main__":

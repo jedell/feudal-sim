@@ -4,11 +4,11 @@ Simple test script to validate the Entity-Component system works correctly.
 This demonstrates the basic usage patterns before integrating with the main simulation.
 """
 
-from feudal_sim.core.entities import Entity, Component, EntityManager
+from feudal_sim.core.entities import Component, EntityManager
 
 
 # Example components for testing
-class TestResourceComponent(Component):
+class DummyResourceComponent(Component):
     """Test component that manages resources."""
     
     def __init__(self, initial_food=100, initial_gold=50):
@@ -25,7 +25,7 @@ class TestResourceComponent(Component):
         print(f"  Resources updated: {self.food:.0f} food, {self.gold:.0f} gold (update #{self.updates_count})")
 
 
-class TestAIComponent(Component):
+class DummyAIComponent(Component):
     """Test component that simulates AI decision making."""
     
     def __init__(self, personality="neutral"):
@@ -42,7 +42,7 @@ class TestAIComponent(Component):
         return f"{self.personality} response to {situation}"
 
 
-class TestMovementComponent(Component):
+class DummyMovementComponent(Component):
     """Test component for movement capabilities."""
     
     def __init__(self, x=0, y=0, speed=1):
@@ -88,31 +88,31 @@ def test_basic_entity_component_system():
     # Test 1: Create a House entity
     print("\n1️⃣ Creating House entity")
     house = entity_manager.create_entity(name="House Stark", entity_type="house")
-    house.add_component(TestResourceComponent(initial_food=200, initial_gold=100))
-    house.add_component(TestAIComponent(personality="honorable"))
+    house.add_component(DummyResourceComponent(initial_food=200, initial_gold=100))
+    house.add_component(DummyAIComponent(personality="honorable"))
     
     print(f"Created: {house}")
     
     # Test 2: Create an Army entity
     print("\n2️⃣ Creating Army entity")
     army = entity_manager.create_entity(name="Stark Army", entity_type="army")
-    army.add_component(TestAIComponent(personality="military"))
-    army.add_component(TestMovementComponent(x=0, y=0, speed=2))
+    army.add_component(DummyAIComponent(personality="military"))
+    army.add_component(DummyMovementComponent(x=0, y=0, speed=2))
     
     print(f"Created: {army}")
     
     # Test 3: Create a Scout entity
     print("\n3️⃣ Creating Scout entity")
     scout = entity_manager.create_entity(name="Stark Scout", entity_type="scout")
-    scout.add_component(TestAIComponent(personality="cautious"))
-    scout.add_component(TestMovementComponent(x=5, y=5, speed=3))
+    scout.add_component(DummyAIComponent(personality="cautious"))
+    scout.add_component(DummyMovementComponent(x=5, y=5, speed=3))
     
     print(f"Created: {scout}")
     
     # Test 4: Component interaction
     print("\n4️⃣ Testing Component Interaction")
-    house_ai = house.get_component(TestAIComponent)
-    house_resources = house.get_component(TestResourceComponent)
+    house_ai = house.get_component(DummyAIComponent)
+    house_resources = house.get_component(DummyResourceComponent)
     
     print(f"House AI personality: {house_ai.personality}")
     print(f"House initial resources: {house_resources.food} food, {house_resources.gold} gold")
@@ -125,10 +125,10 @@ def test_basic_entity_component_system():
     houses = entity_manager.get_entities_by_type("house")
     print(f"Houses: {[e.name for e in houses]}")
     
-    ai_entities = entity_manager.get_entities_with_component(TestAIComponent)
+    ai_entities = entity_manager.get_entities_with_component(DummyAIComponent)
     print(f"Entities with AI: {[e.name for e in ai_entities]}")
     
-    mobile_entities = entity_manager.get_entities_with_component(TestMovementComponent)
+    mobile_entities = entity_manager.get_entities_with_component(DummyMovementComponent)
     print(f"Mobile entities: {[e.name for e in mobile_entities]}")
     
     return entity_manager, house, army, scout
@@ -140,10 +140,10 @@ def test_simulation_turns(entity_manager, house, army, scout):
     print("=" * 50)
     
     # Set movement targets
-    army_movement = army.get_component(TestMovementComponent)
+    army_movement = army.get_component(DummyMovementComponent)
     army_movement.move_to(10, 5)
     
-    scout_movement = scout.get_component(TestMovementComponent)
+    scout_movement = scout.get_component(DummyMovementComponent)
     scout_movement.move_to(15, 10)
     
     # Run 5 simulation turns
@@ -155,8 +155,8 @@ def test_simulation_turns(entity_manager, house, army, scout):
         entity_manager.update_all_entities(dt=1.0)
         
         # Show positions of mobile entities
-        army_pos = army.get_component(TestMovementComponent)
-        scout_pos = scout.get_component(TestMovementComponent)
+        army_pos = army.get_component(DummyMovementComponent)
+        scout_pos = scout.get_component(DummyMovementComponent)
         print(f"  Army position: ({army_pos.x:.1f}, {army_pos.y:.1f})")
         print(f"  Scout position: ({scout_pos.x:.1f}, {scout_pos.y:.1f})")
 
@@ -170,22 +170,22 @@ def test_component_removal():
     test_entity = entity_manager.create_entity(name="Test Entity")
     
     # Add components
-    test_entity.add_component(TestAIComponent(personality="test"))
-    test_entity.add_component(TestMovementComponent())
+    test_entity.add_component(DummyAIComponent(personality="test"))
+    test_entity.add_component(DummyMovementComponent())
     
     print(f"Initial: {test_entity}")
     
     # Remove AI component
-    removed_ai = test_entity.remove_component(TestAIComponent)
+    removed_ai = test_entity.remove_component(DummyAIComponent)
     print(f"Removed AI component: {removed_ai}")
     print(f"After removal: {test_entity}")
     
     # Try to get removed component
-    ai_component = test_entity.get_component(TestAIComponent)
+    ai_component = test_entity.get_component(DummyAIComponent)
     print(f"AI component after removal: {ai_component}")
     
     # Add it back
-    test_entity.add_component(TestAIComponent(personality="restored"))
+    test_entity.add_component(DummyAIComponent(personality="restored"))
     print(f"After re-adding AI: {test_entity}")
 
 

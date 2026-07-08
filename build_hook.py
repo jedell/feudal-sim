@@ -1,5 +1,4 @@
 """Custom build hook for compiling C++ renderer with CMake."""
-import os
 import subprocess
 import shutil
 from pathlib import Path

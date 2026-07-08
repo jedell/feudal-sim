@@ -65,12 +65,17 @@ cp renderer*.so ../../feudal_sim/renderer.so
 ```
 feudal-sim/
 ├── feudal_sim/           # Python game logic
+│   ├── ai/              # LLM agent tools and prompts
+│   ├── components/      # ECS components (position, resources, ...)
+│   ├── core/            # Simulation loop, events, combat
+│   ├── entities/        # Positioned entities (caravans, ...)
 │   ├── houses/          # House management
-│   ├── map/             # Hex grid and rendering
-│   └── territories/     # Territory system
+│   └── map/             # Hex grid and rendering
 ├── render/              # C++ renderer
 │   ├── renderer.cpp     # Main rendering code
 │   └── CMakeLists.txt   # Build configuration
+├── scripts/             # Manual demo/exploration scripts
+├── tests/               # Pytest suite
 ├── main.py              # Entry point
 ├── build.sh             # Unified build script
 └── pyproject.toml       # Project configuration

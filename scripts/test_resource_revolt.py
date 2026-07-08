@@ -26,7 +26,7 @@ def test_resource_revolt():
         return
     
     # Show initial state
-    print(f"\n🏰 Initial State:")
+    print("\n🏰 Initial State:")
     print(f"  Territory tiles: {len(territory_component.territory)}")
     print(f"  Resources: {house.resources}")
     print(f"  Population loyalty: {population_component.loyalty}")
@@ -45,13 +45,13 @@ def test_resource_revolt():
             revolt_result = population_component.execute_revolt(sim.hex_grid)
             
             if revolt_result['success']:
-                print(f"✅ Revolt executed successfully!")
+                print("✅ Revolt executed successfully!")
                 print(f"  Message: {revolt_result['message']}")
                 print(f"  Tiles lost: {revolt_result['tiles_lost']}")
                 print(f"  Resource losses: {revolt_result['resource_losses']}")
                 
                 # Show final state
-                print(f"\n🏰 Final State:")
+                print("\n🏰 Final State:")
                 print(f"  Territory tiles: {len(territory_component.territory)}")
                 print(f"  Resources: {house.resources}")
                 

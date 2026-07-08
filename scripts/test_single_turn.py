@@ -39,7 +39,7 @@ def main():
     simulation.execute_cleanup_phase()
     
     # Check final state
-    print(f"\n📈 Final State:")
+    print("\n📈 Final State:")
     for house in simulation.houses:
         ai = house.get_component(AIComponent)
         rookery = house.get_component(RookeryComponent)

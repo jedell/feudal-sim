@@ -4,7 +4,7 @@ Test script for the RookeryComponent raven communication system.
 Demonstrates sending ravens, delivery delays, and AI observation generation.
 """
 
-from feudal_sim.core.entities import Entity, EntityManager
+from feudal_sim.core.entities import EntityManager
 from feudal_sim.components.rookery import RookeryComponent, RavenDeliverySystem
 
 
@@ -44,8 +44,7 @@ def test_sending_ravens():
     entity_manager, stark, lannister = test_basic_raven_communication()
     
     stark_rookery = stark.get_component(RookeryComponent)
-    lannister_rookery = lannister.get_component(RookeryComponent)
-    
+
     # Stark sends a raven to Lannister
     stark_rookery._current_turn = 1  # Set current turn for testing
     success = stark_rookery.send_raven("House Lannister", "Propose alliance against House Bolton")
@@ -72,9 +71,8 @@ def test_raven_delivery():
     
     entity_manager, stark, lannister = test_sending_ravens()
     
-    stark_rookery = stark.get_component(RookeryComponent)
     lannister_rookery = lannister.get_component(RookeryComponent)
-    
+
     # Simulate turn advancement - raven should arrive in 1-2 turns
     print("\n🔄 Turn 2 - Checking for arriving ravens...")
     delivered_count = RavenDeliverySystem.deliver_ravens_for_turn(entity_manager, 2)

@@ -5,8 +5,7 @@ Tests basic AI agent functionality, observation processing, and message history 
 """
 
 import os
-from unittest.mock import patch
-from feudal_sim.core.entities import Entity, EntityManager
+from feudal_sim.core.entities import EntityManager
 from feudal_sim.components.ai import AIComponent
 
 
@@ -60,7 +59,7 @@ def test_observation_management():
     ai_component.add_observation("Your population has grown by 5 people", "Production")
     ai_component.add_observation("A raven arrived from House Lannister with a trade proposal", "Events")
     
-    print(f"📨 Added 3 observations")
+    print("📨 Added 3 observations")
     print(f"📊 Pending observations: {len(ai_component.pending_observations)}")
     
     # Check status

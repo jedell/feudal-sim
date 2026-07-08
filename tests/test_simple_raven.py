@@ -85,7 +85,7 @@ def test_simple_raven_delivery():
         print(f"  {obs}")
     
     # Check final status
-    print(f"\n📊 Final status:")
+    print("\n📊 Final status:")
     print(f"  Stark outgoing ravens: {len([r for r in stark_rookery.outgoing_ravens if not r.delivered])}")
     print(f"  Lannister received messages: {len(lannister_rookery.message_history)}")
 

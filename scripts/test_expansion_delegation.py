@@ -6,7 +6,6 @@ Test expansion delegation workflow: lord deploys general -> general expands terr
 import asyncio
 from feudal_sim.core.config import config
 from feudal_sim.core.simulation import Simulation
-from feudal_sim.components.ai import AIComponent
 from feudal_sim.components.population import PopulationComponent
 from feudal_sim.components.territory import TerritoryComponent
 from feudal_sim.components.subagent_group import SubAgentGroup
@@ -53,7 +52,7 @@ async def main():
     await simulation.execute_actions_phase()
     
     # Check if any generals were deployed by looking at entity manager
-    print(f"\n🔍 Checking for deployed generals...")
+    print("\n🔍 Checking for deployed generals...")
     generals = []
     
     # Use get_entities method to get proper entity objects
@@ -69,7 +68,7 @@ async def main():
             subagent = entity.get_component(SubAgentGroup)
             print(f"   General {entity.entity_id}: {subagent.assigned_workers}W, {subagent.assigned_soldiers}S")
             if entity.get_component(TerrainObservation):
-                print(f"   Has terrain observation capability")
+                print("   Has terrain observation capability")
     else:
         print("❌ No generals deployed in this turn")
     
@@ -88,7 +87,7 @@ async def main():
     
     # Check general activities
     if generals:
-        print(f"\n🎖️ General Activities:")
+        print("\n🎖️ General Activities:")
         for entity in generals:
             subagent = entity.get_component(SubAgentGroup)
             print(f"   General {entity.entity_id}: Supply {subagent.supply}, Morale {subagent.morale}")

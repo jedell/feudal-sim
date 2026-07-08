@@ -51,7 +51,7 @@ def _make_general(name: str, house_id: str, house_name: str,
                   soldiers: int = 50, equipment: int = 60, morale: int = 100,
                   position: tuple = (0, 0), stance: str = None):
     """Create a minimal general entity with all components needed for contact events."""
-    from feudal_sim.core.entities import Entity, EntityManager
+    from feudal_sim.core.entities import Entity
     from feudal_sim.components.position import PositionComponent
     from feudal_sim.components.subagent_group import SubAgentGroup, MissionParameters
     from feudal_sim.components.population import AssignedPopulation
@@ -199,7 +199,6 @@ async def run_contact_scenario(
     )
 
     # Wire up AI context for both generals
-    from feudal_sim.ai.context import SimulationContext
     for gen, house_id in [(attacker, attacker_house), (defender, defender_house)]:
         ai = gen.get_component(__import__('feudal_sim.components.ai', fromlist=['AIComponent']).AIComponent)
         if ai:
