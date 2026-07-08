@@ -226,10 +226,21 @@ def create_send_trade_caravan_tool(house_entity) -> Callable:
         except Exception:
             pass
 
+        # Price the outgoing cargo in the sender's own scarcity-aware terms
+        value_note = ""
+        try:
+            from feudal_sim.core.trade_economics import perceived_value
+            goods_dict = trade_goods.to_dict() if hasattr(trade_goods, 'to_dict') else {
+                r: getattr(trade_goods, r, 0) for r in ('food', 'material', 'metal', 'gold')}
+            value_note = (f" You value this cargo at ~"
+                          f"{perceived_value(house_entity, goods_dict):.0f} at current stocks.")
+        except Exception:
+            pass
+
         eta_text = f"~{eta_turns} turn(s)" if isinstance(eta_turns, int) else "a few turns"
         return (f"Trade caravan dispatched to {recipient_name}! "
                 f"Carrying: {goods_summary}. "
-                f"Terms: '{terms}'. "
+                f"Terms: '{terms}'.{value_note} "
                 f"Estimated arrival: {eta_text}.")
 
     # Add action description for dynamic prompts

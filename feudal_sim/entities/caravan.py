@@ -339,7 +339,20 @@ class TradeCaravan(Entity):
         recipient_house = simulation.entity_manager.get_entity(self.recipient_house_id)
         
         cargo_comp = self.get_component(CargoComponent)
-        
+
+        # Price the cargo through each party's eyes (scarcity-aware) so both
+        # lords negotiate with a shared value language — asymmetric by design;
+        # the difference in valuations IS the gains from trade
+        valuations = {}
+        if cargo_comp:
+            from feudal_sim.core.trade_economics import perceived_value
+            goods = cargo_comp.cargo.to_dict() if hasattr(cargo_comp.cargo, 'to_dict') else {
+                r: getattr(cargo_comp.cargo, r, 0) for r in ('food', 'material', 'metal', 'gold')}
+            for hid, house in ((self.sender_house_id, sender_house),
+                               (self.recipient_house_id, recipient_house)):
+                if house:
+                    valuations[hid] = perceived_value(house, goods)
+
         # Create priority action event for the trade arrival
         event = PriorityActionEvent(
             event_id=f"trade_arrival_{self.mission_id}",
@@ -351,6 +364,7 @@ class TradeCaravan(Entity):
                     'contents': str(cargo_comp.cargo) if cargo_comp else 'unknown goods',
                     'proposed_terms': str(cargo_comp.trade_terms) if cargo_comp else 'unknown terms'
                 },
+                'valuations': valuations,
                 'sending_house': {
                     'id': self.sender_house_id,
                     'name': sender_house.name if sender_house else 'Unknown House'

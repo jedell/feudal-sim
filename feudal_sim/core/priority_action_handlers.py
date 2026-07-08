@@ -34,13 +34,17 @@ class TradeCaravanHandler(PriorityActionHandler):
         proposed_terms = caravan_data.get('proposed_terms', 'trade proposal')
         sender_name = sending_house.get('name', 'Unknown House') if sending_house else 'Unknown House'
         
+        # Scarcity-aware valuation for this agent's eyes, if priced at dispatch
+        valuation = event.context_data.get('valuations', {}).get(agent_id)
+        value_note = f" You value this cargo at ~{valuation:.0f} given your current stocks." if valuation else ""
+
         # Different messages for sender vs receiver
         if agent_id == event.context_data.get('sending_house', {}).get('id'):
             # Message for the house that sent the caravan
-            return f"🚚 URGENT: Your trade caravan has arrived at {receiving_house.get('name', 'the destination')}! Contents: {caravan_contents}. Your proposed terms: '{proposed_terms}'. Await their response or negotiate."
+            return f"🚚 URGENT: Your trade caravan has arrived at {receiving_house.get('name', 'the destination')}! Contents: {caravan_contents}. Your proposed terms: '{proposed_terms}'.{value_note} Await their response or negotiate."
         else:
             # Message for the receiving house
-            return f"🚚 URGENT: Trade caravan from {sender_name} has arrived! Contents: {caravan_contents}. They propose: '{proposed_terms}'. You may negotiate, accept, reject, or seize the goods."
+            return f"🚚 URGENT: Trade caravan from {sender_name} has arrived! Contents: {caravan_contents}. They propose: '{proposed_terms}'.{value_note} You may negotiate, accept, reject, or seize the goods."
     
     def get_situation_guidance(self, event, agent_id: str) -> str:
         cd = event.context_data
