@@ -297,11 +297,35 @@ class Simulation:
     
     def execute_production_phase(self):
         """Handle resource production and population."""
+        self._announce_season_weather()
         farming_modifier = self.time_manager.game_time.get_seasonal_modifier('farming')
-        
+
         for house in self.houses:
             house.gather_resources(farming_modifier)
             house.manage_population()
+
+    def _announce_season_weather(self):
+        """At each season's first turn, tell every house what weather the
+        season brings — the sky is public information."""
+        gt = self.time_manager.game_time
+        season_key = (gt.year, gt.season.value)
+        if getattr(self, '_announced_season', None) == season_key:
+            return
+        self._announced_season = season_key
+        announcement = gt.get_weather_announcement()
+        if not announcement:
+            return
+        turns_per_season = config.get('simulation.time.turns_per_season', 4)
+        self._log_event(f"{gt.season.value.title()}: {gt.weather} weather")
+        for house in self.houses:
+            ai: AIComponent = house.get_component(AIComponent)
+            if ai:
+                ai.add_observation(announcement, "Production")
+                ai.inject_situation(
+                    f'weather_{gt.weather}',
+                    f"Season's weather: {gt.weather}. {announcement}",
+                    expires_after_turns=turns_per_season,
+                )
     
     async def execute_actions_phase(self):
         """Handle AI decisions and actions, including priority action events."""
@@ -552,7 +576,9 @@ class Simulation:
         self.collect_rookery_observations()
         
         # Process expansion orders
-        self.process_expansion_orders(status['turn'])
+        # Uses global_turn (never resets) to avoid the seasonal week-rollover
+        # bug — orders placed in week 4 would otherwise never resolve
+        self.process_expansion_orders(self.global_turn)
         
         # Process scheduled disbands
         self.process_scheduled_disbands(status['turn'])

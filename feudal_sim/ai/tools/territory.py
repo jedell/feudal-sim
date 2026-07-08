@@ -85,7 +85,10 @@ def create_order_expansion_tool(house_entity) -> Callable:
         if not sim_context or not getattr(sim_context, 'hex_grid', None):
             return "Expansion order failed - map access not available"
 
-        current_turn = getattr(sim_context, 'current_turn', 0)
+        # Use the monotonic global turn — the in-season week number resets
+        # every 4 turns and would stall orders across season boundaries
+        sim_obj = getattr(sim_context, 'simulation', None)
+        current_turn = getattr(sim_obj, 'global_turn', None) or getattr(sim_context, 'current_turn', 0)
         order = territory_component.create_expansion_order(
             direction, sim_context.hex_grid, current_turn
         )

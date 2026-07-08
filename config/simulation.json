@@ -90,10 +90,10 @@
   },
   "territory": {
     "expansion": {
-      "base_material_cost": 20,
-      "base_gold_cost": 20,
+      "base_material_cost": 8,
+      "base_gold_cost": 0,
       "loyalty_cost_per_tile": 1,
-      "max_tiles_per_order": 3
+      "max_tiles_per_order": 4
     }
   },
   "settlements": {
@@ -108,6 +108,45 @@
     "turns_per_season": 4,
     "starting_year": 1,
     "starting_season": "spring"
+  },
+  "trade": {
+    "base_values": {
+      "food": 1.0,
+      "material": 1.5,
+      "metal": 3.0,
+      "gold": 5.0
+    },
+    "scarcity_norms": {
+      "food": 200,
+      "material": 150,
+      "metal": 60,
+      "gold": 100
+    }
+  },
+  "weather": {
+    "states": {
+      "normal": {
+        "probability": 0.65,
+        "farming_delta": 0.0,
+        "trade_delta": 0.0,
+        "military_delta": 0.0,
+        "announcement": ""
+      },
+      "bountiful": {
+        "probability": 0.15,
+        "farming_delta": 0.25,
+        "trade_delta": 0.1,
+        "military_delta": 0.0,
+        "announcement": "The skies favor the realm — gentle rains and warm sun promise a bountiful season."
+      },
+      "adverse": {
+        "probability": 0.20,
+        "farming_delta": -0.35,
+        "trade_delta": -0.1,
+        "military_delta": -0.2,
+        "announcement": "Grim skies over the realm — drought and storms will make this a lean, hard season. Mind your granaries."
+      }
+    }
   },
   "victory": {
     "hegemony_land_pct": 0.40,

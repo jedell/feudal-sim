@@ -1,3 +1,4 @@
+import random
 from enum import Enum
 from dataclasses import dataclass
 
@@ -20,6 +21,7 @@ class GameTime:
     season: Season = Season.SPRING
     turn: int = 1
     phase: TurnPhase = TurnPhase.PRODUCTION
+    weather: str = "normal"  # season-long weather state, rolled each season
     
     def advance_phase(self):
         """Advance to the next phase within the current turn."""
@@ -44,24 +46,52 @@ class GameTime:
             self.advance_season()
         
     def advance_season(self):
-        """Advance to the next season."""
+        """Advance to the next season and roll its weather."""
         seasons = [Season.SPRING, Season.SUMMER, Season.AUTUMN, Season.WINTER]
         current_index = seasons.index(self.season)
-        
+
         if current_index + 1 < len(seasons):
             self.season = seasons[current_index + 1]
         else:
             self.season = Season.SPRING
             self.year += 1
-    
-    def get_seasonal_modifier(self, activity: str) -> float:
-        """Get seasonal modifiers for different activities"""
+        self.weather = self._roll_weather()
+
+    def _roll_weather(self) -> str:
+        """Pick a season-long weather state from the config table."""
         from feudal_sim.core.config import config
-        
+        # NB: config.get raises on missing key when default is None — use {}
+        states = config.get('simulation.weather.states', {})
+        if not states:
+            return "normal"
+        names = list(states.keys())
+        weights = [states[n].get('probability', 0.0) for n in names]
+        if not any(w > 0 for w in weights):
+            return "normal"
+        return random.choices(names, weights=weights, k=1)[0]
+
+    def get_weather_announcement(self) -> str:
+        """The herald's word on this season's weather ('' for nothing notable)."""
+        from feudal_sim.core.config import config
+        try:
+            return config.get(f'simulation.weather.states.{self.weather}.announcement', "")
+        except KeyError:
+            return ""
+
+    def get_seasonal_modifier(self, activity: str) -> float:
+        """Get seasonal modifiers for different activities, shifted by the
+        season's weather (drought, bounty, storms)."""
+        from feudal_sim.core.config import config
+
         # Get modifiers from config with fallback to defaults
         season_name = self.season.value
         config_path = f'simulation.resources.seasonal_modifiers.{season_name}.{activity}'
-        return config.get(config_path, 1.0)
+        base = config.get(config_path, 1.0)
+        try:
+            delta = config.get(f'simulation.weather.states.{self.weather}.{activity}_delta', 0.0)
+        except KeyError:
+            delta = 0.0
+        return max(0.05, base + delta or 0.0)
     
     def __str__(self):
         return f"Year {self.year}, {self.season.value.title()}, Week {self.turn}, {self.phase.value.title()} Phase"
