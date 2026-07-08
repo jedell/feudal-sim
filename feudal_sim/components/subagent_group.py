@@ -10,12 +10,15 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from feudal_sim.core.entities import Component
 from feudal_sim.core.logger import get_logger
-
-log = get_logger(__name__)
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
 from feudal_sim.components.population import AssignedPopulation
+from feudal_sim.components.position import PositionComponent
+from feudal_sim.components.terrain_observation import TerrainObservation
+from feudal_sim.components.resource import ResourceComponent
 from feudal_sim.config.subagents import get_upkeep_costs, get_upkeep_thresholds
+
+log = get_logger(__name__)
 
 
 @dataclass
@@ -356,8 +359,7 @@ class SubAgentGroup(Component):
 
         # Track stationary state for ambush eligibility
         if self.entity:
-            from feudal_sim.components.position import PositionComponent as _PC
-            pos = self.entity.get_component(_PC)
+            pos = self.entity.get_component(PositionComponent)
             if pos and pos.position:
                 if self.last_position == pos.position:
                     self.stationary_turns += 1
@@ -368,13 +370,10 @@ class SubAgentGroup(Component):
                 self.ambush_ready = (self.stationary_turns >= 2)
 
         # Consume supplies automatically each turn
-        had_supplies = self.consume_supplies()
+        self.consume_supplies()
         
         # Auto-observe surroundings if we have the components
         if self.entity and hex_grid and current_turn is not None:
-            from feudal_sim.components.terrain_observation import TerrainObservation
-            from feudal_sim.components.position import PositionComponent
-            
             terrain_obs = self.entity.get_component(TerrainObservation)
             position_comp = self.entity.get_component(PositionComponent)
             
@@ -399,7 +398,6 @@ class SubAgentGroup(Component):
         
         # Apply upkeep costs (food/gold) for assigned personnel
         try:
-            from feudal_sim.components.resource import ResourceComponent
             gold_cost, food_cost = get_upkeep_costs(
                 self.assigned_population.soldiers, self.assigned_population.workers
             )
@@ -434,14 +432,12 @@ class SubAgentGroup(Component):
         # Auto-resupply when on owned territory (quick win to reduce disband churn)
         try:
             if self.entity and hex_grid:
-                from feudal_sim.components.position import PositionComponent
                 pos = self.entity.get_component(PositionComponent)
                 if pos and pos.position:
                     q, r = pos.position
                     tile = hex_grid.get_tile(q, r)
                     owner = getattr(tile, 'owner', None) if tile else None
                     if owner and hasattr(owner, 'id') and owner.id == self.parent_house_id:
-                        from feudal_sim.core.config import config
                         resupply_amt = config.get('simulation.subagents.resupply_per_turn_on_owned', 20)
                         self.supplies = min(100, self.supplies + max(0, int(resupply_amt)))
         except Exception as _e:
@@ -450,7 +446,7 @@ class SubAgentGroup(Component):
         # Pre-disband warnings to parent house AI
         try:
             if entity_manager and self.parent_house_id:
-                from feudal_sim.components.ai import AIComponent
+                from feudal_sim.components.ai import AIComponent  # deferred: circular with feudal_sim.components.ai
                 parent_house = entity_manager.get_entity(self.parent_house_id)
                 ai = parent_house.get_component(AIComponent) if parent_house else None
                 if ai:

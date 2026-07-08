@@ -9,9 +9,14 @@ Assembles prompts from three sources:
 Supports different AI agent types: House Lords, Scouts, Generals, etc.
 """
 
-from typing import List, Optional, Dict
+from typing import List
 from feudal_sim.core.entities import Entity
-from feudal_sim.ai.prompts import AgentType
+from feudal_sim.core.logger import get_logger
+from feudal_sim.ai.prompts import AgentType, get_agent_template
+from feudal_sim.components.subagent_group import SubAgentGroup
+from feudal_sim.components.position import PositionComponent
+
+log = get_logger(__name__)
 
 
 class PromptBuilder:
@@ -43,8 +48,7 @@ class PromptBuilder:
     
     def _get_base_template(self) -> str:
         """Get the base template for this agent type."""
-        from feudal_sim.ai.prompts import get_agent_template
-        
+
         try:
             return get_agent_template(self.agent_type)
         except KeyError:
@@ -87,8 +91,6 @@ class PromptBuilder:
         
         # Add mission brief for sub-agents (e.g., generals) if available
         try:
-            from feudal_sim.components.subagent_group import SubAgentGroup
-            from feudal_sim.components.position import PositionComponent
             group_comp = self.entity.get_component(SubAgentGroup)
             pos_comp = self.entity.get_component(PositionComponent)
             if group_comp:
@@ -110,9 +112,9 @@ class PromptBuilder:
                     f"- Readiness: morale {group_comp.morale}%, supplies {group_comp.supplies}%"
                 )
                 mechanics.append("\n".join(mission_lines))
-        except Exception:
+        except Exception as e:
             # If component classes unavailable or any error occurs, skip mission section
-            pass
+            log.warning(f"Prompt mission-brief section build failed: {e}")
         
         return "\n\n".join(mechanics) if mechanics else ""
     

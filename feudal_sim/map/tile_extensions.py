@@ -8,8 +8,9 @@ from feudal_sim.map.hex_tile import HexTile
 
 
 class ResourceNodeType(Enum):
+    """Special resource node a tile may contain (mine, deposit, etc.)."""
     NONE = 0
-    GOLD_MINE = 1 
+    GOLD_MINE = 1
     IRON_DEPOSIT = 2
     STONE_QUARRY = 3
     RARE_HERBS = 4

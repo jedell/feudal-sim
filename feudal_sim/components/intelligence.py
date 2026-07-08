@@ -14,6 +14,7 @@ from feudal_sim.components.territory import TerritoryComponent
 
 @dataclass
 class Note:
+    """A single dated intelligence note stored in the compendium."""
     topic: str
     text: str
     turn: Optional[int] = None

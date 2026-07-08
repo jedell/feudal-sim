@@ -7,14 +7,19 @@ and emergent gameplay scenarios.
 """
 
 import uuid
-from typing import Optional, Tuple, Dict, Any, List
+from typing import Optional, Tuple, Dict, Any
 from feudal_sim.core.entities import Entity
 from feudal_sim.components.position import PositionComponent
 from feudal_sim.components.cargo import CargoComponent, TradeGoods, TradeTerms
 from feudal_sim.components.pathfinding import PathfindingComponent
 from feudal_sim.components.ai import AIComponent
+from feudal_sim.components.intelligence import IntelligenceComponent
+from feudal_sim.components.territory import TerritoryComponent
 from feudal_sim.ai.prompts import AgentType
 from feudal_sim.core.priority_actions import PriorityActionEvent
+from feudal_sim.core.logger import get_logger
+
+log = get_logger(__name__)
 
 
 class TradeCaravan(Entity):
@@ -153,7 +158,6 @@ class TradeCaravan(Entity):
             hex_grid: The game's hex grid
             preferred_direction: Optional direction hint from the lord (N, NE, SE, S, SW, NW)
         """
-        from feudal_sim.components.pathfinding import PathfindingComponent
         pathfinding_comp = self.get_component(PathfindingComponent)
 
         def _try_destination(dest):
@@ -162,7 +166,6 @@ class TradeCaravan(Entity):
             return bool(pathfinding_comp and pathfinding_comp.current_path)
 
         # Method 1: Use IntelligenceComponent's territory center calculation
-        from feudal_sim.components.intelligence import IntelligenceComponent
         intelligence_comp = target_house.get_component(IntelligenceComponent)
         if intelligence_comp:
             try:
@@ -173,8 +176,8 @@ class TradeCaravan(Entity):
                     if hasattr(dest_tile.owner, 'id') and dest_tile.owner.id == target_house.id:
                         if _try_destination(destination):
                             return True
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(f"Caravan destination via territory center failed: {e}")
 
         # Method 2: Direction hint border tile
         if preferred_direction:
@@ -183,8 +186,6 @@ class TradeCaravan(Entity):
                 return True
 
         # Method 3: Any tile from target territory, sorted by proximity to sender
-        from feudal_sim.components.territory import TerritoryComponent
-        from feudal_sim.components.position import PositionComponent
         territory_comp = target_house.get_component(TerritoryComponent)
         if territory_comp and territory_comp.territory:
             pos_comp = self.get_component(PositionComponent)
@@ -220,7 +221,6 @@ class TradeCaravan(Entity):
         Returns:
             Tuple of (q, r) coordinates or None if not found
         """
-        from feudal_sim.components.territory import TerritoryComponent
         territory_comp = target_house.get_component(TerritoryComponent)
         if not territory_comp or not territory_comp.territory:
             return None

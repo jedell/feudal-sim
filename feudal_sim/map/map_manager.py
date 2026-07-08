@@ -1,6 +1,7 @@
 from map.hex_grid import HexGrid
 
 class MapManager:
+    """Owns the hex grid and coordinates map-level operations."""
     def __init__(self, width, height):
         self.hex_grid = HexGrid(width, height)
 

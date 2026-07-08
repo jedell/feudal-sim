@@ -5,7 +5,6 @@ Handles sending and receiving raven messages between entities, with travel time
 delays and known recipient tracking for realistic communication constraints.
 """
 
-import random
 from typing import Any, List, Dict, Set
 from dataclasses import dataclass
 from feudal_sim.core.entities import Component

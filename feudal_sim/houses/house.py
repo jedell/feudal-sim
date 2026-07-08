@@ -2,7 +2,8 @@ import numpy as np
 import math
 from feudal_sim.map.types import Color
 from feudal_sim.map.hex_tile import HexTile
-from feudal_sim.houses.observations.scout import gather_scout_data
+from feudal_sim.map.city_extensions import set_city_on_tile, CityType
+from feudal_sim.houses.observations.scout import gather_scout_data, ScoutReport
 from feudal_sim.components.ai import AIComponent
 from feudal_sim.components.rookery import RookeryComponent
 from feudal_sim.components.resource import ResourceComponent
@@ -14,6 +15,7 @@ from feudal_sim.core.entities import Entity
 from feudal_sim.ai.prompts import AgentType
 
 class House(Entity):
+    """A noble house entity aggregating its territory, resources, and AI."""
     def default_attributes(self):
         return {
             "resources": {"food": 100, "material": 100, "metal": 100, "gold": 100},
@@ -201,7 +203,6 @@ The world bends to dragonfire and steel. Your generals are instruments of conque
     
 
     def collect_observations(self, hex_grid, step_count: int):
-        from feudal_sim.houses.observations.scout import ScoutReport
         observation = {}
 
         observation['scout_report'] = []
@@ -340,8 +341,6 @@ The world bends to dragonfire and steel. Your generals are instruments of conque
     
     def _encode_city_on_tile(self, tile, city_type: str, development_level: int = 1, city_name: str = None):
         """Encode city information onto a tile for rendering."""
-        from feudal_sim.map.city_extensions import set_city_on_tile, CityType
-        
         # Map city type string to enum
         type_mapping = {
             "capital": CityType.CAPITAL,

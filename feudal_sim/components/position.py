@@ -6,11 +6,12 @@ on the map, such as generals, scouts, armies, and other mobile units.
 It provides movement validation, distance calculations, and area of influence.
 """
 
-from typing import Tuple, Set, List, Optional, Dict, Any
+from typing import Tuple, List, Optional, Dict, Any
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.utils.directions import neighbor_delta_to_dir
 from feudal_sim.utils.observations import ObservationFormatter
+from feudal_sim.map.types import HexTileType
 
 
 class PositionComponent(Component):
@@ -159,7 +160,6 @@ class PositionComponent(Component):
                 }
             
             # Check if tile is passable (not water for land units)
-            from feudal_sim.map.types import HexTileType
             if target_tile.terrain_type in {HexTileType.OCEAN, HexTileType.LAKE}:
                 return {
                     'valid': False,

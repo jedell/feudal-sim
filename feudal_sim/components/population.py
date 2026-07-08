@@ -6,7 +6,6 @@ extracted from the House class. Also handles population revolts that can
 cause territory loss when loyalty falls too low.
 """
 
-import math
 import random
 from typing import Dict, Any, Set
 from dataclasses import dataclass
@@ -170,8 +169,8 @@ class PopulationComponent(Component):
         Returns:
             Dictionary with revolt results
         """
-        from feudal_sim.components.territory import TerritoryComponent
-        
+        from feudal_sim.components.territory import TerritoryComponent  # deferred: circular with feudal_sim.components.territory
+
         # Get territory component
         territory_component: TerritoryComponent = self.entity.get_component(TerritoryComponent) if self.entity else None
         if not territory_component:
@@ -232,9 +231,6 @@ class PopulationComponent(Component):
             
             # Calculate and apply resource losses
             if hasattr(self.entity, 'resources'):
-                # Store original values for reporting
-                original_resources = self.entity.resources.copy()
-                
                 # Apply losses
                 food_loss = int(self.entity.resources['food'] * food_loss_percent)
                 material_loss = int(self.entity.resources['material'] * material_loss_percent)

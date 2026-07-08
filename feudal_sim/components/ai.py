@@ -7,14 +7,15 @@ each phase, then makes decisions during the Actions phase.
 """
 
 import os
-import logging
 from collections import deque
 from typing import List, Optional, Dict, Any, Deque
 from feudal_sim.core.logger import get_logger
-
-log = get_logger(__name__)
-from agents import Agent, Runner, set_trace_processors
+from agents import Agent, Runner, set_trace_processors, ModelSettings
 from agents.agent import StopAtTools
+from agents.model_settings import Reasoning  # type: ignore[attr-defined]
+from agents.items import (
+    ReasoningItem, MessageOutputItem, ToolCallItem, ToolCallOutputItem
+)
 import mlflow
 from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
 from feudal_sim.core.entities import Component
@@ -23,11 +24,18 @@ from feudal_sim.core.config import config
 from feudal_sim.components.resource import ResourceComponent
 from feudal_sim.components.population import PopulationComponent
 from feudal_sim.components.territory import TerritoryComponent
+from feudal_sim.components.position import PositionComponent
+from feudal_sim.components.subagent_group import SubAgentGroup
+from feudal_sim.components.intelligence import IntelligenceComponent
 from feudal_sim.ai.tools.registry import get_tools_for_entity
 from feudal_sim.ai.context import SimulationContext
 from feudal_sim.ai.prompt_builder import PromptBuilder
 from feudal_sim.ai.prompts import AgentType
-from feudal_sim.ai.persona_generator import generate_agent_identity
+from feudal_sim.ai.persona_generator import (
+    generate_agent_identity, _get_fallback_name, _get_fallback_persona
+)
+
+log = get_logger(__name__)
 
 set_trace_processors([MlflowOpenAgentTracingProcessor()])
 mlflow.set_experiment("feudal_sim")
@@ -111,7 +119,7 @@ class AIComponent(Component):
         try:
             # Check for OpenAI API key
             if not os.getenv('OPENAI_API_KEY'):
-                log.warning(f"⚠️  Warning: OPENAI_API_KEY not set. AI agent will be disabled.")
+                log.warning("⚠️  Warning: OPENAI_API_KEY not set. AI agent will be disabled.")
                 self.is_enabled = False
                 return
             
@@ -135,8 +143,6 @@ class AIComponent(Component):
                 log.info(f"🤖 Generated dynamic instructions for {self.agent_name} ({self.agent_type.value})")
             
             # Build model settings — reasoning effort if configured for this agent type
-            from agents import ModelSettings
-            from agents.model_settings import Reasoning  # type: ignore[attr-defined]
             effort = config.get(f"simulation.ai.reasoning_effort.{self.agent_type.value}")
             model_settings = ModelSettings(reasoning=Reasoning(effort=effort)) if effort else ModelSettings()
 
@@ -157,7 +163,6 @@ class AIComponent(Component):
             
             # Seed mission/goal into message history for sub-agents (e.g., generals)
             try:
-                from feudal_sim.components.subagent_group import SubAgentGroup
                 group_comp = self.entity.get_component(SubAgentGroup)
                 if group_comp and group_comp.mission_parameters:
                     mp = group_comp.mission_parameters
@@ -231,8 +236,6 @@ class AIComponent(Component):
             return 'house'    # Diplomats use house-like tools for now
         
         # Fallback: try to detect based on components
-        from feudal_sim.components.position import PositionComponent
-        
         if self.entity.has_component(PositionComponent):
             # If entity has position, it's likely a mobile unit
             if (self.entity.has_component(PopulationComponent) and 
@@ -268,13 +271,11 @@ class AIComponent(Component):
         
         # Generate only name if needed (fallback approach)  
         elif not self.agent_name:
-            from feudal_sim.ai.persona_generator import _get_fallback_name
             self.agent_name = _get_fallback_name(self.agent_type, house_name)
             log.info(f"🎲 Generated fallback name: {self.agent_name}")
         
         # Generate only persona if needed (fallback approach)
         elif not self.persona:
-            from feudal_sim.ai.persona_generator import _get_fallback_persona
             self.persona = _get_fallback_persona(self.agent_name, self.agent_type, house_name)
             log.info(f"🎲 Generated fallback persona for: {self.agent_name}")
         
@@ -431,9 +432,6 @@ class AIComponent(Component):
                 return "AI is disabled"
             
             # Log all new items: reasoning summaries, tool calls, tool outputs, text responses
-            from agents.items import (
-                ReasoningItem, MessageOutputItem, ToolCallItem, ToolCallOutputItem
-            )
             if hasattr(result, 'new_items') and result.new_items:
                 for item in result.new_items:
                     try:
@@ -504,7 +502,6 @@ class AIComponent(Component):
         being_dropped = self.messages[:len(self.messages) - len(candidate)]
         if being_dropped and self.entity:
             try:
-                from feudal_sim.components.intelligence import IntelligenceComponent
                 intel = self.entity.get_component(IntelligenceComponent)
                 if intel:
                     tool_calls = []
@@ -518,8 +515,8 @@ class AIComponent(Component):
                     if tool_calls:
                         summary = f"[Compacted] Actions taken: {', '.join(tool_calls[:12])}"
                         intel.add_note("Historical Record", summary)
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(f"AI history-compaction intelligence note failed: {e}")
 
         # Step 1: Advance to the first user message to avoid splitting reasoning+function_call
         # pairs at the trim boundary. gpt-5 models return {"type":"reasoning"} items that must
@@ -658,10 +655,14 @@ class AIComponent(Component):
 
     @staticmethod
     def _loyalty_mood(loyalty: float) -> str:
-        if loyalty < 40:   return "revolt imminent"
-        if loyalty < 55:   return "grumbling"
-        if loyalty < 70:   return "content"
-        if loyalty < 85:   return "loyal"
+        if loyalty < 40:
+            return "revolt imminent"
+        if loyalty < 55:
+            return "grumbling"
+        if loyalty < 70:
+            return "content"
+        if loyalty < 85:
+            return "loyal"
         return "devoted"
 
     @staticmethod
@@ -734,7 +735,7 @@ class AIComponent(Component):
                     prev = self._resource_snapshot.get(key) if self._resource_snapshot else None
                     res_lines.append(self._format_stat_line(key.title(), val, prev, depletion=True))
                 context_parts.append("Resources:")
-                context_parts.extend(f"  {l}" for l in res_lines)
+                context_parts.extend(f"  {line}" for line in res_lines)
 
             population_component: PopulationComponent = self.entity.get_component(PopulationComponent)
             if population_component:
@@ -760,7 +761,6 @@ class AIComponent(Component):
 
             # Recent intelligence from compendium
             try:
-                from feudal_sim.components.intelligence import IntelligenceComponent
                 intel = self.entity.get_component(IntelligenceComponent)
                 if intel:
                     topics = intel.list_topics()
@@ -769,7 +769,7 @@ class AIComponent(Component):
                         raw = intel.read_topic(topic)
                         if raw:
                             # Take last 2 lines per topic to keep it concise
-                            lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
+                            lines = [line.strip() for line in raw.strip().splitlines() if line.strip()]
                             recent_notes.extend(lines[-2:])
                     if recent_notes:
                         context_parts.append("Recent intelligence:")

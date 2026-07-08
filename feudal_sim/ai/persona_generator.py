@@ -9,7 +9,8 @@ every run feel different and every agent feel distinct.
 import os
 import random
 from typing import Tuple
-from dataclasses import dataclass
+import openai
+from pydantic import BaseModel
 from feudal_sim.ai.prompts import AgentType
 from feudal_sim.core.config import config
 
@@ -202,9 +203,6 @@ def _pick_archetype(agent_type: AgentType) -> dict:
 # ── LLM generation ─────────────────────────────────────────────────────────────
 
 def _generate_identity_with_llm(agent_type: AgentType, house_name: str, archetype: dict) -> Tuple[str, str]:
-    import openai
-    from pydantic import BaseModel
-
     class IdentitySchema(BaseModel):
         name: str
         persona: str

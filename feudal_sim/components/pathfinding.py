@@ -6,9 +6,10 @@ Used by trade caravans and other entities that need to navigate across the map.
 """
 
 import heapq
-from typing import List, Tuple, Optional, Dict, Set, Any
+from typing import List, Tuple, Optional, Dict, Set
 from feudal_sim.core.entities import Component
 from feudal_sim.map.types import HexTileType
+from feudal_sim.components.position import PositionComponent
 
 
 class PathfindingComponent(Component):
@@ -102,11 +103,10 @@ class PathfindingComponent(Component):
             return
         
         # Get current position from position component
-        from feudal_sim.components.position import PositionComponent
         position_comp = self.entity.get_component(PositionComponent)
         if not position_comp:
             return
-        
+
         current_pos = position_comp.position
         self.destination = destination
         self.current_path = self.find_path(current_pos, destination, hex_grid, entity_house_id)
@@ -144,8 +144,7 @@ class PathfindingComponent(Component):
         """Check if we've reached the destination."""
         if not self.destination or not self.entity:
             return True
-        
-        from feudal_sim.components.position import PositionComponent
+
         position_comp = self.entity.get_component(PositionComponent)
         if not position_comp:
             return True
@@ -156,8 +155,7 @@ class PathfindingComponent(Component):
         """Get remaining distance to destination."""
         if not self.current_path or not self.entity:
             return 0
-        
-        from feudal_sim.components.position import PositionComponent
+
         position_comp = self.entity.get_component(PositionComponent)
         if not position_comp or not self.destination:
             return 0

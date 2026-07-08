@@ -10,9 +10,18 @@ from feudal_sim.map.types import (
 from feudal_sim.houses.house import House
 from feudal_sim.map.heightmap import Heightmap
 from feudal_sim.map.rivers import RiverSystem
+from feudal_sim.map.city_extensions import encode_city_for_rendering
+from feudal_sim.core.event_log import EventLog
+from feudal_sim.core.logger import get_logger
+from feudal_sim.components.rookery import RookeryComponent
+from feudal_sim.components.ai import AIComponent
+from feudal_sim.components.position import PositionComponent
+from feudal_sim.components.subagent_group import SubAgentGroup
 from multiprocessing import Process
 import noise
 import multiprocessing.shared_memory as shm
+
+log = get_logger(__name__)
 
 def get_tile_dtype():
     return np.dtype([
@@ -49,6 +58,7 @@ def get_positioned_entity_dtype():
     ])
 
 class RendererWrapper:
+    """Bridges the hex grid to the renderer subprocess via shared memory."""
 
     TILE_SHARED_MEMORY_NAME = "psm_hex_grid"
     HOUSE_SHARED_MEMORY_NAME = "psm_houses"
@@ -62,7 +72,6 @@ class RendererWrapper:
         self.houses_cache = []
         
         # Event log shared memory
-        from feudal_sim.core.event_log import EventLog
         self.event_log = EventLog()
 
         # Initialize entities shared memory if specified
@@ -88,7 +97,6 @@ class RendererWrapper:
         self.update_tiles(tiles)
 
     def update_tiles(self, tiles: list[HexTile]):
-        from feudal_sim.map.city_extensions import encode_city_for_rendering
         tile_data = np.array([(
             tile.q,
             tile.r,
@@ -111,18 +119,16 @@ class RendererWrapper:
         self.houses_cache = houses
 
         def _house_row(house):
-            from feudal_sim.components.rookery import RookeryComponent
             rookery = house.get_component(RookeryComponent)
             ravens = len(getattr(rookery, 'outgoing_ravens', [])) if rookery else 0
             # war count from simulation war_registry if available
             war_count = 0
             try:
-                from feudal_sim.components.ai import AIComponent
                 ai = house.get_component(AIComponent)
                 if ai and ai.context and ai.context.simulation:
                     war_count = ai.context.simulation.war_registry.enemy_count(house.id)
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(f"hex_grid house-row war count failed: {e}")
             return (
                 house.name,
                 [house.color.r, house.color.g, house.color.b, house.color.a],
@@ -149,7 +155,6 @@ class RendererWrapper:
         entity_data = []
         for entity in positioned_entities:
             # Get position component
-            from feudal_sim.components.position import PositionComponent
             pos_comp = entity.get_component(PositionComponent)
             if not pos_comp:
                 continue
@@ -179,8 +184,8 @@ class RendererWrapper:
                         try:
                             c = house.color
                             house_color = [c.r, c.g, c.b, c.a]
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            log.debug(f"hex_grid entity house color lookup failed: {e}")
                         break
                 
             # Get military count, morale/supplies/equipment/orders if available
@@ -190,7 +195,6 @@ class RendererWrapper:
             equipment_level = 0
             orders_bytes = b''
             try:
-                from feudal_sim.components.subagent_group import SubAgentGroup
                 grp = entity.get_component(SubAgentGroup)
                 if grp:
                     morale = max(0, min(100, int(grp.morale)))
@@ -203,8 +207,8 @@ class RendererWrapper:
                             parts.append(mp.orders)
                         orders_text = ': '.join(p for p in parts if p)
                         orders_bytes = orders_text[:59].encode('utf-8')
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(f"hex_grid entity subagent-group fields read failed: {e}")
 
             entity_data.append((
                 pos_comp.position[0],
@@ -278,6 +282,7 @@ class RendererWrapper:
         self.event_log.close()
 
 class HexGrid:
+    """The hexagonal game map: tiles, terrain generation, and rendering."""
     def __init__(self, size: int = 80, num_houses: int = 10, debug=False, max_positioned_entities: int = 50):
         self.debug = debug
         self.size = size
@@ -346,7 +351,6 @@ class HexGrid:
         """ Creates a temperature gradient from north to south. """
         temperature_map = {}
         seed = random.randint(0, 100)
-        max_distance = np.sqrt(3 * (size // 2) ** 2)
         noise_scale = 3.0
         noise_intensity = 0.2
 

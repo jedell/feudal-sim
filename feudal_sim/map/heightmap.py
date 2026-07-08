@@ -3,6 +3,7 @@ import random
 import math
 
 class Heightmap:
+    """Generates and stores per-tile elevation data for the map."""
     def __init__(self, params, debug=False):
         self.params = params
         self.size = params.get('size')

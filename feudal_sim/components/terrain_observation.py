@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
+from feudal_sim.components.position import PositionComponent
 
 
 @dataclass
@@ -398,7 +399,6 @@ class TerrainObservation(Component):
         nearby_threats = []
         for threat in self.threats_detected:
             # Calculate distance using simple hex distance
-            from feudal_sim.components.position import PositionComponent
             distance = PositionComponent.hex_distance(center_position, threat.position)
             if distance <= search_range:
                 nearby_threats.append(threat)
@@ -422,8 +422,7 @@ class TerrainObservation(Component):
         
         nearby_opportunities = []
         for opportunity in self.opportunities_found:
-            # Calculate distance using simple hex distance  
-            from feudal_sim.components.position import PositionComponent
+            # Calculate distance using simple hex distance
             distance = PositionComponent.hex_distance(center_position, opportunity.position)
             if distance <= search_range:
                 nearby_opportunities.append(opportunity)

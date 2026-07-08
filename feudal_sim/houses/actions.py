@@ -1,6 +1,7 @@
 from feudal_sim.houses.house import House
 
 class ActionDispatcher:
+    """Routes and executes action requests on behalf of a house."""
     def __init__(self, house: House):
         self.house = house
 

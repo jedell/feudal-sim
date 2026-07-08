@@ -42,8 +42,6 @@ class ResourceMonitor:
     
     def check_alerts(self, event):
         """Check for resource-based alerts each simulation step."""
-        step_count = event.data['step_count']
-        
         # Example: Alert if any house has very high resources
         for house_name, resources in self.resource_history.items():
             for resource_type, history in resources.items():

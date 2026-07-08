@@ -11,9 +11,15 @@ from feudal_sim.core.config import config
 
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
+from feudal_sim.core.logger import get_logger
 from feudal_sim.components.population import PopulationComponent
+from feudal_sim.components.city import CityComponent
+from feudal_sim.components.position import PositionComponent
+from feudal_sim.components.subagent_group import SubAgentGroup
 from feudal_sim.map.types import HexTileType
-    
+
+log = get_logger(__name__)
+
 @dataclass
 class ExpansionOrder:
     """Represents a pending territory expansion order."""
@@ -442,7 +448,6 @@ Territory expansion takes time - orders given this week resolve next week based 
         city_type_per_component = [None] * len(raw_components)
         if self.entity:
             try:
-                from feudal_sim.components.city import CityComponent
                 cc = self.entity.get_component(CityComponent)
                 if cc:
                     for city in cc.get_all_cities().values():
@@ -452,8 +457,8 @@ Territory expansion takes time - orders given this week resolve next week based 
                                 settlement_per_component[i] = city.name
                                 city_type_per_component[i] = getattr(city, 'city_type', None)
                                 break
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(f"Territory settlement matching failed: {e}")
 
         # Main body = component with capital, else largest
         main_idx = next(
@@ -601,8 +606,8 @@ Territory expansion takes time - orders given this week resolve next week based 
                     house_distances.sort()
                     dist_parts = [f"{name} (~{d} tiles)" for d, name in house_distances]
                     lines.append(f"  Known houses: {', '.join(dist_parts)}")
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(f"Territory known-houses distance calc failed: {e}")
 
         # Cache
         self._realm_overview_cache = "\n".join(lines)
@@ -619,8 +624,6 @@ Territory expansion takes time - orders given this week resolve next week based 
                 if not gen_entity:
                     continue
                 try:
-                    from feudal_sim.components.position import PositionComponent
-                    from feudal_sim.components.subagent_group import SubAgentGroup
                     pos_comp = gen_entity.get_component(PositionComponent)
                     grp = gen_entity.get_component(SubAgentGroup)
                     if not pos_comp or not pos_comp.position:
@@ -638,7 +641,8 @@ Territory expansion takes time - orders given this week resolve next week based 
                     deploy_dir = g_info.get('direction', '')
                     dir_str = f" ({deploy_dir} border)" if deploy_dir else ""
                     force_lines.append(f"    {gen_name}{dir_str} — {location} — {status}")
-                except Exception:
+                except Exception as e:
+                    log.warning(f"Territory deployed-force line build failed: {e}")
                     continue
             if force_lines:
                 lines.append("  Deployed forces:")
@@ -651,12 +655,12 @@ Territory expansion takes time - orders given this week resolve next week based 
         if not self.entity:
             return
         try:
-            from feudal_sim.components.intelligence import IntelligenceComponent
+            from feudal_sim.components.intelligence import IntelligenceComponent  # deferred: circular with feudal_sim.components.intelligence
             intel = self.entity.get_component(IntelligenceComponent)
             if intel:
                 intel.add_note(topic, text, turn)
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"Territory intelligence-note write failed: {e}")
 
     def update(self, dt: float, event_bus=None):
         """
@@ -690,8 +694,8 @@ Territory expansion takes time - orders given this week resolve next week based 
                 # Keep only those that belong to this house
                 if hasattr(g, 'house_id') and g.house_id == (self.entity.id if self.entity else None):
                     existing_ids.add(g.id)
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"Territory general sync lookup failed: {e}")
         self.deployed_generals = [g for g in self.deployed_generals if g.get('entity_id') in existing_ids]
         return len(self.deployed_generals)
 
@@ -710,8 +714,7 @@ Territory expansion takes time - orders given this week resolve next week based 
         # Get costs from config with fallback to original values
         base_material_cost = config.get('simulation.territory.expansion.base_material_cost', 30)
         base_gold_cost = config.get('simulation.territory.expansion.base_gold_cost', 20)
-        base_population_cost = config.get('simulation.territory.expansion.base_population_cost', 5)
-        
+
         return {
             'material': base_material_cost * num_tiles,
             'gold': base_gold_cost * num_tiles

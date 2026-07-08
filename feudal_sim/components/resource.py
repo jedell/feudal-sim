@@ -7,10 +7,15 @@ consumption for actions, tax collection, and event emission for AI decision-maki
 
 import math
 from typing import Dict, Set, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
+from feudal_sim.core.logger import get_logger
+from feudal_sim.components.population import PopulationComponent
+from feudal_sim.map.tile_extensions import get_base_metal_output, get_resource_bonus
+
+log = get_logger(__name__)
 
 
 @dataclass
@@ -121,16 +126,14 @@ class ResourceComponent(Component):
         
         # Scale efficiency by available workforce proportion (assigned population reduces output)
         try:
-            from feudal_sim.components.population import PopulationComponent
             pop_comp = self.entity.get_component(PopulationComponent) if self.entity else None
             if pop_comp and pop_comp.population > 0:
                 availability_factor = max(0.0, min(1.0, pop_comp.get_available_population() / pop_comp.population))
                 efficiency *= availability_factor
-        except Exception:
-            pass
-        
+        except Exception as e:
+            log.warning(f"Resource workforce availability scaling failed: {e}")
+
         # Gather from each territory
-        from feudal_sim.map.tile_extensions import get_base_metal_output, get_resource_bonus
         for hex_tile in territories:
             food_modifier = seasonal_modifier
             gathering_multiplier = config.get('simulation.resources.gathering_multiplier', 1.0)

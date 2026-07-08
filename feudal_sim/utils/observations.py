@@ -4,6 +4,7 @@ from feudal_sim.utils.directions import dir_code_to_prose, join_directions_prose
 
 
 class ObservationFormatter:
+    """Formats observation events into human-readable prose strings."""
     @staticmethod
     def movement_single_step(direction_code: str, remaining_mp: int) -> str:
         direction = dir_code_to_prose(direction_code)

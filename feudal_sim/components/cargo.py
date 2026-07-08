@@ -5,8 +5,8 @@ Used by trade caravans and other transport entities to track what goods
 they're carrying and the terms of trade.
 """
 
-from typing import Dict, Any, Optional
-from dataclasses import dataclass, field
+from typing import Dict, Optional
+from dataclasses import dataclass
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 

@@ -4,6 +4,7 @@ SCOUT_STEPS = 10
 NUM_SCOUTS = 3
 
 class ScoutReport:
+    """Formats raw scouting data into a human-readable report."""
     def __init__(self, raw_data):
         self.raw_data = raw_data
         self.report = self._generate_report()
