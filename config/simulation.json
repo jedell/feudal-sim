@@ -104,6 +104,10 @@
     "starting_year": 1,
     "starting_season": "spring"
   },
+  "victory": {
+    "territorial_dominance_pct": 0.60,
+    "last_survivor": true
+  },
   "world_generation": {
     "map_size": 20,
     "num_houses": 2,

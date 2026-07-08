@@ -829,19 +829,21 @@ class Simulation:
             owner_name = owner.name if (owner and hasattr(owner, 'name')) else None
             if owner_name and owner_name != 'None':
                 tile_counts[owner_name] = tile_counts.get(owner_name, 0) + 1
-        # Territorial dominance: >60% of land tiles
-        for house_name, count in tile_counts.items():
-            if count / total_land > 0.60:
-                self._trigger_victory(house_name, "territorial dominance", global_turn)
-                return True
+        # Territorial dominance: configured share of land tiles
+        dominance_pct = config.get('simulation.victory.territorial_dominance_pct', 0.60)
+        if dominance_pct:
+            for house_name, count in tile_counts.items():
+                if count / total_land > dominance_pct:
+                    self._trigger_victory(house_name, "territorial dominance", global_turn)
+                    return True
         # Last survivor: only one house has living population
-        from feudal_sim.components.population import PopulationComponent
-        living = [h for h in self.houses
-                  if (h.get_component(PopulationComponent) and
-                      h.get_component(PopulationComponent).population > 0)]
-        if len(living) == 1:
-            self._trigger_victory(living[0].name, "last survivor", global_turn)
-            return True
+        if config.get('simulation.victory.last_survivor', True):
+            living = [h for h in self.houses
+                      if (h.get_component(PopulationComponent) and
+                          h.get_component(PopulationComponent).population > 0)]
+            if len(living) == 1:
+                self._trigger_victory(living[0].name, "last survivor", global_turn)
+                return True
         return False
 
     def _trigger_victory(self, winner_name: str, condition: str, global_turn: int):

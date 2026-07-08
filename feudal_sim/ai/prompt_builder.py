@@ -10,6 +10,7 @@ Supports different AI agent types: House Lords, Scouts, Generals, etc.
 """
 
 from typing import List
+from feudal_sim.core.config import config
 from feudal_sim.core.entities import Entity
 from feudal_sim.core.logger import get_logger
 from feudal_sim.ai.prompts import AgentType, get_agent_template
@@ -75,13 +76,39 @@ class PromptBuilder:
         
         return "\n".join(f"- {action}" for action in actions)
     
+    def _build_victory_section(self) -> str:
+        """Render the realm's victory conditions from config — the rules of
+        the game are public knowledge; live standings are not."""
+        conditions = []
+        dominance_pct = config.get('simulation.victory.territorial_dominance_pct', 0.60)
+        if dominance_pct:
+            conditions.append(
+                f"a house that controls more than {dominance_pct:.0%} of all land rules the realm")
+        if config.get('simulation.victory.last_survivor', True):
+            conditions.append(
+                "a house that stands alone — the last with living subjects — rules by default")
+        if not conditions:
+            return ""
+        return (
+            "**How the Realm Is Won:**\n"
+            f"The great game has an end: {'; or '.join(conditions)}. "
+            "A year is 16 weeks — four turns to a season, four seasons to a year. "
+            "Every season you do not advance toward victory, another house does."
+        )
+
     def _build_mechanics_sections(self) -> str:
         """Build mechanics explanations from entity components."""
         if not self.entity:
             return ""
-        
+
         mechanics = []
-        
+
+        # Victory conditions lead the universal laws — agents must know
+        # what winning means
+        victory_section = self._build_victory_section()
+        if victory_section:
+            mechanics.append(victory_section)
+
         # Get lore sections from all components
         for component in self.entity.get_all_components():
             if hasattr(component, 'get_lore_section'):
