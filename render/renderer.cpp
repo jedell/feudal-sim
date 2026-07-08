@@ -665,6 +665,9 @@ public:
 
         InitWindow(width, height, title.c_str());
         SetTargetFPS(60);
+        // ESC is bound to deselect (see handle_input); without this raylib
+        // treats ESC as the window-exit key and quits the whole app.
+        SetExitKey(KEY_NULL);
         
         // Load sprites after raylib is fully initialized
         load_sprites();
@@ -755,8 +758,11 @@ public:
             draw_minimap(tile_data, memory_size / sizeof(HexTile));
             draw_event_log_panel();
             
-            // Draw status indicators (top right)
-            int status_x = width - 150;
+            // Draw status indicators (top right); shift left of the entity
+            // inspector panel (240px wide at the right edge) when it is open
+            bool inspector_open = (selected_entity_index >= 0 && current_entity_data &&
+                                   selected_entity_index < current_num_entities);
+            int status_x = inspector_open ? width - 410 : width - 150;
             int status_y = 15;
             
             std::string territory_status = show_territory ? "Territory: ON" : "Territory: OFF";
@@ -1382,8 +1388,9 @@ public:
             }
         }
         
-        // Draw general name above sprite (generals only, tile large enough)
-        if (entity.entity_type == 0 && tile_size > 30) {
+        // Draw general name above sprite (generals only, when zoomed in enough
+        // to read it — tile_size is constant, so gate on on-screen size)
+        if (entity.entity_type == 0 && tile_size * camera.zoom > 26) {
             std::string name_str(entity.name.data());
             if (!name_str.empty()) {
                 int name_font_size = std::max(7, std::min(10, (int)(tile_size * 0.13f)));
@@ -1829,7 +1836,7 @@ private:
             const char* entry = events_base + idx * EVENT_STR_SIZE;
             if (entry[0] == '\0') continue;
             std::string line(entry, strnlen(entry, EVENT_STR_SIZE - 1));
-            if (line.size() > 35) line = line.substr(0, 34) + "...";
+            if (line.size() > 44) line = line.substr(0, 43) + "...";
             Color lc = (i == 0) ? WHITE : LIGHTGRAY;
             DrawTextEx(GetFontDefault(), line.c_str(),
                        {(float)(PANEL_X + 5), (float)y}, 9, 1, lc);
@@ -2061,6 +2068,42 @@ private:
         }
     }
 
+    // Row click in the entity list overlay ("click row to select").
+    // Returns true if the click landed on the overlay (consumed).
+    bool check_entity_list_click(float mouse_x, float mouse_y) {
+        if (!show_entity_list || !current_entity_data) return false;
+
+        // Same entity filter and panel geometry as draw_entity_list_overlay
+        std::vector<int> valid;
+        for (int i = 0; i < current_num_entities; ++i) {
+            PositionedEntity* e = &current_entity_data[i];
+            if (strlen(e->name.data()) > 0 &&
+                std::string(e->name.data()).find("__") != 0) {
+                valid.push_back(i);
+            }
+        }
+
+        int row_h   = 16;
+        int panel_w = 580;
+        int hdr_h   = 30;
+        int panel_h = hdr_h + row_h + 6 + (int)valid.size() * row_h + 16;
+        int panel_x = (width - panel_w) / 2;
+        int panel_y = (height - panel_h) / 2;
+
+        if (mouse_x < panel_x || mouse_x > panel_x + panel_w ||
+            mouse_y < panel_y || mouse_y > panel_y + panel_h) {
+            return false;
+        }
+
+        int first_row_y = panel_y + hdr_h + 4 + row_h;
+        int row = (int)((mouse_y - first_row_y) / row_h);
+        if (mouse_y >= first_row_y && row >= 0 && row < (int)valid.size()) {
+            selected_entity_index = valid[row];
+            show_entity_list = false;  // close overlay to reveal the inspector
+        }
+        return true;
+    }
+
     bool check_house_panel_click(float mouse_x, float mouse_y) {
         int panel_width = 200;
         int collapsed_height = 30;
@@ -2196,10 +2239,11 @@ private:
             show_entity_list = false;
         }
 
-        // Left click: house panel first, then entity select
+        // Left click: entity list overlay first, then house panel, then entity select
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mouse_pos = GetMousePosition();
-            if (!check_house_panel_click(mouse_pos.x, mouse_pos.y)) {
+            if (!check_entity_list_click(mouse_pos.x, mouse_pos.y) &&
+                !check_house_panel_click(mouse_pos.x, mouse_pos.y)) {
                 check_entity_click(mouse_pos.x, mouse_pos.y, shared_tile_map);
             }
         }
