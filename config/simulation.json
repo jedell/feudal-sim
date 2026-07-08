@@ -18,8 +18,8 @@
     },
     "disabled_tools": [],
     "max_message_history": 80,
-    "max_turns_house": 10,
-    "max_turns_general": 10
+    "max_turns_house": 25,
+    "max_turns_general": 15
   },
   "population": {
     "birth_rate": 0.035,
