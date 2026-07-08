@@ -301,39 +301,16 @@ class PopulationComponent(Component):
             )
     
     def add_observation_for_changes(self, ai_component=None, phase: str = "Production"):
-        """Add population change observations to AI component."""
+        """Add critical population events to AI component. Population/loyalty deltas
+        are already visible in the turn context status block — only revolt risk is injected here."""
         if not ai_component:
             return
-        
-        # Population change observations
-        if self.population != self._previous_population:
-            change = self.population - self._previous_population
-            if change > 0:
-                ai_component.add_observation(f"Your population grew by {change} people (now {self.population})", phase)
-            elif change < 0:
-                ai_component.add_observation(f"Your population decreased by {abs(change)} people (now {self.population})", phase)
-        
-        # Loyalty change observations
-        if abs(self.population_loyalty - self._previous_loyalty) > 0:
-            if self.population_loyalty > self._previous_loyalty:
-                ai_component.add_observation(f"Population loyalty increased to {self.population_loyalty}", phase)
-            else:
-                ai_component.add_observation(f"Population loyalty decreased to {self.population_loyalty}", phase)
-        
-        # Revolt warning
+
         if self.check_revolt_risk():
-            loyalty_threshold = config.get('simulation.population.revolt.loyalty_threshold', 30)
             chance_per_turn = config.get('simulation.population.revolt.chance_per_turn', 0.25)
-            food_loss_percent = config.get('simulation.population.revolt.resource_loss.food_percent', 0.2)
-            material_loss_percent = config.get('simulation.population.revolt.resource_loss.material_percent', 0.15)
-            metal_loss_percent = config.get('simulation.population.revolt.resource_loss.metal_percent', 0.1)
-            gold_loss_percent = config.get('simulation.population.revolt.resource_loss.gold_percent', 0.25)
-            
             ai_component.add_observation(
-                f"⚠️ REVOLT RISK: Population loyalty ({self.population_loyalty}) is below {loyalty_threshold}! "
-                f"There's a {chance_per_turn*100:.0f}% chance of revolt each turn, which could cause territory loss "
-                f"and resource damage ({food_loss_percent*100:.0f}% food, {material_loss_percent*100:.0f}% material, "
-                f"{metal_loss_percent*100:.0f}% metal, {gold_loss_percent*100:.0f}% gold)!", 
+                f"REVOLT RISK: Loyalty at {self.population_loyalty} — "
+                f"{chance_per_turn*100:.0f}% chance of revolt this turn (territory loss + resource damage).",
                 phase
             )
     

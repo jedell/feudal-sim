@@ -9,6 +9,9 @@ fortification, and resource management.
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from feudal_sim.core.entities import Component
+from feudal_sim.core.logger import get_logger
+
+log = get_logger(__name__)
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.core.config import config
 from feudal_sim.components.population import AssignedPopulation
@@ -64,7 +67,14 @@ class SubAgentGroup(Component):
         self.morale = 100  # Group morale (affects performance)
         self.supplies = 100  # Supply level (consumed over time)
         self.experience = 0  # Experience points from successful missions
-        
+
+        # Combat state
+        self.equipment_level = 0       # 0-100 — percentage of soldiers with proper arms/armour
+        self.stationary_turns = 0      # consecutive turns without moving
+        self.last_position = None      # position at end of previous turn
+        self.ambush_ready = False      # True when stationary 2+ turns (eligible to spring ambush)
+        self.in_contact_event = False  # True during an active GeneralContactEvent
+
         # Performance tracking
         self.turns_deployed = 0
         self.successful_actions = 0
@@ -343,7 +353,20 @@ class SubAgentGroup(Component):
             entity_manager: Optional entity manager to resolve parent house for upkeep
         """
         self.turns_deployed += 1
-        
+
+        # Track stationary state for ambush eligibility
+        if self.entity:
+            from feudal_sim.components.position import PositionComponent as _PC
+            pos = self.entity.get_component(_PC)
+            if pos and pos.position:
+                if self.last_position == pos.position:
+                    self.stationary_turns += 1
+                else:
+                    self.stationary_turns = 0
+                    self.ambush_ready = False
+                self.last_position = pos.position
+                self.ambush_ready = (self.stationary_turns >= 2)
+
         # Consume supplies automatically each turn
         had_supplies = self.consume_supplies()
         
@@ -405,8 +428,8 @@ class SubAgentGroup(Component):
                         # Paid successfully: minor morale stabilization
                         self.adjust_morale(1)
                         self.unpaid_turns = 0
-        except Exception:
-            pass
+        except Exception as _e:
+            log.warning(f"⚠️  {_e}")
         
         # Auto-resupply when on owned territory (quick win to reduce disband churn)
         try:
@@ -421,8 +444,8 @@ class SubAgentGroup(Component):
                         from feudal_sim.core.config import config
                         resupply_amt = config.get('simulation.subagents.resupply_per_turn_on_owned', 20)
                         self.supplies = min(100, self.supplies + max(0, int(resupply_amt)))
-        except Exception:
-            pass
+        except Exception as _e:
+            log.warning(f"⚠️  {_e}")
         
         # Pre-disband warnings to parent house AI
         try:
@@ -446,8 +469,8 @@ class SubAgentGroup(Component):
                             f"General {gen_name}: " + ", ".join(warnings) + "; resupply or support recommended",
                             phase="Actions"
                         )
-        except Exception:
-            pass
+        except Exception as _e:
+            log.warning(f"⚠️  {_e}")
         
         # Check for mission completion/disband conditions
         max_unpaid, morale_thresh = get_upkeep_thresholds()

@@ -6,8 +6,10 @@ different combinations of behaviors through components.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Type, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Type, Optional, List, TypeVar, TYPE_CHECKING, overload
 import uuid
+
+T = TypeVar('T', bound='Component')
 
 if TYPE_CHECKING:
     from feudal_sim.core.entities import Entity
@@ -99,15 +101,16 @@ class Entity:
             return component
         return None
     
-    def get_component(self, component_type: Type[Component]) -> Optional[Component]:
+    @overload
+    def get_component(self, component_type: Type[T]) -> Optional[T]: ...
+    @overload
+    def get_component(self, component_type: Type['Component']) -> Optional['Component']: ...
+    def get_component(self, component_type):
         """
         Get a component of the specified type.
-        
-        Args:
-            component_type: The type of component to retrieve
-            
+
         Returns:
-            The component instance, or None if not found
+            The component instance typed as the requested subclass, or None if not found.
         """
         return self._components.get(component_type)
     
@@ -558,3 +561,8 @@ class EntityManager:
         typed = self._entities_by_type.get(entity_type, [])
         return [entity for entity in typed
                 if hasattr(entity, 'house_id') and entity.house_id == house_id and entity.is_active()]
+    
+    def add_priority_action_event(self, event):
+        """Add priority action event to simulation processor."""
+        if hasattr(self, '_simulation_ref') and self._simulation_ref:
+            self._simulation_ref.priority_processor.add_event(event)

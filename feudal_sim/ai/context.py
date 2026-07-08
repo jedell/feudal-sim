@@ -13,7 +13,7 @@ class SimulationContext:
     """
     entity_id: str
     entity_name: str
-    current_turn: int
+    current_turn: int        # week within season (1-4) — for display
     current_phase: str
     current_season: str
     current_year: int

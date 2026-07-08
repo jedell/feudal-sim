@@ -266,7 +266,7 @@ class TerrainObservation(Component):
         return min(1.0, viability)
     
     def _detect_threats_at_tile(self, tile, tile_pos: Tuple[int, int], 
-                               current_turn: int) -> List[ThreatDetection]:
+                                      current_turn: int) -> List[ThreatDetection]:
         """
         Detect threats at a specific tile location.
         
@@ -280,17 +280,8 @@ class TerrainObservation(Component):
         """
         threats = []
         
-        # Check for enemy territorial control
-        if hasattr(tile, 'owner') and tile.owner and self.entity:
-            if hasattr(self.entity, 'house_id') and hasattr(tile.owner, 'id'):
-                if tile.owner.id != self.entity.house_id:
-                    threats.append(ThreatDetection(
-                        threat_type="contested_territory",
-                        position=tile_pos,
-                        threat_level="medium",
-                        description=f"Territory controlled by {getattr(tile.owner, 'name', 'unknown house')}",
-                        detected_turn=current_turn
-                    ))
+        # Owned land by other houses is not considered a threat by itself.
+        # Only actual enemy entities in the area are treated as threats.
         
         # Check for enemy entities (using spatial queries if available)
         if hasattr(self, '_entity_manager') and self._entity_manager:
@@ -482,6 +473,47 @@ class TerrainObservation(Component):
             } if self.opportunities_found else {}
         }
     
+    def get_passive_observation_text(self) -> str:
+        """
+        Generate a concise natural language summary of the current observation state.
+        Used for automatic passive observation injected each turn without tool calls.
+        """
+        if not self.observed_tiles:
+            return ""
+
+        unowned_count = sum(1 for obs in self.observed_tiles.values() if obs.owner is None)
+        foreign: Dict[str, int] = {}
+        for obs in self.observed_tiles.values():
+            if obs.owner_house:
+                foreign[obs.owner_house] = foreign.get(obs.owner_house, 0) + 1
+
+        parts = []
+        parts.append(f"{len(self.observed_tiles)} tiles in view")
+
+        if unowned_count:
+            parts.append(f"{unowned_count} unowned (claimable)")
+
+        for house_name, count in foreign.items():
+            parts.append(f"{count} held by {house_name}")
+
+        if self.threats_detected:
+            high = sum(1 for t in self.threats_detected if t.threat_level == "high")
+            med = sum(1 for t in self.threats_detected if t.threat_level == "medium")
+            threat_parts = []
+            if high:
+                threat_parts.append(f"{high} high-threat")
+            if med:
+                threat_parts.append(f"{med} medium-threat")
+            parts.append("threats: " + ", ".join(threat_parts))
+        else:
+            parts.append("no threats detected")
+
+        best = self.get_best_expansion_target(['resource', 'settlement'])
+        if best:
+            parts.append(f"notable {best.opportunity_type} opportunity nearby ({best.estimated_difficulty})")
+
+        return "Passive scan: " + " | ".join(parts) + "."
+
     def update(self, dt: float, event_bus=None):
         """Component update method - could be used for periodic observation."""
         pass

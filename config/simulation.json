@@ -1,8 +1,25 @@
 {
   "ai": {
     "enabled": true,
-    "model": "gpt-4.1-mini",
-    "disabled_tools": []
+    "model": "gpt-5-mini-2025-08-07",
+    "models": {
+      "house_lord": "gpt-5-mini-2025-08-07",
+      "general":    "gpt-5-nano-2025-08-07",
+      "merchant":   "gpt-5-nano-2025-08-07",
+      "scout":      "gpt-5-nano-2025-08-07",
+      "diplomat":   "gpt-5-nano-2025-08-07"
+    },
+    "reasoning_effort": {
+      "house_lord": "medium",
+      "general":    null,
+      "merchant":   null,
+      "scout":      null,
+      "diplomat":   "low"
+    },
+    "disabled_tools": [],
+    "max_message_history": 80,
+    "max_turns_house": 10,
+    "max_turns_general": 10
   },
   "population": {
     "birth_rate": 0.035,
@@ -29,7 +46,7 @@
       }
     },
     "feast": {
-      "cooldown_turns": 4,
+      "cooldown_turns": 1,
       "base_loyalty_boost": 8,
       "food_factor": 0.02,
       "gold_factor": 0.03
@@ -38,7 +55,24 @@
   "subagents": {
     "supply_consumption_per_turn": 3,
     "low_supply_threshold": 25,
-    "resupply_per_turn_on_owned": 20
+    "resupply_per_turn_on_owned": 20,
+    "upkeep": {
+      "gold_per_soldier": 1,
+      "gold_per_worker": 0,
+      "food_per_soldier": 0.25,
+      "food_per_worker": 0.25,
+      "max_unpaid_turns": 3,
+      "morale_disband_threshold": 10
+    },
+    "deploy_general": {
+      "base_gold": 30,
+      "base_material": 18,
+      "gold_per_soldier": 0.6,
+      "material_per_soldier": 0.6,
+      "gold_per_worker": 0,
+      "material_per_worker": 0.6
+    },
+    "settlement_material_cost": 8
   },
   "resources": {
     "gathering_multiplier": 10,
@@ -76,6 +110,20 @@
     "resource_nodes": {
       "count_multiplier": 0.005,
       "gold_mine_ratio": 0.1
+    }
+  },
+  "priority_actions": {
+    "max_concurrent_events": 5,
+    "conversation_timeout_turns": 2,
+    "default_conversation_rounds": 3,
+    "trade_caravan": {
+      "negotiation_enabled": true,
+      "max_negotiation_rounds": 3,
+      "auto_timeout_turns": 2
+    },
+    "diplomatic_summit": {
+      "max_participants": 4,
+      "negotiation_rounds": 5
     }
   }
 }

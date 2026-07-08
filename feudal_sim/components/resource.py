@@ -92,9 +92,10 @@ class ResourceComponent(Component):
         
         # Resource gathering efficiency modifier
         self.gathering_efficiency = 1.0
-        
+
         # Track resource changes for observations
         self._previous_resources = self.resources.to_dict()
+        self._last_seasonal_modifier = 1.0
     
     def gather_resources_from_territories(self, territories: Set, population_ratio: float = 1.0, seasonal_modifier: float = 1.0, worker_efficiency: float = 1.0):
         """
@@ -108,7 +109,8 @@ class ResourceComponent(Component):
         """
         # Store old values for event emission
         old_resources = self.resources.to_dict()
-        
+        self._last_seasonal_modifier = seasonal_modifier
+
         # Use worker efficiency instead of old population ratio method
         # Keep population_ratio for backward compatibility but prioritize worker_efficiency
         if worker_efficiency != 1.0:
@@ -128,21 +130,30 @@ class ResourceComponent(Component):
             pass
         
         # Gather from each territory
+        from feudal_sim.map.tile_extensions import get_base_metal_output, get_resource_bonus
         for hex_tile in territories:
-            # Apply seasonal modifier to farming output
-            food_modifier = seasonal_modifier if 'food' in ['food'] else 1.0
+            food_modifier = seasonal_modifier
             gathering_multiplier = config.get('simulation.resources.gathering_multiplier', 1.0)
-            
-            # Gather resources with efficiency and modifiers
+
             self.resources.add('food', math.ceil(
                 hex_tile.food_output * gathering_multiplier * efficiency * food_modifier
             ))
             self.resources.add('material', math.ceil(
                 hex_tile.material_output * gathering_multiplier * efficiency
             ))
+
+            # Use base metal output (strips resource node encoding) then apply node bonus
+            base_metal = get_base_metal_output(hex_tile)
+            bonus = get_resource_bonus(hex_tile)
+            metal_mult = bonus.get('metal_multiplier', 1.0)
             self.resources.add('metal', math.ceil(
-                hex_tile.metal_output * gathering_multiplier * efficiency
+                base_metal * gathering_multiplier * efficiency * metal_mult
             ))
+            # Gold mines produce bonus gold per turn
+            if bonus.get('gold_flat', 0) > 0:
+                self.resources.add('gold', math.ceil(
+                    bonus['gold_flat'] * gathering_multiplier * efficiency
+                ))
         
         # Generate observations and emit events for changes
         self._process_resource_changes(old_resources)
@@ -235,31 +246,47 @@ class ResourceComponent(Component):
     
     def add_observation_for_changes(self, ai_component=None, phase: str = "Production"):
         """
-        Add resource change observations to AI component.
-        
-        Args:
-            ai_component: AI component to add observations to
-            phase: Current phase name for observation context
+        Add resource change observations to AI component as a single aggregated message.
+        Reports all net changes (positive and negative) with seasonal context.
         """
         if not ai_component:
             return
-        
+
         current_resources = self.resources.to_dict()
-        resource_changes = {}
-        
+        gains = {}
+        losses = {}
+
         for resource_type in ['food', 'material', 'metal', 'gold']:
             old_value = self._previous_resources.get(resource_type, 0)
-            new_value = current_resources[resource_type]
-            change = new_value - old_value
-            if change > 0:
-                resource_changes[resource_type] = change
-        
-        if resource_changes:
-            # Create natural language observation for AI
-            changes_text = ", ".join([f"+{amount} {resource}" for resource, amount in resource_changes.items()])
-            ai_component.add_observation(f"Your territories produced {changes_text} this turn", phase)
-        
-        # Update previous resources for next comparison
+            change = current_resources[resource_type] - old_value
+            if change > 0.5:
+                gains[resource_type] = change
+            elif change < -0.5:
+                losses[resource_type] = abs(change)
+
+        parts = []
+        if gains:
+            parts.append("gained " + ", ".join(f"+{v:.0f} {k}" for k, v in gains.items()))
+        if losses:
+            parts.append("lost " + ", ".join(f"-{v:.0f} {k}" for k, v in losses.items()))
+
+        if parts:
+            seasonal = self._last_seasonal_modifier
+            if seasonal >= 1.5:
+                seasonal_note = " (excellent harvest conditions)"
+            elif seasonal >= 1.2:
+                seasonal_note = " (good harvest)"
+            elif seasonal <= 0.4:
+                seasonal_note = " (lean season — poor yields)"
+            elif seasonal <= 0.8:
+                seasonal_note = " (reduced harvest)"
+            else:
+                seasonal_note = ""
+            ai_component.add_observation(
+                f"Production this turn: {', '.join(parts)}{seasonal_note}", phase
+            )
+
+        # Update snapshot for next turn's comparison
         self._previous_resources = current_resources.copy()
     
     def _calculate_efficiency(self, population_ratio: float) -> float:

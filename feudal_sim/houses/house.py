@@ -2,7 +2,7 @@ import numpy as np
 import math
 from feudal_sim.map.types import Color
 from feudal_sim.map.hex_tile import HexTile
-from feudal_sim.houses.observations.scout import gather_scout_data, make_scout
+from feudal_sim.houses.observations.scout import gather_scout_data
 from feudal_sim.components.ai import AIComponent
 from feudal_sim.components.rookery import RookeryComponent
 from feudal_sim.components.resource import ResourceComponent
@@ -32,7 +32,9 @@ class House(Entity):
             ('gold', np.float32),
             ('population', np.int32),
             ('population_loyalty', np.int32),
-            ('military_power', np.int32)
+            ('military_power', np.int32),
+            ('ravens_in_transit', np.int32),  # outgoing ravens count
+            ('at_war', np.int32),             # number of active wars
         ])
     
     def __init__(self, name, starting_attributes={}, color: Color = Color(0, 0, 0, 0), known_recipients: list = None):
@@ -48,7 +50,6 @@ class House(Entity):
 
         # observations per step
         self.observations = []
-        self.scout = make_scout(self.name)
         
         # Store known recipients for component setup
         self.known_recipients = known_recipients or []
@@ -142,15 +143,43 @@ class House(Entity):
         self.add_component(ai_component)
     
     def _create_ai_component(self):
-        """Create an AI component with dynamic name and persona generation."""
-        # Option 1: Use predefined personas for well-known houses
+        """Create an AI component. All houses use archetype-based generation — dynamic every run."""
+        return AIComponent(
+            agent_type=AgentType.HOUSE_LORD,
+            house_name=self.name,
+            entity_id=self.id
+        )
+
+    def _create_ai_component_unused(self):
+        """Kept for reference only — replaced by dynamic archetype system."""
         predefined_personas = {
             "Stark": """
 **Your Identity:**
-You are Lord Eddard Stark, honorable ruler of Winterfell. You value honor above all else, protect your family and the North, and are wary of southern politics. You make decisions based on duty and justice, always considering what is right over what is profitable.""",
+You are Lord Eddard Stark, honorable ruler of Winterfell. You value honor above all else, protect your family and the North, and are wary of southern politics. You make decisions based on duty and justice, always considering what is right over what is profitable.
+
+**Combat Doctrine:**
+You do not seek wars, but you defend your realm with iron resolve. If an enemy outpost sits within 5 tiles of Winterfell it is a direct threat and must be eliminated. When enemies violate your borders, you respond with force, not diplomacy. Order your generals to besiege enemy outposts that encroach on the North. A grievance unanswered is weakness shown.""",
+
             "Lannister": """
 **Your Identity:**
-You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic, wealthy, and ruthless when necessary. You believe in the power of gold and legacy, making calculated decisions for House Lannister's advantage. A Lannister always pays their debts."""
+You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic, wealthy, and ruthless when necessary. You believe in the power of gold and legacy, making calculated decisions for House Lannister's advantage. A Lannister always pays their debts.
+
+**Combat Doctrine:**
+Gold is power, and enemy outposts sit atop land and resources that belong to you by right of strength. When your military is superior and an enemy has an exposed settlement, take it. The loot from a seized outpost funds future campaigns. Do not negotiate when you can simply take. Order generals to besiege enemy outposts when the odds favour you — a successful siege enriches your house and weakens your rivals.""",
+
+            "Baratheon": """
+**Your Identity:**
+You are Robert Baratheon, the Storm King who took the throne by force. You rule through strength, feasting, and the loyalty of warriors. You are impulsive, larger than life, and believe power must be demonstrated through action.
+
+**Combat Doctrine:**
+You won your throne with a warhammer, not words. When an enemy builds near your lands, smash them before they grow strong. Your generals should aggressively seek out enemy outposts and besiege them — victory in the field is worth more than any diplomatic letter. If your generals have military superiority, USE IT. Strike first, strike hard, feast on the spoils.""",
+
+            "Targaryen": """
+**Your Identity:**
+You are of House Targaryen, rightful rulers of the Seven Kingdoms. You believe in conquest as destiny — not cruelty, but the certainty that your house should rule. You are patient, strategic, and utterly committed to dominance.
+
+**Combat Doctrine:**
+The world bends to dragonfire and steel. Your generals are instruments of conquest. When you identify an enemy outpost, it should fall. Sieging an enemy settlement seizes their territory and their resources — this is how empires are built. Prioritise military expansion over diplomacy. Demand tribute or take it. Order your generals to besiege the outposts of the weakest house first, then the next, until all kneel.""",
         }
         
         if self.name in predefined_personas:
@@ -172,14 +201,18 @@ You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic,
     
 
     def collect_observations(self, hex_grid, step_count: int):
+        from feudal_sim.houses.observations.scout import ScoutReport
         observation = {}
 
         observation['scout_report'] = []
         scout_data = gather_scout_data(self, hex_grid)
-        for report in scout_data:
-            report = self.scout(report).report
+        for _key, walk_data in scout_data.items():
+            report = ScoutReport(walk_data).report
             observation['scout_report'].append(report)
-            
+
+        # Scout data retained for observation record but not piped to AI —
+        # lords use assess_border tool for targeted intelligence.
+
         self.observations.append(observation)
 
     def manage_population(self):
@@ -359,7 +392,7 @@ You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic,
         tax_collected = resource_component.collect_taxes(population_component.population, effective_tax_rate)
         
         # loyalty decreases with higher tax rate (base rate, not efficiency-modified)
-        loyalty_decrease = math.ceil(tax_rate * 80)  # Higher tax rate leads to more loyalty decrease
+        loyalty_decrease = math.ceil(tax_rate * 50)  # Reduced from 80 — 10% tax now costs ~5 loyalty
         population_component.adjust_loyalty(-loyalty_decrease)
         
         return tax_collected

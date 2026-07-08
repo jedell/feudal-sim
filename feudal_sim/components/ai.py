@@ -7,7 +7,12 @@ each phase, then makes decisions during the Actions phase.
 """
 
 import os
-from typing import List, Optional, Dict, Any
+import logging
+from collections import deque
+from typing import List, Optional, Dict, Any, Deque
+from feudal_sim.core.logger import get_logger
+
+log = get_logger(__name__)
 from agents import Agent, Runner, set_trace_processors
 from agents.agent import StopAtTools
 import mlflow
@@ -27,7 +32,9 @@ from feudal_sim.ai.persona_generator import generate_agent_identity
 set_trace_processors([MlflowOpenAgentTracingProcessor()])
 mlflow.set_experiment("feudal_sim")
 
-MAX_TURNS = 12
+MAX_TURNS_HOUSE = config.get("simulation.ai.max_turns_house", 15)
+MAX_TURNS_GENERAL = config.get("simulation.ai.max_turns_general", 20)
+MAX_TURNS = MAX_TURNS_HOUSE  # default; overridden per agent type in make_decisions()
 
 class AIComponent(Component):
     """
@@ -64,6 +71,20 @@ class AIComponent(Component):
         
         # Message history for LLM context (proper OpenAI format)
         self.messages: List[Dict[str, str]] = []
+
+        # Persistent strategic objectives
+        self.current_objectives: List[str] = []
+
+        # Persistent realm journal — last 5 significant events
+        self.realm_journal: Deque[str] = deque(maxlen=5)
+
+        # Snapshots for delta/trend computation
+        self._resource_snapshot: Optional[Dict[str, float]] = None
+        self._population_snapshot: Optional[Dict[str, float]] = None
+
+        # Active situation contexts — injected into turn context while conditions hold.
+        # Each entry: {'id': str, 'text': str, 'expires_turn': int | None}
+        self._active_situations: List[Dict] = []
         
         # Current turn observations (added during phases, processed during Actions)
         self.pending_observations: List[str] = []
@@ -90,7 +111,7 @@ class AIComponent(Component):
         try:
             # Check for OpenAI API key
             if not os.getenv('OPENAI_API_KEY'):
-                print(f"⚠️  Warning: OPENAI_API_KEY not set. AI agent will be disabled.")
+                log.warning(f"⚠️  Warning: OPENAI_API_KEY not set. AI agent will be disabled.")
                 self.is_enabled = False
                 return
             
@@ -106,25 +127,33 @@ class AIComponent(Component):
             # Generate instructions using PromptBuilder or use static instructions
             if self.static_instructions:
                 instructions = self.static_instructions
-                print(f"🤖 Using static instructions for {self.agent_name}")
+                log.info(f"🤖 Using static instructions for {self.agent_name}")
             else:
                 # Use PromptBuilder to generate dynamic instructions
                 prompt_builder = PromptBuilder(self.entity, self.agent_type, self.persona)
                 instructions = prompt_builder.build_prompt(tools)
-                print(f"🤖 Generated dynamic instructions for {self.agent_name} ({self.agent_type.value})")
+                log.info(f"🤖 Generated dynamic instructions for {self.agent_name} ({self.agent_type.value})")
             
+            # Build model settings — reasoning effort if configured for this agent type
+            from agents import ModelSettings
+            from agents.model_settings import Reasoning  # type: ignore[attr-defined]
+            effort = config.get(f"simulation.ai.reasoning_effort.{self.agent_type.value}")
+            model_settings = ModelSettings(reasoning=Reasoning(effort=effort)) if effort else ModelSettings()
+
             # Create the agent with tools
             self.agent = Agent[SimulationContext](
                 name=self.agent_name,
                 instructions=instructions + "\n\nGrounding: Use directional language (north, NE, etc.) and avoid raw grid coordinates in observations and plans.",
                 tools=tools,
-                model=config.get("simulation.ai.model", "gpt-4o-mini"),
+                model=config.get(f"simulation.ai.models.{self.agent_type.value}")
+                      or config.get("simulation.ai.model", "gpt-4.1-mini"),
+                model_settings=model_settings,
                 tool_use_behavior=StopAtTools(
                     stop_at_tool_names=["end_turn"]
-                )   
+                )
             )
             
-            print(f"🤖 Initialized AI agent: {self.agent_name} with {len(tools)} tools")
+            log.info(f"🤖 Initialized AI agent: {self.agent_name} with {len(tools)} tools")
             
             # Seed mission/goal into message history for sub-agents (e.g., generals)
             try:
@@ -138,11 +167,11 @@ class AIComponent(Component):
                     )
                     # Push as an initial observation so it’s retained in history
                     self.add_observation(mission_text, phase="Actions", pending=False)
-            except Exception:
-                pass
-            
+            except Exception as e:
+                log.warning(f"⚠️ Could not seed mission parameters for {self.agent_name}: {e}")
+
         except Exception as e:
-            print(f"❌ Failed to initialize AI agent '{self.agent_name}': {e}")
+            log.error(f"❌ Failed to initialize AI agent '{self.agent_name}': {e}")
             self.is_enabled = False
     
     def on_added_to_entity(self, entity):
@@ -235,19 +264,19 @@ class AIComponent(Component):
             generated_name, generated_persona = generate_agent_identity(self.agent_type, house_name)
             self.agent_name = generated_name
             self.persona = generated_persona
-            print(f"🎲 Generated identity: {self.agent_name} with matching persona")
+            log.info(f"🎲 Generated identity: {self.agent_name} with matching persona")
         
         # Generate only name if needed (fallback approach)  
         elif not self.agent_name:
             from feudal_sim.ai.persona_generator import _get_fallback_name
             self.agent_name = _get_fallback_name(self.agent_type, house_name)
-            print(f"🎲 Generated fallback name: {self.agent_name}")
+            log.info(f"🎲 Generated fallback name: {self.agent_name}")
         
         # Generate only persona if needed (fallback approach)
         elif not self.persona:
             from feudal_sim.ai.persona_generator import _get_fallback_persona
             self.persona = _get_fallback_persona(self.agent_name, self.agent_type, house_name)
-            print(f"🎲 Generated fallback persona for: {self.agent_name}")
+            log.info(f"🎲 Generated fallback persona for: {self.agent_name}")
         
         # Fallback name if generation failed
         if not self.agent_name:
@@ -255,6 +284,45 @@ class AIComponent(Component):
             house_context = f" of House {house_name}" if house_name else ""
             self.agent_name = f"{role_name}{house_context}"
     
+    def inject_situation(self, situation_id: str, text: str, expires_after_turns: int = 1):
+        """
+        Inject situation-specific guidance into the agent's turn context.
+
+        The text appears prominently between message history and the state snapshot
+        every turn the situation is active, guiding the agent's immediate behaviour.
+
+        Args:
+            situation_id: Unique key — re-injecting the same id refreshes/replaces it.
+            text: Guidance text (what the situation is, what the agent should do).
+            expires_after_turns: Auto-clear after this many turns (0 = manual clear only).
+        """
+        expires_turn = None
+        if expires_after_turns > 0 and self.context:
+            expires_turn = self.context.current_turn + expires_after_turns
+        # Replace if already present
+        self._active_situations = [s for s in self._active_situations if s['id'] != situation_id]
+        self._active_situations.append({
+            'id': situation_id,
+            'text': text,
+            'expires_turn': expires_turn,
+        })
+
+    def clear_situation(self, situation_id: str):
+        """Remove a situation context by id."""
+        self._active_situations = [s for s in self._active_situations if s['id'] != situation_id]
+
+    def record_journal_entry(self, text: str) -> None:
+        """Append a significant event to the persistent realm journal (max 5 entries)."""
+        turn = self.context.current_turn if self.context else 0
+        self.realm_journal.append(f"[Turn {turn}] {text}")
+
+    def _expire_situations(self, current_turn: int):
+        """Remove any situations that have passed their expiry turn."""
+        self._active_situations = [
+            s for s in self._active_situations
+            if s['expires_turn'] is None or s['expires_turn'] > current_turn
+        ]
+
     def add_observation(self, observation: str, phase: str = None, pending: bool = True):
         """
         Add an observation from the current phase.
@@ -332,6 +400,9 @@ class AIComponent(Component):
             return f"{self.agent_name} has no context - cannot make decisions"
         
         try:
+            # Compact message history before processing new observations
+            self._compact_message_history()
+
             # Add pending observations to message history
             self._process_pending_observations()
             
@@ -341,36 +412,58 @@ class AIComponent(Component):
                 "role": "user", 
                 "content": turn_message
             })
-            print(f"👀 [{self.agent_name}] {turn_message}")
+            log.info(f"👀 [{self.agent_name}] {turn_message}")
             
             # Run the agent with full message history
             if config.get("simulation.ai.enabled", True):
+                agent_max_turns = MAX_TURNS_GENERAL if self.agent_type == AgentType.GENERAL else MAX_TURNS_HOUSE
                 result = await Runner.run(
                     starting_agent=self.agent,
-                    input=self.messages,  # Pass the message list directly
+                    input=self.messages,
                     context=self.context,
-                    max_turns=MAX_TURNS
+                    max_turns=agent_max_turns
                 )
             
                 # Add the AI's decision to message history
-                print("Len of new items: ", len(result.new_items))
                 self.messages = result.to_input_list()
             else:
-                print(f"🤖 {self.agent_name} is disabled, skipping decision making")
+                log.info(f"🤖 {self.agent_name} is disabled, skipping decision making")
                 return "AI is disabled"
             
-            # Show only new messages from this turn
+            # Log all new items: reasoning summaries, tool calls, tool outputs, text responses
+            from agents.items import (
+                ReasoningItem, MessageOutputItem, ToolCallItem, ToolCallOutputItem
+            )
             if hasattr(result, 'new_items') and result.new_items:
                 for item in result.new_items:
-                    # check if has attr
-                    if hasattr(item, 'output'):
-                        print(f"🤖 {self.agent_name} {item.output}")
-                    if hasattr(item.raw_item, 'content'):
-                        print(f"🤖 {self.agent_name} {item.raw_item.content[0].text}")
-                    if hasattr(item.raw_item, 'arguments'):
-                        print(f"🤖 {self.agent_name} {item.raw_item.name} {item.raw_item.arguments}")
-            else:
-                print(f"🤖 {self.agent_name} decision: {result.final_output}")
+                    try:
+                        if isinstance(item, ReasoningItem):
+                            summaries = getattr(item.raw_item, 'summary', [])
+                            if summaries:
+                                text = ' '.join(s.text for s in summaries if hasattr(s, 'text'))
+                                if text:
+                                    log.info(f"💭 {self.agent_name} [thinking] {text[:400]}")
+                        elif isinstance(item, ToolCallItem):
+                            raw = item.raw_item
+                            name = getattr(raw, 'name', '?')
+                            args = getattr(raw, 'arguments', '')
+                            log.info(f"🔧 {self.agent_name} {name}({args})")
+                        elif isinstance(item, ToolCallOutputItem):
+                            output = str(getattr(item, 'output', '')).strip()
+                            if output:
+                                log.info(f"   ↳ {output[:200]}")
+                        elif isinstance(item, MessageOutputItem):
+                            content = getattr(item.raw_item, 'content', [])
+                            if isinstance(content, list) and content:
+                                text = getattr(content[0], 'text', '')
+                                if text:
+                                    log.info(f"💬 {self.agent_name} {text[:400]}")
+                    except Exception as _e:
+                        log.warning(f"⚠️  Could not format agent output item: {_e}")
+
+            # Always print final output summary if present
+            if result.final_output:
+                log.info(f"✅ {self.agent_name} turn complete: {str(result.final_output)[:200]}")
             
             # Emit event for decision made
             if event_bus:
@@ -387,29 +480,216 @@ class AIComponent(Component):
             
         except Exception as e:
             error_msg = f"Error in AI decision making for {self.agent_name}: {e}"
-            print(f"❌ {error_msg}")
+            log.error(f"❌ {error_msg}")
             return error_msg
     
+    def _compact_message_history(self):
+        """
+        Trim message history to configured max, preserving the first system message.
+        Also removes orphaned tool responses — tool_call_output messages whose
+        corresponding tool_call was trimmed — which cause OpenAI 400 errors.
+        """
+        max_history = config.get("simulation.ai.max_message_history", 80)
+        if len(self.messages) <= max_history:
+            return
+
+        if self.messages and isinstance(self.messages[0], dict) and self.messages[0].get("role") == "system":
+            keep_system = [self.messages[0]]
+            candidate = keep_system + self.messages[-(max_history - 1):]
+        else:
+            candidate = self.messages[-max_history:]
+
+        # Before discarding old messages, extract a brief historical summary and
+        # write it to the IntelligenceComponent so strategic context survives compaction.
+        being_dropped = self.messages[:len(self.messages) - len(candidate)]
+        if being_dropped and self.entity:
+            try:
+                from feudal_sim.components.intelligence import IntelligenceComponent
+                intel = self.entity.get_component(IntelligenceComponent)
+                if intel:
+                    tool_calls = []
+                    for msg in being_dropped:
+                        if not isinstance(msg, dict):
+                            continue
+                        if msg.get('type') == 'function_call':
+                            name = msg.get('name', '')
+                            if name and name not in ('end_turn', 'write_compendium', 'read_compendium'):
+                                tool_calls.append(name)
+                    if tool_calls:
+                        summary = f"[Compacted] Actions taken: {', '.join(tool_calls[:12])}"
+                        intel.add_note("Historical Record", summary)
+            except Exception:
+                pass
+
+        # Step 1: Advance to the first user message to avoid splitting reasoning+function_call
+        # pairs at the trim boundary. gpt-5 models return {"type":"reasoning"} items that must
+        # remain paired with their subsequent function_call items. Starting at a user message
+        # guarantees we never begin mid-turn.
+        first_user = next(
+            (i for i, msg in enumerate(candidate)
+             if isinstance(msg, dict) and msg.get("role") == "user"),
+            None
+        )
+        if first_user and first_user > 0:
+            # Preserve system message at index 0 if present
+            if isinstance(candidate[0], dict) and candidate[0].get("role") == "system":
+                candidate = [candidate[0]] + candidate[first_user:]
+            else:
+                candidate = candidate[first_user:]
+
+        # Step 2: Collect all function_call IDs in the candidate
+        call_ids: set = set()
+        for msg in candidate:
+            if not isinstance(msg, dict):
+                continue
+            msg_type = msg.get("type")
+            if msg_type == "function_call":
+                call_ids.add(msg.get("call_id"))
+            for tc in msg.get("tool_calls") or []:
+                if isinstance(tc, dict):
+                    call_ids.add(tc.get("id"))
+            content = msg.get("content") or []
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") in ("tool_use", "function_call"):
+                        call_ids.add(item.get("id") or item.get("call_id"))
+
+        # Step 3: Drop orphaned tool responses whose matching call is no longer in the window
+        cleaned = []
+        for msg in candidate:
+            if isinstance(msg, dict):
+                msg_type = msg.get("type")
+                if msg_type == "function_call_output":
+                    if msg.get("call_id") not in call_ids:
+                        continue
+                elif msg.get("role") == "tool":
+                    if msg.get("tool_call_id") not in call_ids:
+                        continue
+            cleaned.append(msg)
+
+        self.messages = cleaned
+
     def _process_pending_observations(self):
         """
-        Add all pending observations to the message history as user messages.
+        Group pending observations by phase and emit one user message per phase.
+        This produces coherent context blocks rather than disconnected single-line messages.
         """
         if not self.pending_observations:
             return
-        
-        # Add each observation as a separate user message
-        for obs in self.pending_observations:
-            self.messages.append({
-                "role": "user",
-                "content": obs
-            })
 
-        # print observations
+        # Parse phase prefix — format is "[Phase] content"
+        phase_groups: Dict[str, List[str]] = {}
+        unphased: List[str] = []
+
         for obs in self.pending_observations:
-            print(f"👀 {self.agent_name} {obs}")
+            if obs.startswith('[') and ']' in obs:
+                bracket_end = obs.index(']')
+                phase_name = obs[1:bracket_end]
+                content = obs[bracket_end + 2:]  # skip '] '
+                phase_groups.setdefault(phase_name, []).append(content)
+            else:
+                unphased.append(obs)
+
+        # Emit in canonical phase order, then any extras
+        for phase in ('Production', 'Events', 'Actions'):
+            if phase not in phase_groups:
+                continue
+            items = phase_groups.pop(phase)
+            body = "\n".join(f"• {item}" for item in items)
+            message = f"[{phase} Update]\n{body}"
+            self.messages.append({"role": "user", "content": message})
+            log.info(f"👀 {self.agent_name} [{phase}] {len(items)} observation(s)")
+
+        for phase, items in phase_groups.items():
+            body = "\n".join(f"• {item}" for item in items)
+            message = f"[{phase} Update]\n{body}"
+            self.messages.append({"role": "user", "content": message})
+            log.info(f"👀 {self.agent_name} [{phase}] {len(items)} observation(s)")
+
+        if unphased:
+            self.messages.append({"role": "user", "content": "\n".join(unphased)})
 
         self.pending_observations.clear()
     
+    def _build_urgency_flags(self) -> List[str]:
+        """Build urgency/warning flags based on current entity state."""
+        flags = []
+        if not self.entity:
+            return flags
+
+        # Lord/house flags
+        population_component: PopulationComponent = self.entity.get_component(PopulationComponent)
+        if population_component:
+            loyalty = population_component.loyalty
+            if loyalty < 40:
+                flags.append(f"⚠️ CRITICAL: Population loyalty at {loyalty:.0f} — revolt imminent")
+            elif loyalty < 60:
+                flags.append(f"⚠️ WARNING: Population loyalty at {loyalty:.0f} — consider holding a feast")
+
+        resource_component: ResourceComponent = self.entity.get_component(ResourceComponent)
+        if resource_component:
+            food = resource_component.resources.food
+            if food < 50:
+                flags.append(f"⚠️ WARNING: Food stores critically low ({food:.0f}) — population may starve")
+            # Connect food crisis to deployed forces
+            if food < 100:
+                territory_component: TerritoryComponent = self.entity.get_component(TerritoryComponent)
+                if territory_component and territory_component.deployed_generals:
+                    total_deployed = sum(
+                        g.get('soldiers_assigned', 0) + g.get('workers_assigned', 0)
+                        for g in territory_component.deployed_generals
+                    )
+                    if total_deployed > 0:
+                        flags.append(
+                            f"⚠️ {total_deployed} people deployed in the field are not producing food "
+                            f"— consider disbanding generals if starvation is imminent"
+                        )
+
+        # General flags
+        from feudal_sim.components.subagent_group import SubAgentGroup
+        group = self.entity.get_component(SubAgentGroup)
+        if group:
+            if group.morale < 30:
+                flags.append(f"⚠️ CRITICAL: Troop morale at {group.morale}% — risk of desertion")
+            if group.supplies < 20:
+                flags.append(f"⚠️ WARNING: Supplies at {group.supplies}% — resupply needed")
+
+        return flags
+
+    @staticmethod
+    def _loyalty_mood(loyalty: float) -> str:
+        if loyalty < 40:   return "revolt imminent"
+        if loyalty < 55:   return "grumbling"
+        if loyalty < 70:   return "content"
+        if loyalty < 85:   return "loyal"
+        return "devoted"
+
+    @staticmethod
+    def _format_stat_line(label: str, current: float, previous: Optional[float],
+                          depletion: bool = False, suffix: str = "") -> str:
+        """Format a single stat with trend arrow, net change, and optional depletion estimate."""
+        if previous is None:
+            return f"{label}: {current:.0f}{suffix}"
+
+        delta = current - previous
+        if abs(delta) < 1:
+            trend = "→"
+            delta_text = " (stable)"
+        elif delta > 0:
+            trend = "↑"
+            delta_text = f" +{delta:.0f}/wk"
+        else:
+            trend = "↓"
+            delta_text = f" {delta:.0f}/wk"
+
+        depletion_text = ""
+        if depletion and delta < -0.5 and current > 0:
+            weeks = current / abs(delta)
+            if weeks <= 6:
+                depletion_text = f"  (~{weeks:.0f} wk remaining)"
+
+        return f"{label}: {current:.0f}  {trend}{delta_text}{depletion_text}{suffix}"
+
     def _generate_turn_context_message(self) -> str:
         """
         Generate the current turn context message.
@@ -427,27 +707,120 @@ class AIComponent(Component):
             ""
         ]
         
+        # Expire any stale situations
+        self._expire_situations(self.context.current_turn)
+
+        # Inject active situation contexts — highest priority, read before state snapshot
+        if self._active_situations:
+            for situation in self._active_situations:
+                context_parts.append(f"[Situation: {situation['id']}]")
+                context_parts.append(situation['text'])
+                context_parts.append("")
+
+        # Add urgency flags if any
+        urgency_flags = self._build_urgency_flags()
+        if urgency_flags:
+            context_parts.extend(urgency_flags)
+            context_parts.append("")
+
         # Add current resource and population status
         if self.entity:
-            # Get resource status
             resource_component: ResourceComponent = self.entity.get_component(ResourceComponent)
             if resource_component:
                 resources = resource_component.resources.to_dict()
-                context_parts.append(f"Resources: {resources['food']:.1f} food, {resources['material']:.1f} material, {resources['metal']:.1f} metal, {resources['gold']:.1f} gold")
-            
-            # Get population status
+                res_lines = []
+                for key in ('food', 'material', 'metal', 'gold'):
+                    val = resources[key]
+                    prev = self._resource_snapshot.get(key) if self._resource_snapshot else None
+                    res_lines.append(self._format_stat_line(key.title(), val, prev, depletion=True))
+                context_parts.append("Resources:")
+                context_parts.extend(f"  {l}" for l in res_lines)
+
             population_component: PopulationComponent = self.entity.get_component(PopulationComponent)
             if population_component:
-                context_parts.append(f"Population: {population_component.population}, Loyalty: {population_component.loyalty:.1f}")
-            
-            # Get territory status
+                pop = population_component.population
+                loyalty = population_component.loyalty
+                prev_pop = self._population_snapshot.get('population') if self._population_snapshot else None
+                prev_loyalty = self._population_snapshot.get('loyalty') if self._population_snapshot else None
+                mood = self._loyalty_mood(loyalty)
+                pop_line = self._format_stat_line("Population", pop, prev_pop, depletion=False)
+                loyalty_line = self._format_stat_line("Loyalty", loyalty, prev_loyalty, depletion=False, suffix=f" ({mood})")
+                context_parts.append(f"{pop_line}")
+                context_parts.append(f"{loyalty_line}")
+
             territory_component: TerritoryComponent = self.entity.get_component(TerritoryComponent)
             if territory_component:
-                territory_status = territory_component.get_territory_status()
-                context_parts.append(f"Territory: {territory_status['territory_size']} tiles, {territory_status['pending_expansions']} pending expansions")
-            
+                hex_grid = self.context.hex_grid if self.context else None
+                if hex_grid:
+                    entity_mgr = self.context.entity_manager if self.context else None
+                    context_parts.append(territory_component.format_realm_overview(hex_grid, entity_mgr))
+                else:
+                    territory_status = territory_component.get_territory_status()
+                    context_parts.append(f"Territory: {territory_status['territory_size']} tiles, {territory_status['pending_expansions']} pending expansions")
+
+            # Recent intelligence from compendium
+            try:
+                from feudal_sim.components.intelligence import IntelligenceComponent
+                intel = self.entity.get_component(IntelligenceComponent)
+                if intel:
+                    topics = intel.list_topics()
+                    recent_notes = []
+                    for topic in topics:
+                        raw = intel.read_topic(topic)
+                        if raw:
+                            # Take last 2 lines per topic to keep it concise
+                            lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
+                            recent_notes.extend(lines[-2:])
+                    if recent_notes:
+                        context_parts.append("Recent intelligence:")
+                        for note in recent_notes[-4:]:  # cap at 4 total entries
+                            context_parts.append(f"  {note}")
+            except Exception as e:
+                log.warning(f"⚠️ Could not read intelligence for {self.agent_name}: {e}")
+
+            # Feast cooldown status — critical for loyalty planning
+            if population_component and hasattr(population_component, 'last_feast_turn') and self.context:
+                cooldown = config.get('simulation.population.feast.cooldown_turns', 1)
+                turns_since = self.context.current_turn - population_component.last_feast_turn
+                if turns_since >= cooldown:
+                    context_parts.append("Feast: available now")
+                else:
+                    context_parts.append(f"Feast: available in {cooldown - turns_since} turn(s)")
+
+            # Deployed generals and estimated upkeep
+            if territory_component and territory_component.deployed_generals:
+                n_generals = len(territory_component.deployed_generals)
+                if n_generals:
+                    upkeep_est = n_generals * config.get('simulation.subagents.supply_consumption_per_turn', 3) * 2
+                    context_parts.append(f"Generals deployed: {n_generals}  (est. upkeep ~{upkeep_est} gold/turn)")
+
             context_parts.append("")  # Empty line before question
-        
+
+            # Update snapshots for next turn's delta computation
+            if resource_component:
+                self._resource_snapshot = dict(resource_component.resources.to_dict())
+            if population_component:
+                self._population_snapshot = {
+                    'population': population_component.population,
+                    'loyalty': population_component.loyalty,
+                }
+
+        # Inject realm journal (persistent event log)
+        if self.realm_journal:
+            context_parts.append("Recent History:")
+            for entry in self.realm_journal:
+                context_parts.append(f"  {entry}")
+            context_parts.append("")
+
+        # Inject current objectives if set
+        if self.current_objectives:
+            context_parts.append("Current Objectives:")
+            for obj in self.current_objectives:
+                context_parts.append(f"  - {obj}")
+            context_parts.append("")
+
+        agent_max_turns = MAX_TURNS_GENERAL if self.agent_type == AgentType.GENERAL else MAX_TURNS_HOUSE
+        context_parts.append(f"You may take up to {agent_max_turns} actions this turn. Call end_turn() when done.")
         context_parts.append("What actions do you take this turn?")
         
         return "\n".join(context_parts)

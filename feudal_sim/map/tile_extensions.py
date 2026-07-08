@@ -46,10 +46,28 @@ def set_resource_node(tile: HexTile, node_type: ResourceNodeType) -> None:
 
 
 def get_base_metal_output(tile: HexTile) -> float:
-    """Get the actual metal output, excluding resource node encoding."""
+    """
+    Get the actual base metal output, stripping the resource node encoding.
+    Encoding: metal_output = 100 + node_type.value + (original_output / 100)
+    So original = fractional part * 100.
+    """
     if tile.metal_output > 100:
-        return tile.metal_output % 100
+        # The fractional part encodes original_output / 100
+        return round((tile.metal_output - int(tile.metal_output)) * 100, 4)
     return tile.metal_output
+
+
+def get_resource_bonus(tile: HexTile) -> dict:
+    """
+    Return additional resource bonuses granted by the tile's resource node.
+    Iron deposits boost metal; gold mines produce bonus gold.
+    """
+    node = get_resource_node_type(tile)
+    if node == ResourceNodeType.IRON_DEPOSIT:
+        return {'metal_multiplier': 2.0}
+    elif node == ResourceNodeType.GOLD_MINE:
+        return {'gold_flat': 2.0}  # flat gold per turn per tile
+    return {}
 
 
 def has_special_resource(tile: HexTile) -> bool:

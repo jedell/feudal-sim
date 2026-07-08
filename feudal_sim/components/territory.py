@@ -5,7 +5,7 @@ Handles territory control, border calculation, territory expansion,
 and tile ownership management.
 """
 
-from typing import Set, List, Dict, Any
+from typing import Optional, Set, List, Dict, Any
 from dataclasses import dataclass
 from feudal_sim.core.config import config
 
@@ -71,6 +71,13 @@ class TerritoryComponent(Component):
         # Outpost construction orders
         self.pending_outposts: List[OutpostOrder] = []
         self.outpost_history: List[OutpostOrder] = []
+
+        # Deployed sub-agent tracking
+        self.deployed_generals: List[Dict] = []
+
+        # Realm overview cache — invalidated whenever territory changes
+        self._realm_overview_cache: Optional[str] = None
+        self._realm_overview_dirty: bool = True
     
     def expand_territory(self, new_territory: List, hex_grid, owner_color=None):
         """
@@ -110,7 +117,22 @@ class TerritoryComponent(Component):
         
         # Update border tiles
         self._update_borders(hex_grid)
-        
+        self._realm_overview_dirty = True
+
+        # Auto-populate intelligence compendium with territory gain
+        if self.entity and claimable:
+            terrain_names = list({
+                getattr(t, 'terrain_type', None).name.lower().replace('_', ' ')
+                for t in claimable if getattr(t, 'terrain_type', None)
+            })
+            terrain_str = ' and '.join(terrain_names[:2]) if terrain_names else 'land'
+            # Try to infer context (current turn from event bus / entity context)
+            self._write_intelligence_note(
+                "Territory",
+                f"Claimed {len(claimable)} tile(s) of {terrain_str}. "
+                f"Realm now {len(self.territory)} tiles."
+            )
+
         # Emit event for territory expansion
         if event_bus:
             event_bus.emit(
@@ -147,7 +169,15 @@ class TerritoryComponent(Component):
         
         # Update border tiles
         self._update_borders(hex_grid)
-        
+        self._realm_overview_dirty = True
+
+        # Auto-populate intelligence compendium with territory loss
+        if self.entity and tiles_to_remove:
+            self._write_intelligence_note(
+                "Territory",
+                f"Lost {len(tiles_to_remove)} tile(s) — realm now {len(self.territory)} tiles."
+            )
+
         # Emit event for territory loss
         if event_bus:
             event_bus.emit(
@@ -380,12 +410,259 @@ Expansion requires both coin and conviction. Material wealth and gold fund your 
 Territory expansion takes time - orders given this week resolve next week based on your preparation and the gods' favor. Each new territory brings resources and population capacity, but expansion comes at a cost as your people's loyalty may waver when you demand sacrifice for glory.
 """
 
+    def get_territory_components(self, hex_grid):
+        """
+        Flood-fill the territory to find connected components.
+        Returns a list of dicts sorted main-body first:
+          {tiles, settlement_name, city_type, is_main, tile_count}
+        """
+        if not self.territory:
+            return []
+
+        remaining = set(self.territory)
+        raw_components = []
+
+        while remaining:
+            start = next(iter(remaining))
+            component = set()
+            queue = [start]
+            while queue:
+                tile = queue.pop(0)
+                if tile in component or tile not in remaining:
+                    continue
+                component.add(tile)
+                remaining.discard(tile)
+                for neighbor, _ in hex_grid.get_neighbors(tile.q, tile.r):
+                    if neighbor in remaining:
+                        queue.append(neighbor)
+            raw_components.append(component)
+
+        # Match each component to its settlement (city on that tile set)
+        settlement_per_component = [None] * len(raw_components)
+        city_type_per_component = [None] * len(raw_components)
+        if self.entity:
+            try:
+                from feudal_sim.components.city import CityComponent
+                cc = self.entity.get_component(CityComponent)
+                if cc:
+                    for city in cc.get_all_cities().values():
+                        cq, cr = city.position
+                        for i, comp in enumerate(raw_components):
+                            if any(t.q == cq and t.r == cr for t in comp):
+                                settlement_per_component[i] = city.name
+                                city_type_per_component[i] = getattr(city, 'city_type', None)
+                                break
+            except Exception:
+                pass
+
+        # Main body = component with capital, else largest
+        main_idx = next(
+            (i for i, ct in enumerate(city_type_per_component) if ct == 'capital'),
+            max(range(len(raw_components)), key=lambda i: len(raw_components[i]))
+        )
+
+        result = []
+        for i, comp in enumerate(raw_components):
+            result.append({
+                'tiles': comp,
+                'tile_count': len(comp),
+                'settlement_name': settlement_per_component[i],
+                'city_type': city_type_per_component[i],
+                'is_main': i == main_idx,
+            })
+        result.sort(key=lambda x: (0 if x['is_main'] else 1, -x['tile_count']))
+        return result
+
+    def format_realm_overview(self, hex_grid, entity_manager=None) -> str:
+        """
+        Generate a natural language realm overview for injection into the lord's
+        turn context. Result is cached and only recomputed when territory changes.
+        """
+        if not self._realm_overview_dirty and self._realm_overview_cache is not None:
+            return self._realm_overview_cache
+
+        IMPASSABLE = {HexTileType.OCEAN, HexTileType.LAKE, HexTileType.ICE_CAP, HexTileType.RIVER}
+        DIRECTIONS = ['N', 'NE', 'SE', 'S', 'SW', 'NW']
+        TERRAIN_LABEL = {
+            'grassland': 'plains', 'steppe': 'plains',
+            'temperate_forest': 'forest', 'boreal_forest': 'forest', 'rainforest': 'forest',
+            'hill': 'hills', 'mountain': 'mountains',
+            'tundra': 'tundra', 'desert': 'desert', 'swamp': 'swamp',
+        }
+
+        def _terrain_label(tile):
+            raw = getattr(getattr(tile, 'terrain_type', None), 'name', '').lower()
+            return TERRAIN_LABEL.get(raw, raw.replace('_', ' ')) or 'land'
+
+        def _border_lines_for(component_tiles):
+            """Return border summary lines for a specific tile set."""
+            blines = []
+            comp_set = set((t.q, t.r) for t in component_tiles)
+            for direction in DIRECTIONS:
+                border = set()
+                for tile in component_tiles:
+                    nb = hex_grid.get_neighbor(tile.q, tile.r, direction)
+                    if nb and (nb.q, nb.r) not in comp_set:
+                        border.add(nb)
+                if not border:
+                    continue
+                unowned, enemy_counts, walls = [], {}, 0
+                for t in border:
+                    if t.terrain_type in IMPASSABLE:
+                        walls += 1
+                    elif getattr(t, 'owner', None) is None:
+                        unowned.append(t)
+                    else:
+                        name = getattr(t.owner, 'name', str(t.owner))
+                        enemy_counts[name] = enemy_counts.get(name, 0) + 1
+                if unowned:
+                    avg_food = sum(getattr(t, 'food_output', 0) for t in unowned) / len(unowned)
+                    yield_word = 'fertile' if avg_food >= 0.5 else ('modest' if avg_food >= 0.2 else 'lean')
+                    terrain_word = _terrain_label(unowned[0])
+                    blines.append(f"      {direction:2s} — {len(unowned)} unowned {terrain_word} ({yield_word})")
+                elif enemy_counts:
+                    e_str = ", ".join(f"{n} ({c})" for n, c in enemy_counts.items())
+                    blines.append(f"      {direction:2s} — {e_str}")
+                elif walls and walls >= len(border) * 0.6:
+                    blines.append(f"      {direction:2s} — natural barrier")
+            return blines
+
+        # --- Build per-component overview ---
+        components = self.get_territory_components(hex_grid)
+        total = len(self.territory)
+        n_comp = len(components)
+        lines = [f"Territory: {total} tile{'s' if total != 1 else ''}"
+                 + (f" across {n_comp} areas" if n_comp > 1 else "")]
+
+        # Find main body for distance calculations
+        main_comp = components[0] if components else None
+
+        for comp in components:
+            tiles = comp['tiles']
+            name = comp['settlement_name'] or "Unnamed enclave"
+            city_type = comp['city_type'] or ''
+            is_main = comp['is_main']
+            label = f"  [{name}]"
+            if city_type:
+                label += f" ({city_type.title()})"
+            label += f" — {comp['tile_count']} tile{'s' if comp['tile_count'] != 1 else ''}"
+
+            if not is_main and main_comp:
+                # Distance from this enclave to main body (nearest tile pair)
+                dist = None
+                for t in list(tiles)[:6]:
+                    for m in list(main_comp['tiles'])[:6]:
+                        d = (abs(t.q - m.q) + abs(t.r - m.r) +
+                             abs((-t.q - t.r) - (-m.q - m.r))) // 2
+                        if dist is None or d < dist:
+                            dist = d
+                if dist and dist > 1:
+                    label += f"  ⚠ DISCONNECTED (~{dist} tiles from main body)"
+
+            # Terrain composition
+            tc: Dict[str, int] = {}
+            for t in tiles:
+                lbl = _terrain_label(t)
+                tc[lbl] = tc.get(lbl, 0) + 1
+            top = sorted(tc.items(), key=lambda kv: kv[1], reverse=True)[:2]
+            if top:
+                label += "  [" + ", ".join(f"{c} {n}" for n, c in top) + "]"
+            lines.append(label)
+
+            # Borders scoped to this component
+            blines = _border_lines_for(tiles)
+            if blines:
+                lines.append("    Borders:")
+                lines.extend(blines)
+
+        # --- Known houses with distances ---
+        if entity_manager and self.entity and components:
+            try:
+                house_distances = []
+                for other_entity in entity_manager.get_all_entities():
+                    if other_entity.id == self.entity.id:
+                        continue
+                    if not hasattr(other_entity, 'color'):
+                        continue
+                    other_terr = other_entity.get_component(TerritoryComponent)
+                    if not other_terr or not other_terr.territory:
+                        continue
+                    min_dist = None
+                    for our_tile in list(components[0]['tiles'])[:8]:
+                        for their_tile in list(other_terr.territory)[:8]:
+                            d = (abs(our_tile.q - their_tile.q) +
+                                 abs(our_tile.r - their_tile.r) +
+                                 abs((-our_tile.q - our_tile.r) - (-their_tile.q - their_tile.r))) // 2
+                            if min_dist is None or d < min_dist:
+                                min_dist = d
+                    if min_dist is not None:
+                        house_distances.append((min_dist, other_entity.name))
+                if house_distances:
+                    house_distances.sort()
+                    dist_parts = [f"{name} (~{d} tiles)" for d, name in house_distances]
+                    lines.append(f"  Known houses: {', '.join(dist_parts)}")
+            except Exception:
+                pass
+
+        # Cache
+        self._realm_overview_cache = "\n".join(lines)
+        self._realm_overview_dirty = False
+
+        # Deployed generals with current positions — always live (not cached)
+        # because general positions change every turn independent of territory
+        if entity_manager and self.deployed_generals:
+            force_lines = []
+            for g_info in self.deployed_generals:
+                gen_id = g_info.get('entity_id')
+                gen_name = g_info.get('name', 'General')
+                gen_entity = entity_manager.get_entity(gen_id) if gen_id else None
+                if not gen_entity:
+                    continue
+                try:
+                    from feudal_sim.components.position import PositionComponent
+                    from feudal_sim.components.subagent_group import SubAgentGroup
+                    pos_comp = gen_entity.get_component(PositionComponent)
+                    grp = gen_entity.get_component(SubAgentGroup)
+                    if not pos_comp or not pos_comp.position:
+                        continue
+                    q, r = pos_comp.position
+                    status = grp.mission_status if grp else 'active'
+                    tile = hex_grid.get_tile(q, r)
+                    tile_owner = getattr(tile, 'owner', None) if tile else None
+                    if tile_owner and hasattr(tile_owner, 'id') and tile_owner.id == (self.entity.id if self.entity else None):
+                        location = "own territory"
+                    elif tile_owner:
+                        location = f"{getattr(tile_owner, 'name', 'foreign')} territory"
+                    else:
+                        location = "unowned land"
+                    deploy_dir = g_info.get('direction', '')
+                    dir_str = f" ({deploy_dir} border)" if deploy_dir else ""
+                    force_lines.append(f"    {gen_name}{dir_str} — {location} — {status}")
+                except Exception:
+                    continue
+            if force_lines:
+                lines.append("  Deployed forces:")
+                lines.extend(force_lines)
+
+        return "\n".join(lines)
+
+    def _write_intelligence_note(self, topic: str, text: str, turn: int = None):
+        """Write a note to the house's IntelligenceComponent compendium."""
+        if not self.entity:
+            return
+        try:
+            from feudal_sim.components.intelligence import IntelligenceComponent
+            intel = self.entity.get_component(IntelligenceComponent)
+            if intel:
+                intel.add_note(topic, text, turn)
+        except Exception:
+            pass
+
     def update(self, dt: float, event_bus=None):
         """
         Component update method - not used for main territory logic.
         Territory changes happen via expand_territory/remove_territory methods.
         """
-        # Could be used for passive territory effects if needed
         pass
     
     # ---- Sub-agent tracking helpers (generals) ----
@@ -394,21 +671,17 @@ Territory expansion takes time - orders given this week resolve next week based 
         Expects a dict with keys: entity_id, name, position, direction, orders,
         soldiers_assigned, workers_assigned, deployment_turn
         """
-        if not hasattr(self, 'deployed_generals') or not isinstance(getattr(self, 'deployed_generals'), list):
-            self.deployed_generals = []
         # Ensure uniqueness by entity_id
         self.deployed_generals = [g for g in self.deployed_generals if g.get('entity_id') != general_info.get('entity_id')]
         self.deployed_generals.append(general_info)
     
     def unregister_general(self, general_entity_id: str):
         """Remove a general from tracking by entity id."""
-        if hasattr(self, 'deployed_generals') and isinstance(self.deployed_generals, list):
-            self.deployed_generals = [g for g in self.deployed_generals if g.get('entity_id') != general_entity_id]
+        self.deployed_generals = [g for g in self.deployed_generals if g.get('entity_id') != general_entity_id]
     
     def sync_generals(self, entity_manager) -> int:
         """Ensure tracked generals exist in the entity manager. Returns remaining count."""
-        if not hasattr(self, 'deployed_generals') or not isinstance(self.deployed_generals, list):
-            self.deployed_generals = []
+        if not self.deployed_generals:
             return 0
         existing_ids = set()
         try:

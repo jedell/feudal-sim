@@ -35,6 +35,7 @@ class PositionComponent(Component):
         # Movement capabilities
         self.operational_range = operational_range  # Hex radius for influence/actions
         self.movement_points = movement_points  # How far can move per turn
+        self.max_movement_points = movement_points  # Maximum movement per turn
         self.remaining_movement = movement_points  # Current turn remaining movement
         
         # Movement history for AI observations
@@ -123,10 +124,12 @@ class PositionComponent(Component):
         # Keep movement history manageable
         if len(self.movement_history) > 10:
             self.movement_history.pop(0)
+
+        dir_code = neighbor_delta_to_dir((target_q - old_position[0], target_r - old_position[1]))
         
         return {
             'success': True,
-            'message': f"Moved from ({old_position[0]}, {old_position[1]}) to ({target_q}, {target_r})",
+            'message': ObservationFormatter.movement_single_step(dir_code, self.remaining_movement),
             'distance': distance,
             'movement_cost': distance,
             'remaining_movement': self.remaining_movement

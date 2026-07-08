@@ -320,6 +320,13 @@ def encode_city_for_rendering(tile: HexTile) -> str:
     Returns:
         Encoded owner string if city exists, original owner name otherwise
     """
+    # Check for pending outpost construction
+    if getattr(tile, '_pending_outpost', False):
+        owner_name = (tile.owner.name
+                      if (hasattr(tile, 'owner') and tile.owner and hasattr(tile.owner, 'name'))
+                      else "None")
+        return f"PENDING:outpost#{owner_name}"
+
     # Only encode if this tile actually has a city
     city_type, _, _ = get_city_info(tile)
     if city_type == CityType.NONE:

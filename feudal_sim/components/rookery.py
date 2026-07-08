@@ -6,7 +6,7 @@ delays and known recipient tracking for realistic communication constraints.
 """
 
 import random
-from typing import List, Dict, Set
+from typing import Any, List, Dict, Set
 from dataclasses import dataclass
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
@@ -232,29 +232,8 @@ class RookeryComponent(Component):
         return [raven for raven in self.outgoing_ravens if not raven.delivered]
     
     def add_in_transit_observations(self, ai_component=None, phase: str = "Production"):
-        """
-        Add observations about ravens currently in transit.
-        
-        Args:
-            ai_component: AI component to add observations to
-            phase: Current phase name for observation context
-        """
-        if not ai_component:
-            return
-        
-        in_transit = self.get_in_transit_ravens()
-        
-        if in_transit:
-            # Create observation for each in-transit raven
-            for raven in in_transit:
-                weeks_remaining = raven.arrival_turn - getattr(self, '_current_turn', 1)
-                if weeks_remaining <= 0:
-                    status = "arriving this week"
-                else:
-                    status = f"arriving in {weeks_remaining} week{'s' if weeks_remaining != 1 else ''}"
-                
-                observation = f"🐦 Raven in transit to {raven.recipient_name}: '{raven.message[:30]}...' ({status})"
-                ai_component.add_observation(observation, phase)
+        """No-op. In-transit tracking removed — agents use check_inbox on demand."""
+        pass
     
     def clear_turn_data(self):
         """Clear turn-specific data at end of turn."""
@@ -272,7 +251,7 @@ class RookeryComponent(Component):
         """Get list of all known recipients for AI tool use."""
         return list(self.known_recipients)
     
-    def get_communication_status(self) -> Dict[str, any]:
+    def get_communication_status(self) -> Dict[str, Any]:
         """Get current communication status for debugging/display."""
         return {
             'known_recipients': len(self.known_recipients),

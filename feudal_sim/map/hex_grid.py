@@ -34,14 +34,18 @@ def get_positioned_entity_dtype():
     return np.dtype([
         ('q', np.int32),
         ('r', np.int32),
-        ('name', '|S50'),  # Match C++ struct exactly
+        ('name', '|S50'),
         ('house_name', '|S50'),
         ('color', np.uint8, (4,)),
-        ('entity_type', np.int32),  # 0=GENERAL, 1=SCOUT, 2=ARMY, 3=MERCHANT
+        ('entity_type', np.int32),        # 0=GENERAL, 1=SCOUT, 2=ARMY, 3=MERCHANT, 4=CARAVAN
         ('assigned_soldiers', np.int32),
         ('movement_points', np.int32),
         ('max_movement', np.int32),
-        ('operational_range', np.int32)
+        ('operational_range', np.int32),
+        ('morale', np.uint8),             # 0-100 general morale
+        ('supplies', np.uint8),           # 0-100 general supplies
+        ('equipment_level', np.uint8),    # 0-100 equipment quality
+        ('orders', '|S60'),               # current mission/orders summary
     ])
 
 class RendererWrapper:
@@ -54,6 +58,13 @@ class RendererWrapper:
         self.shared_memory = shm.SharedMemory(name=self.TILE_SHARED_MEMORY_NAME, create=True, size=memory_size)
         self.house_shared_memory = shm.SharedMemory(name=self.HOUSE_SHARED_MEMORY_NAME, create=True, size=house_memory_size)
         
+        # Initialize caches
+        self.houses_cache = []
+        
+        # Event log shared memory
+        from feudal_sim.core.event_log import EventLog
+        self.event_log = EventLog()
+
         # Initialize entities shared memory if specified
         self.entities_shared_memory = None
         if entities_memory_size > 0 and num_entities > 0:
@@ -72,6 +83,9 @@ class RendererWrapper:
 
     def setup(self, tiles: list[HexTile]):
         self.renderer.setup([tile.get_tile() for tile in tiles])
+        # Prime shared memory with initial tile data so the renderer subprocess
+        # sees valid (q,r) values when it builds shared_tile_map at startup.
+        self.update_tiles(tiles)
 
     def update_tiles(self, tiles: list[HexTile]):
         from feudal_sim.map.city_extensions import encode_city_for_rendering
@@ -93,17 +107,37 @@ class RendererWrapper:
         np_array[:] = tile_data
 
     def update_houses(self, houses: list[House]):
-        house_data = np.array([(
-            house.name,
-            [house.color.r, house.color.g, house.color.b, house.color.a],
-            house.resources['food'],
-            house.resources['material'],
-            house.resources['metal'],
-            house.resources['gold'],
-            house.population,
-            house.population_loyalty,
-            house.military_power
-        ) for house in houses], dtype=House.get_dtype())
+        # Cache houses for entity color lookup
+        self.houses_cache = houses
+
+        def _house_row(house):
+            from feudal_sim.components.rookery import RookeryComponent
+            rookery = house.get_component(RookeryComponent)
+            ravens = len(getattr(rookery, 'outgoing_ravens', [])) if rookery else 0
+            # war count from simulation war_registry if available
+            war_count = 0
+            try:
+                from feudal_sim.components.ai import AIComponent
+                ai = house.get_component(AIComponent)
+                if ai and ai.context and ai.context.simulation:
+                    war_count = ai.context.simulation.war_registry.enemy_count(house.id)
+            except Exception:
+                pass
+            return (
+                house.name,
+                [house.color.r, house.color.g, house.color.b, house.color.a],
+                house.resources['food'],
+                house.resources['material'],
+                house.resources['metal'],
+                house.resources['gold'],
+                house.population,
+                house.population_loyalty,
+                house.military_power,
+                ravens,
+                war_count,
+            )
+
+        house_data = np.array([_house_row(h) for h in houses], dtype=House.get_dtype())
         np_array = np.ndarray((len(houses),), dtype=House.get_dtype(), buffer=self.house_shared_memory.buf)
         np_array[:] = house_data
 
@@ -129,27 +163,64 @@ class RendererWrapper:
                     entity_type = 2
                 elif entity.entity_type == 'merchant':
                     entity_type = 3
+                elif entity.entity_type == 'caravan':
+                    entity_type = 4
+            elif 'caravan' in entity.__class__.__name__.lower():
+                # TradeCaravan class - detect by class name
+                entity_type = 4
             
             # Get house color if available
             house_color = [128, 128, 128, 255]  # Default gray
-            if hasattr(entity, 'house_id'):
-                # TODO: Look up house color by house_id
-                pass
+            if hasattr(entity, 'house_id') or hasattr(entity, 'sender_house_id'):
+                # Look up house color from the houses list
+                entity_house_id = getattr(entity, 'house_id', None) or getattr(entity, 'sender_house_id', None)
+                for house in self.houses_cache or []:
+                    if hasattr(house, 'id') and house.id == entity_house_id:
+                        try:
+                            c = house.color
+                            house_color = [c.r, c.g, c.b, c.a]
+                        except Exception:
+                            pass
+                        break
                 
-            # Get military count if available
+            # Get military count, morale/supplies/equipment/orders if available
             military_count = getattr(entity, 'assigned_soldiers', 0)
-            
+            morale = 100
+            supplies = 100
+            equipment_level = 0
+            orders_bytes = b''
+            try:
+                from feudal_sim.components.subagent_group import SubAgentGroup
+                grp = entity.get_component(SubAgentGroup)
+                if grp:
+                    morale = max(0, min(100, int(grp.morale)))
+                    supplies = max(0, min(100, int(grp.supplies)))
+                    equipment_level = max(0, min(100, int(grp.equipment_level)))
+                    mp = grp.mission_parameters
+                    if mp:
+                        parts = [mp.mission_type or '']
+                        if mp.orders:
+                            parts.append(mp.orders)
+                        orders_text = ': '.join(p for p in parts if p)
+                        orders_bytes = orders_text[:59].encode('utf-8')
+            except Exception:
+                pass
+
             entity_data.append((
-                pos_comp.position[0],  # q
-                pos_comp.position[1],  # r
-                entity.name[:49].encode('utf-8'),  # name (truncated to 49 to fit in 50-byte field)
-                getattr(entity, 'house_id', '')[:49].encode('utf-8'),  # house_name
-                house_color,  # color
-                entity_type,  # entity_type
-                military_count,  # assigned_soldiers
-                pos_comp.remaining_movement,  # movement_points
-                pos_comp.movement_points,  # max_movement
-                pos_comp.operational_range  # operational_range
+                pos_comp.position[0],
+                pos_comp.position[1],
+                entity.name[:49].encode('utf-8'),
+                getattr(entity, 'house_id', '')[:49].encode('utf-8'),
+                house_color,
+                entity_type,
+                military_count,
+                pos_comp.remaining_movement,
+                pos_comp.movement_points,
+                pos_comp.operational_range,
+                morale,
+                supplies,
+                equipment_level,
+                orders_bytes,
             ))
         
         # Convert to numpy array and write to shared memory
@@ -163,11 +234,10 @@ class RendererWrapper:
             # Zero out remaining slots if we have fewer entities than capacity
             if len(entity_data) < self.num_entities:
                 for i in range(len(entity_data), self.num_entities):
-                    np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0)
+                    np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0, 100, 100, 0, b'')
         else:
-            # No entities, zero out entire array
             for i in range(self.num_entities):
-                np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0)
+                np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0, 100, 100, 0, b'')
 
 
     def run(self):
@@ -200,10 +270,12 @@ class RendererWrapper:
         self.shared_memory.unlink()
         self.house_shared_memory.close()
         self.house_shared_memory.unlink()
-        
+
         if self.entities_shared_memory:
             self.entities_shared_memory.close()
             self.entities_shared_memory.unlink()
+
+        self.event_log.close()
 
 class HexGrid:
     def __init__(self, size: int = 80, num_houses: int = 10, debug=False, max_positioned_entities: int = 50):

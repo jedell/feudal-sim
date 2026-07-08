@@ -1,8 +1,9 @@
 """
-Name and persona generator for AI agents using LLM calls.
+Name and persona generator for AI agents.
 
-Generates contextually appropriate names and personas for AI agents based on their role,
-falling back to predefined options when LLM generation is not available.
+Each lord and general is assigned a random archetype at spawn time.
+Archetypes carry both a character flavour and a combat doctrine, making
+every run feel different and every agent feel distinct.
 """
 
 import os
@@ -13,211 +14,289 @@ from feudal_sim.ai.prompts import AgentType
 from feudal_sim.core.config import config
 
 
-@dataclass
-class AgentIdentity:
-    """Structured output schema for agent identity generation."""
-    name: str
-    persona: str
+# ── Archetypes ─────────────────────────────────────────────────────────────────
 
+LORD_ARCHETYPES = {
+    "The Conqueror": {
+        "flavour": (
+            "You believe expansion is the only security. A realm that does not grow shrinks. "
+            "Your ambition is territorial and unapologetic."
+        ),
+        "doctrine": (
+            "Order your generals to push borders aggressively. When an enemy outpost is within "
+            "reach, take it — do not wait. Siege exposed settlements for the resources and the "
+            "message it sends. Negotiate only to buy time."
+        ),
+    },
+    "The Warmonger": {
+        "flavour": (
+            "War is your natural state. Peace is just the interval between victories. "
+            "You respect strength and despise weakness."
+        ),
+        "doctrine": (
+            "Deploy military first, diplomacy never. Order your generals to besiege enemy "
+            "settlements on sight. Equip your forces heavily and strike before the enemy can "
+            "prepare. A crushed opponent cannot threaten you."
+        ),
+    },
+    "The Defender": {
+        "flavour": (
+            "Your realm is your responsibility. You will not lose a single tile without blood. "
+            "You fight only when provoked — but when provoked, you fight absolutely."
+        ),
+        "doctrine": (
+            "Build strong outposts on your borders. When an enemy encroaches within 3 tiles, "
+            "respond with military force immediately. You do not seek wars but you end them "
+            "decisively. Order your generals to besiege any enemy fortification threatening your land."
+        ),
+    },
+    "The Schemer": {
+        "flavour": (
+            "Power is built through leverage, not force. You prefer to weaken enemies before "
+            "striking rather than costly frontal assaults. Information is your sharpest weapon."
+        ),
+        "doctrine": (
+            "Deploy generals as scouts before committing to sieges. Attack only when you "
+            "have overwhelming advantage. Use trade to weaken rivals before conflict. "
+            "A targeted siege of a starving enemy's outpost costs little and gains much."
+        ),
+    },
+    "The Merchant-Prince": {
+        "flavour": (
+            "Gold runs deeper than blood. You built your house through trade and calculation. "
+            "But you know that sometimes the sword opens markets that coin cannot."
+        ),
+        "doctrine": (
+            "Prefer trade and tribute over war. However — if an enemy settlement sits on "
+            "resource-rich land and your military is superior, seize it. The loot from a "
+            "successful siege is pure profit. Strike for economic targets, not glory."
+        ),
+    },
+    "The Pragmatist": {
+        "flavour": (
+            "Survival first. Legacy second. You adapt to circumstances without sentimentality. "
+            "You have no ideology — only outcomes."
+        ),
+        "doctrine": (
+            "Fight when you must, trade when you can, and siege when the math favours it. "
+            "If an enemy's outpost threatens your food supply or is poorly defended, take it. "
+            "Do not waste soldiers on battles you cannot win."
+        ),
+    },
+    "The Zealot": {
+        "flavour": (
+            "You are driven by a cause greater than gold or land. Whether dynasty, faith, or "
+            "destiny — you believe your house is meant to rule. Sacrifice is sacred."
+        ),
+        "doctrine": (
+            "Pursue territorial expansion as a mission. Order generals into enemy lands "
+            "confidently. Do not hesitate before sieges — your cause justifies the cost. "
+            "Death in service of the realm is honourable."
+        ),
+    },
+    "The Opportunist": {
+        "flavour": (
+            "You strike when others are vulnerable and hold back when they are strong. "
+            "You have survived by knowing when the moment is right."
+        ),
+        "doctrine": (
+            "Watch enemies carefully. When a house is starving, when their general is "
+            "disbanded, when their borders are unguarded — that is your moment. Order sieges "
+            "only against weakened targets. Avoid fair fights. Strike once and withdraw."
+        ),
+    },
+}
+
+GENERAL_ARCHETYPES = {
+    "The Bold": {
+        "flavour": (
+            "You lead from the front. Where others hesitate, you act. "
+            "Your soldiers follow you because you would never ask them to go somewhere you wouldn't."
+        ),
+        "doctrine": (
+            "When you see an enemy settlement adjacent to your position, besiege it. "
+            "Use assault tactic in contact events. Push into enemy territory confidently."
+        ),
+    },
+    "The Tactician": {
+        "flavour": (
+            "You win by preparation, not improvisation. You study the terrain and the enemy "
+            "before committing. Every move is deliberate."
+        ),
+        "doctrine": (
+            "Observe before you act. Use find_outpost_site and observe_area extensively. "
+            "In contact events, choose flanking or feint over straightforward assault. "
+            "Siege only when you have clear positional advantage."
+        ),
+    },
+    "The Reckless": {
+        "flavour": (
+            "You believe the boldest strike wins. Caution is for men who want to die old "
+            "rather than die famous."
+        ),
+        "doctrine": (
+            "Assault in contact events. Besiege adjacent enemy settlements without waiting "
+            "for orders. Move fast, hit hard, accept high casualties as the price of victory."
+        ),
+    },
+    "The Disciplined": {
+        "flavour": (
+            "You execute orders exactly as given. Your strength is reliability — your lord "
+            "knows what they get with you."
+        ),
+        "doctrine": (
+            "Follow your lord's orders precisely. Build outposts where directed, move where "
+            "sent. In contact events, match your tactic to the strategic situation. "
+            "Never freelance without orders."
+        ),
+    },
+    "The Ambitious": {
+        "flavour": (
+            "You are a general but you think like a lord. Every campaign is an opportunity "
+            "to prove you deserve more than your current rank."
+        ),
+        "doctrine": (
+            "Look for siege opportunities your lord hasn't noticed. Send ravens about enemy "
+            "weaknesses. In contact events, fight — retreat earns nothing. Build outposts in "
+            "contested land to stake your house's claim."
+        ),
+    },
+    "The Survivor": {
+        "flavour": (
+            "You have fought in a dozen campaigns and buried a hundred comrades. "
+            "You keep your people alive by knowing when not to fight."
+        ),
+        "doctrine": (
+            "Withdraw from unfavourable contact events. Forage when supplies run low before "
+            "they become critical. Choose defensive tactic when outnumbered. "
+            "A living soldier is worth ten dead heroes."
+        ),
+    },
+}
+
+
+# ── Public API ─────────────────────────────────────────────────────────────────
 
 def generate_agent_identity(agent_type: AgentType, house_name: str = None) -> Tuple[str, str]:
     """
-    Generate both a name and persona for an AI agent in one coherent operation.
-    
-    Args:
-        agent_type: The type of agent (HOUSE_LORD, SCOUT, GENERAL, etc.)
-        house_name: Optional house name for context (e.g., "Stark", "Lannister")
-        
-    Returns:
-        Tuple of (agent_name, persona)
+    Generate a name + persona for an AI agent. Picks a random archetype,
+    then generates a coherent identity around it via LLM or fallback templates.
     """
-    # Check for well-known personas first
-    if house_name and house_name in _get_known_personas():
-        known = _get_known_personas()[house_name]
-        # Extract name from known persona (simple approach)
-        if "Lord Eddard Stark" in known:
-            return "Lord Eddard Stark", known
-        elif "Lord Tywin Lannister" in known:
-            return "Lord Tywin Lannister", known
-        elif "Targaryen" in known:
-            return f"Lord/Lady of House {house_name}", known
-        elif "Robert Baratheon" in known:
-            return "Robert Baratheon", known
-    
-    # Try LLM generation if API key is available
+    archetype = _pick_archetype(agent_type)
+
     if os.getenv('OPENAI_API_KEY') and config.get('simulation.ai.identity_generation.enabled', True):
         try:
-            return _generate_identity_with_llm(agent_type, house_name)
+            return _generate_identity_with_llm(agent_type, house_name, archetype)
         except Exception as e:
             print(f"⚠️  Identity generation failed, using fallback: {e}")
-    
-    # Fallback to predefined identities
-    return _get_fallback_identity(agent_type, house_name)
+
+    return _get_fallback_identity(agent_type, house_name, archetype)
 
 
+def _pick_archetype(agent_type: AgentType) -> dict:
+    pool = GENERAL_ARCHETYPES if agent_type == AgentType.GENERAL else LORD_ARCHETYPES
+    key = random.choice(list(pool.keys()))
+    return {'name': key, **pool[key]}
 
 
-def _generate_identity_with_llm(agent_type: AgentType, house_name: str = None) -> Tuple[str, str]:
-    """Generate both name and persona using OpenAI structured outputs."""
-    try:
-        import openai
-        from pydantic import BaseModel
-        
-        # Define structured output schema
-        class AgentIdentitySchema(BaseModel):
-            name: str
-            persona: str
-        
-        client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        
-        prompt = _build_identity_generation_prompt(agent_type, house_name)
-        
-        response = client.beta.chat.completions.parse(
-            model=config.get('simulation.ai.identity_generation.model', 'gpt-4o-mini'),
-            messages=[
-                {"role": "system", "content": "You are a creative writer specializing in medieval fantasy character development. Generate coherent name-persona pairs."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format=AgentIdentitySchema,
-            temperature=0.7
-        )
-        
-        identity = response.choices[0].message.parsed
-        print(f"🎭 Generated LLM identity: {identity.name} with matching persona ({agent_type.value})")
-        return identity.name, identity.persona
-        
-    except ImportError:
-        raise Exception("OpenAI library not available")
-    except Exception as e:
-        raise Exception(f"LLM identity generation error: {e}")
+# ── LLM generation ─────────────────────────────────────────────────────────────
+
+def _generate_identity_with_llm(agent_type: AgentType, house_name: str, archetype: dict) -> Tuple[str, str]:
+    import openai
+    from pydantic import BaseModel
+
+    class IdentitySchema(BaseModel):
+        name: str
+        persona: str
+
+    client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    prompt = _build_prompt(agent_type, house_name, archetype)
+
+    response = client.beta.chat.completions.parse(
+        model=config.get('simulation.ai.identity_generation.model', 'gpt-4o-mini'),
+        messages=[
+            {"role": "system", "content": "You are a creative writer specialising in medieval fantasy character development."},
+            {"role": "user", "content": prompt},
+        ],
+        response_format=IdentitySchema,
+        temperature=0.85,
+    )
+    identity = response.choices[0].message.parsed
+    # Embed the combat doctrine into the returned persona
+    full_persona = identity.persona + f"\n\n**Combat Doctrine ({archetype['name']}):**\n{archetype['doctrine']}"
+    print(f"🎭 Generated: {identity.name} [{archetype['name']}] ({agent_type.value})")
+    return identity.name, full_persona
 
 
-def _get_fallback_identity(agent_type: AgentType, house_name: str = None) -> Tuple[str, str]:
-    """Get a coherent fallback name and persona pair."""
+def _build_prompt(agent_type: AgentType, house_name: str, archetype: dict) -> str:
+    role_descs = {
+        AgentType.HOUSE_LORD: "a noble lord or lady ruling their house and lands",
+        AgentType.GENERAL: "a military commander leading armies",
+        AgentType.SCOUT: "a skilled scout gathering intelligence",
+        AgentType.MERCHANT: "a wealthy trader",
+        AgentType.DIPLOMAT: "a diplomatic envoy",
+    }
+    role = role_descs.get(agent_type, "a noble character")
+    house_ctx = f" of House {house_name}" if house_name else ""
+
+    return f"""Generate a medieval fantasy identity for {role}{house_ctx}.
+
+Archetype: {archetype['name']}
+Character flavour: {archetype['flavour']}
+
+Requirements:
+- Name: medieval, fits the role and archetype
+- Persona: 2-3 sentences in second person ("You are..."), reflecting the archetype's character
+- Do NOT include combat doctrine (it will be added separately)
+- Example format: "You are Ser Marcus of House ..., a [archetype trait] commander who..."
+
+Generate name and persona now."""
+
+
+# ── Fallback ────────────────────────────────────────────────────────────────────
+
+_LORD_NAMES = [
+    "Lord Aldric", "Lady Morwyn", "Ser Gareth", "Lady Alysanne",
+    "Lord Roderick", "Lady Elara", "Lord Cassian", "Lady Vhera",
+    "Lord Orin", "Lady Seraphel", "Lord Edwyn", "Lady Tira",
+]
+
+_GENERAL_NAMES = [
+    "Ser Barristan", "Ser Bronn", "Ser Davos", "The Blackfish",
+    "Ser Oswell", "Commander Lynesse", "Ser Harwin", "Ser Endrew",
+    "Commander Tanda", "Ser Cressen", "Ser Uthor", "Commander Ryam",
+]
+
+_HOUSE_NAMES = {
+    "Stark":     ["Eddard", "Brandon", "Lyanna", "Benjen", "Arya", "Sansa", "Jon", "Rickon"],
+    "Lannister": ["Tywin", "Cersei", "Jaime", "Tyrion", "Kevan", "Lancel"],
+    "Targaryen": ["Daenerys", "Viserys", "Rhaegar", "Aegon", "Rhaenys", "Aemon"],
+    "Baratheon": ["Robert", "Stannis", "Renly", "Gendry", "Shireen"],
+}
+
+
+def _get_fallback_identity(agent_type: AgentType, house_name: str, archetype: dict) -> Tuple[str, str]:
     name = _get_fallback_name(agent_type, house_name)
-    persona = _get_fallback_persona(name, agent_type, house_name)
+    house_ctx = f" of House {house_name}" if house_name else ""
+    persona = (
+        f"**Your Identity:**\n"
+        f"You are {name}{house_ctx}. {archetype['flavour']}\n\n"
+        f"**Combat Doctrine ({archetype['name']}):**\n{archetype['doctrine']}"
+    )
+    print(f"🎲 Fallback identity: {name} [{archetype['name']}]")
     return name, persona
 
 
-
-
-def _build_identity_generation_prompt(agent_type: AgentType, house_name: str = None) -> str:
-    """Build the prompt for LLM identity generation (name + persona together)."""
-    
-    role_descriptions = {
-        AgentType.HOUSE_LORD: "a noble lord or lady ruling their house and lands",
-        AgentType.SCOUT: "a skilled scout who gathers intelligence and explores the realm",
-        AgentType.GENERAL: "a military commander leading armies and planning battles",
-        AgentType.MERCHANT: "a wealthy trader managing commerce and trade routes",
-        AgentType.DIPLOMAT: "a diplomatic envoy negotiating between houses"
-    }
-    
-    role_desc = role_descriptions.get(agent_type, "a noble character")
-    
-    house_context = ""
-    if house_name:
-        house_context = f" of House {house_name}"
-    
-    return f"""Generate a cohesive medieval fantasy identity for {role_desc}{house_context}.
-
-Requirements:
-- Create a name that fits the medieval setting and reflects the character's role
-- Write a matching persona in second person ("You are...")
-- Ensure the name and persona work together harmoniously
-- Keep persona to 2-3 sentences
-- Include personality traits, values, and motivations
-- Format persona as: **Your Identity:** followed by the description
-
-The name should:
-- Use medieval/fantasy naming conventions
-- Reflect the character's status and role
-- Consider house context if provided
-- Examples: "Ser Marcus", "Lady Elara", "Roderick the Bold"
-
-The persona should:
-- Match the name's implied personality
-- Include the character's role and background
-- Show their values and decision-making approach
-- Example: "You are Lady Elara of House Bolton, a strategic and cunning ruler..."
-
-Generate both the name and persona now, ensuring they form a coherent character."""
-
-
-
-
 def _get_fallback_name(agent_type: AgentType, house_name: str = None) -> str:
-    """Get a random predefined name when LLM generation is not available."""
-    
-    # House-specific name pools
-    house_names = {
-        "Stark": ["Eddard", "Catelyn", "Brandon", "Lyanna", "Benjen", "Arya", "Sansa", "Bran", "Rickon"],
-        "Lannister": ["Tywin", "Cersei", "Jaime", "Tyrion", "Kevan", "Lancel", "Myrcella", "Tommen"],
-        "Targaryen": ["Daenerys", "Viserys", "Rhaegar", "Aerys", "Rhaenys", "Aegon", "Maester"],
-        "Baratheon": ["Robert", "Stannis", "Renly", "Gendry", "Shireen", "Selyse"]
-    }
-    
-    # Generic medieval names by role
-    role_names = {
-        AgentType.HOUSE_LORD: ["Lord Aldric", "Lady Morwyn", "Ser Gareth", "Lady Alysanne", "Lord Roderick", "Lady Elara"],
-        AgentType.SCOUT: ["Marcus", "Theon", "Gareth", "Jojen", "Meera", "Osha", "Hodor"],
-        AgentType.GENERAL: ["Ser Barristan", "Ser Jorah", "Ser Bronn", "Ser Davos", "Blackfish", "Greatjon"],
-        AgentType.MERCHANT: ["Petyr", "Olenna", "Varys", "Illyrio", "Xaro", "Tycho"],
-        AgentType.DIPLOMAT: ["Tyrion", "Samwell", "Maester Luwin", "Grand Maester", "Qyburn", "Oberyn"]
-    }
-    
-    if house_name and house_name in house_names:
-        return random.choice(house_names[house_name])
-    
-    return random.choice(role_names.get(agent_type, role_names[AgentType.HOUSE_LORD]))
-
-
-def _get_known_personas() -> dict:
-    """Get predefined personas for well-known houses."""
-    return {
-        "Stark": """
-**Your Identity:**
-You are Lord Eddard Stark, honorable ruler of Winterfell. You value honor above all else, protect your family and the North, and are wary of southern politics. You make decisions based on duty and justice, always considering what is right over what is profitable.""",
-        
-        "Lannister": """
-**Your Identity:**
-You are Lord Tywin Lannister, cunning ruler of Casterly Rock. You are strategic, wealthy, and ruthless when necessary. You believe in the power of gold and legacy, making calculated decisions for House Lannister's advantage. A Lannister always pays their debts.""",
-        
-        "Targaryen": """
-**Your Identity:**
-You are a Targaryen, heir to the dragon lords of old Valyria. You possess an innate sense of destiny and superiority, believing in your divine right to rule. You are passionate and decisive, sometimes prone to extremes, but always magnificent in your ambitions.""",
-        
-        "Baratheon": """
-**Your Identity:**
-You are Robert Baratheon, powerful lord of Storm's End. You are bold, direct, and strong-willed, preferring action to lengthy deliberation. You value loyalty and strength, ruling through personal charisma and the force of your convictions."""
-    }
+    if house_name and house_name in _HOUSE_NAMES:
+        return random.choice(_HOUSE_NAMES[house_name])
+    if agent_type == AgentType.GENERAL:
+        return random.choice(_GENERAL_NAMES)
+    return random.choice(_LORD_NAMES)
 
 
 def _get_fallback_persona(name: str, agent_type: AgentType, house_name: str = None) -> str:
-    """Get template persona when LLM generation is not available."""
-    
-    house_context = f" of House {house_name}" if house_name else ""
-    
-    # Generate role-specific default personas
-    role_defaults = {
-        AgentType.HOUSE_LORD: f"""
-**Your Identity:**
-You are {name}{house_context}, a capable ruler who must balance the needs of your people, resources, and territory while navigating the complex politics of the realm. You govern with wisdom and strength, always considering the legacy you leave for future generations.""",
-        
-        AgentType.SCOUT: f"""
-**Your Identity:**
-You are {name}, a skilled scout in service to your house. You are observant, cautious, and quick-thinking, with keen eyes for danger and opportunity. You take pride in your ability to gather vital intelligence while remaining unseen and unheard.""",
-        
-        AgentType.GENERAL: f"""
-**Your Identity:**
-You are {name}, a seasoned military commander. You are strategic, disciplined, and decisive, understanding that lives depend on your tactical wisdom. You balance aggression with prudence, always seeking victory while preserving your forces.""",
-        
-        AgentType.MERCHANT: f"""
-**Your Identity:**
-You are {name}, a prosperous merchant with extensive trade connections. You are shrewd, opportunistic, and diplomatic, seeing profit potential where others see only risk. You believe that commerce builds stronger bonds than warfare.""",
-        
-        AgentType.DIPLOMAT: f"""
-**Your Identity:**
-You are {name}, a skilled diplomatic envoy. You are eloquent, perceptive, and tactful, able to navigate delicate negotiations with grace. You understand that words can achieve what swords cannot, and that lasting peace serves all interests."""
-    }
-    
-    return role_defaults.get(agent_type, role_defaults[AgentType.HOUSE_LORD])
+    """Legacy shim — picks a random archetype and returns a formatted persona."""
+    archetype = _pick_archetype(agent_type)
+    _, persona = _get_fallback_identity(agent_type, house_name, archetype)
+    return persona
