@@ -7,7 +7,7 @@ modified by tactical declarations made during the agentic contact event phase.
 
 import random
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional
 
 from feudal_sim.map.types import HexTileType
 

@@ -4,8 +4,7 @@ Provides centralized, extensible configuration management.
 """
 
 import json
-import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from pathlib import Path
 
 

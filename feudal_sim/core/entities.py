@@ -471,7 +471,6 @@ class EntityManager:
                 'total_entities': int
             }
         """
-        from feudal_sim.components.position import PositionComponent
         
         nearby_entities = self.get_positioned_entities_near(position, check_range)
         

@@ -1,11 +1,8 @@
 import random
 import asyncio
-import logging
 
 from feudal_sim.core.logger import get_logger
 from feudal_sim.map.hex_grid import HexGrid
-
-log = get_logger(__name__)
 from feudal_sim.houses.house import House
 from feudal_sim.map.types import HexTileType, Color
 from feudal_sim.core.time import TimeManager, TurnPhase
@@ -21,12 +18,28 @@ from feudal_sim.components.ai import AIComponent
 from feudal_sim.components.resource import ResourceComponent
 from feudal_sim.core.deferred import DeferredActionQueue
 from feudal_sim.core.priority_actions import PriorityActionEventProcessor
+from feudal_sim.core.war_registry import WarRegistry
+from feudal_sim.core.priority_action_handlers import (
+    TradeCaravanHandler, DiplomaticSummitHandler, EnemyEncounterHandler,
+    GeneralContactHandler,
+)
+from feudal_sim.core.event_oracle import EventOracle
+from feudal_sim.core.random_events import apply_event
+
+log = get_logger(__name__)
 
 ALPHA = 120
 
 class Simulation:
+    """
+    Top-level game state and turn loop for the feudal simulation.
+
+    Owns the hex grid, houses, entity manager, time manager, and priority
+    action processor, and drives each turn phase (production, actions, events,
+    cleanup) via step().
+    """
+
     def __init__(self, debug=False):
-        import asyncio
         self.deferred = DeferredActionQueue()
         # Lock for multi-step resource/population mutations from concurrent agents
         self._resource_lock = asyncio.Lock()
@@ -48,7 +61,6 @@ class Simulation:
         self.winner: str | None = None
 
         # Shared registries
-        from feudal_sim.core.war_registry import WarRegistry
         self.war_registry = WarRegistry()
         self.add_resource_nodes()
         
@@ -71,6 +83,8 @@ class Simulation:
                       step_count=self.step_count)
 
     def create_houses(self, house_names: list[str]) -> list[House]:
+        """Create the starting houses, assign their territories and capitals,
+        and register them with the entity manager."""
         # Use provided house names for known recipients
         starting_territories = self._assign_starting_territories(len(house_names))
         
@@ -101,22 +115,16 @@ class Simulation:
     
     def _register_priority_action_handlers(self):
         """Register default priority action handlers."""
-        from feudal_sim.core.priority_action_handlers import (
-            TradeCaravanHandler, DiplomaticSummitHandler, EnemyEncounterHandler
-        )
-        
         # Register built-in handlers
         self.priority_processor.register_handler("trade_caravan_arrival", TradeCaravanHandler())
         self.priority_processor.register_handler("diplomatic_summit", DiplomaticSummitHandler())
         self.priority_processor.register_handler("enemy_encounter", EnemyEncounterHandler())
-        from feudal_sim.core.priority_action_handlers import GeneralContactHandler
         self.priority_processor.register_handler("general_contact", GeneralContactHandler())
 
         # Event oracle — generates contextualised random events in the background
-        from feudal_sim.core.event_oracle import EventOracle
         self.event_oracle = EventOracle(self)
         
-        print("✅ Priority action handlers registered")
+        log.info("✅ Priority action handlers registered")
     
     
     def _assign_starting_territories(self, n: int):
@@ -178,7 +186,7 @@ class Simulation:
     
     def add_resource_nodes(self):
         """Add some resource nodes to random tiles on the map."""
-        print("🏗️  Adding resource nodes to the map...")
+        log.info("🏗️  Adding resource nodes to the map...")
         
         # Get some random land tiles
         land_tiles = [tile for tile in self.hex_grid.tiles 
@@ -195,16 +203,16 @@ class Simulation:
             # Use configured ratio to determine resource type
             if i / len(selected_tiles) < gold_ratio:
                 add_gold_mine(tile)
-                print(f"   💰 Added gold mine at ({tile.q}, {tile.r})")
+                log.info(f"   💰 Added gold mine at ({tile.q}, {tile.r})")
             else:
                 add_iron_deposit(tile)  
-                print(f"   ⛏️  Added iron deposit at ({tile.q}, {tile.r})")
+                log.info(f"   ⛏️  Added iron deposit at ({tile.q}, {tile.r})")
         
-        print(f"✅ Added {len(selected_tiles)} resource nodes")
+        log.info(f"✅ Added {len(selected_tiles)} resource nodes")
     
     def initialize_house_intelligence(self):
         """Initialize intelligence reports for all houses after territories are assigned."""        
-        print("🔍 Initializing house intelligence reports...")
+        log.info("🔍 Initializing house intelligence reports...")
         
         for house in self.houses:
             intelligence_component: IntelligenceComponent = house.get_component(IntelligenceComponent)
@@ -219,41 +227,39 @@ class Simulation:
                 house_name = event.data['entity_name'] 
                 resource_type = event.data['resource_type']
                 change = event.data['change']
-                print(f"📊 {house_name} gained {change:+.0f} {resource_type}")
+                log.info(f"📊 {house_name} gained {change:+.0f} {resource_type}")
         
         def log_time_changes(event):
             change_type = event.data.get('change_type')
             if change_type == 'season':
                 old_season = event.data['old_season']
                 new_season = event.data['new_season']
-                print(f"🌅 Season changed: {old_season} → {new_season}")
+                log.info(f"🌅 Season changed: {old_season} → {new_season}")
             elif change_type == 'year':
                 old_year = event.data['old_year']
                 new_year = event.data['new_year']
-                print(f"📅 New Year! {old_year} → {new_year}")
+                log.info(f"📅 New Year! {old_year} → {new_year}")
         
         event_bus.subscribe(EventType.VALUE_CHANGED, log_resource_changes)
         event_bus.subscribe(EventType.STATE_CHANGED, log_time_changes)
 
     def render(self):
-        # Collect positioned entities (generals, scouts, etc.) 
+        """Collect positioned entities and a turn/season HUD sentinel, then
+        hand them to the hex grid renderer."""
+        # Collect positioned entities (generals, scouts, etc.)
         positioned_entities = []
         
         # Add generals
         generals = self.entity_manager.get_entities_by_type('general')
-        print(f"🧠 Found {len(generals)} generals")
+        log.info(f"🧠 Found {len(generals)} generals")
         if generals:
             positioned_entities.extend(generals)
         
         # Add caravans
         caravans = self.entity_manager.get_entities_by_type('caravan')
-        print(f"🚚 Found {len(caravans)} caravans")
+        log.info(f"🚚 Found {len(caravans)} caravans")
         if caravans:
             positioned_entities.extend(caravans)
-        
-        # Add other positioned entity types as they're implemented
-        # scouts = self.entity_manager.get_entities_by_type('scout')
-        # positioned_entities.extend(scouts)
         
         # Inject a sentinel meta-entity carrying turn/season for the HUD.
         # Uses q=turn, r=season_index (0=spring,1=summer,2=autumn,3=winter),
@@ -280,7 +286,7 @@ class Simulation:
         """Execute one phase of the simulation."""
         current_phase = self.time_manager.game_time.phase
         
-        print(f"\n⚙️  {current_phase.value.title()} Phase - {self.time_manager.game_time}")
+        log.info(f"\n⚙️  {current_phase.value.title()} Phase - {self.time_manager.game_time}")
         
         # Execute phase-specific logic
         if current_phase == TurnPhase.PRODUCTION:
@@ -307,16 +313,14 @@ class Simulation:
     async def execute_actions_phase(self):
         """Handle AI decisions and actions, including priority action events."""
         from feudal_sim.components.position import PositionComponent
-        from feudal_sim.components.subagent_group import SubAgentGroup
-        from feudal_sim.components.ai import AIComponent
-        
+
         status = self.time_manager.get_current_status()
-        
+
         # Process priority action events BEFORE normal decisions
-        print("🎯 Processing priority action events...")
+        log.info("🎯 Processing priority action events...")
         priority_results = await self.priority_processor.process_all_events()
         for result in priority_results:
-            print(f"   {result}")
+            log.info(f"   {result}")
         
         # Prepare all houses for AI decision making (synchronous setup)
         for house in self.houses:
@@ -360,9 +364,9 @@ class Simulation:
                 while not arrived:
                     movement_result = caravan.move_towards_destination(self.hex_grid, status['turn'])
                     if not movement_result.get('success', False):
-                        print(f"🚚 {caravan.name}: {movement_result['message']}")
+                        log.info(f"🚚 {caravan.name}: {movement_result['message']}")
                         break
-                    print(f"🚚 {caravan.name}: {movement_result['message']}")
+                    log.info(f"🚚 {caravan.name}: {movement_result['message']}")
                     new_pos = movement_result.get('new_position')
                     if movement_result.get('arrived', False) or _on_recipient_tile(new_pos):
                         arrived = True
@@ -377,14 +381,14 @@ class Simulation:
                         arrival_event = caravan.on_arrival(self, status['turn'])
                         self.priority_processor.add_event(arrival_event)
                         caravans_to_remove.append(caravan)
-                        print(f"🎯 {caravan.name}: on recipient territory, triggering arrival")
+                        log.info(f"🎯 {caravan.name}: on recipient territory, triggering arrival")
                 else:
-                    print(f"🚚 {caravan.name}: Already at destination")
+                    log.info(f"🚚 {caravan.name}: Already at destination")
         
         # Remove arrived caravans from tracking
         for caravan in caravans_to_remove:
             # Don't destroy the entity yet - the priority action handler will manage it
-            print(f"🎯 Trade caravan {caravan.name} has arrived and triggered priority negotiation")
+            log.info(f"🎯 Trade caravan {caravan.name} has arrived and triggered priority negotiation")
         
         for general in generals:
             # Reset movement points for new turn
@@ -431,7 +435,7 @@ class Simulation:
                                             )
                                         else:
                                             ai_comp.add_observation(
-                                                f"CONSTRUCTION: Outpost completes this turn — stay within 1 tile.",
+                                                "CONSTRUCTION: Outpost completes this turn — stay within 1 tile.",
                                                 "Actions"
                                             )
                                         break
@@ -450,11 +454,11 @@ class Simulation:
         all_ai_entities.extend(generals)
         
         # Run all AI decision making concurrently (houses + generals)
-        print(f"🧠 All entities ({len(self.houses)} houses, {len(generals)} generals) making decisions concurrently...")
+        log.info(f"🧠 All entities ({len(self.houses)} houses, {len(generals)} generals) making decisions concurrently...")
         
         async def make_entity_decision(entity):
             entity_name = entity.get_name() if hasattr(entity, 'get_name') else entity.name
-            print(f"🧠 {entity_name} AI is thinking...")
+            log.info(f"🧠 {entity_name} AI is thinking...")
             
             # Different decision making for houses vs generals
             if hasattr(entity, 'make_ai_decisions'):  # House entity
@@ -484,7 +488,7 @@ class Simulation:
                 else:
                     result = f"{entity_name} has no AI component"
             
-            print(f"✅ {entity_name} AI finished thinking")
+            log.info(f"✅ {entity_name} AI finished thinking")
             return result
         
         # Execute all entity decisions concurrently
@@ -513,7 +517,6 @@ class Simulation:
 
         # Apply general upkeep and handle disbands AFTER generals have had their turn
         from feudal_sim.components.subagent_group import SubAgentGroup as _SAG
-        from feudal_sim.components.population import PopulationComponent as _PopComp
         generals_this_turn = self.entity_manager.get_entities_by_type('general') or []
         for general in generals_this_turn:
             group_comp: _SAG = general.get_component(_SAG)
@@ -523,7 +526,7 @@ class Simulation:
             if getattr(group_comp, 'should_disband', False):
                 parent = self.entity_manager.get_entity(getattr(group_comp, 'parent_house_id', None))
                 if parent:
-                    pop_comp: _PopComp = parent.get_component(_PopComp)
+                    pop_comp: PopulationComponent = parent.get_component(PopulationComponent)
                     if pop_comp:
                         pop_comp.recall_population_from_agent(general.id)
                 self.entity_manager.destroy_entity(general.id)
@@ -541,7 +544,7 @@ class Simulation:
                             ai.record_journal_entry(f"General {gen_name} disbanded (upkeep/morale failure)")
                 except Exception as _e:
                     log.warning(f"⚠️  {_e}")
-                print(f"🛑 Disbanded {getattr(general, 'name', general.id)} — upkeep/morale failure")
+                log.info(f"🛑 Disbanded {getattr(general, 'name', general.id)} — upkeep/morale failure")
 
         # Deliver ravens
         delivered_ravens = RavenDeliverySystem.deliver_ravens_for_turn(
@@ -550,7 +553,7 @@ class Simulation:
         )
         
         if delivered_ravens > 0:
-            print(f"📬 {delivered_ravens} ravens delivered this turn")
+            log.info(f"📬 {delivered_ravens} ravens delivered this turn")
         
         # Collect rookery observations for AI components
         self.collect_rookery_observations()
@@ -574,7 +577,6 @@ class Simulation:
         self._update_situation_contexts(status)
 
         # Fire any oracle events whose deploy_turn has arrived
-        from feudal_sim.core.random_events import apply_event
         for event in self.event_oracle.pop_due_events(status['turn']):
             result = apply_event(event, self)
             log.info(f"🌍 Event resolved: {result}")
@@ -635,7 +637,7 @@ class Simulation:
             ready_orders = territory_component.get_expansions_ready_for_resolution(current_turn)
             
             for order in ready_orders:
-                print(f"🏰 Resolving expansion order for {house.get_name()} ({order.direction}) - {order.success_probability:.0%} base chance")
+                log.info(f"🏰 Resolving expansion order for {house.get_name()} ({order.direction}) - {order.success_probability:.0%} base chance")
                 
                 # Step 1: Check resource and loyalty requirements
                 can_afford = True
@@ -673,7 +675,7 @@ class Simulation:
                     if success:
                         # Execute successful expansion
                         result = territory_component.resolve_expansion_order(order, True, self.hex_grid)
-                        print(f"✅ {result['message']} (rolled {roll:.2f} vs {order.success_probability:.2f})")
+                        log.info(f"✅ {result['message']} (rolled {roll:.2f} vs {order.success_probability:.2f})")
                         
                         # Add detailed AI observation
                         if ai_component:
@@ -685,7 +687,7 @@ class Simulation:
                         
                         # Generate detailed failure reasoning
                         failure_reason = self._generate_expansion_failure_reason(order, roll)
-                        print(f"❌ {result['message']} - {failure_reason} (rolled {roll:.2f} vs {order.success_probability:.2f})")
+                        log.info(f"❌ {result['message']} - {failure_reason} (rolled {roll:.2f} vs {order.success_probability:.2f})")
                         
                         # Add detailed AI observation
                         if ai_component:
@@ -695,7 +697,7 @@ class Simulation:
                     # Expansion failed due to insufficient resources - no costs applied
                     result = territory_component.resolve_expansion_order(order, False, self.hex_grid)
                     failure_reason = f"Insufficient resources: {', '.join(insufficient_resources)}"
-                    print(f"❌ {result['message']} - {failure_reason}")
+                    log.info(f"❌ {result['message']} - {failure_reason}")
                     
                     # Add AI observation
                     if ai_component:
@@ -725,15 +727,12 @@ class Simulation:
             ])
         
         # Terrain-based challenges
-        difficult_terrain = False
         for tile in order.target_tiles:
             terrain_str = str(tile.terrain_type) if hasattr(tile, 'terrain_type') else ''
             if 'MOUNTAIN' in terrain_str:
                 specific_factors.append("the mountainous terrain required specialized equipment you lacked")
-                difficult_terrain = True
             elif 'HILL' in terrain_str:
                 specific_factors.append("the hilly landscape complicated supply routes")
-                difficult_terrain = True
             elif 'FOREST' in terrain_str:
                 specific_factors.append("dense forests required extensive clearing work")
         
@@ -873,13 +872,13 @@ class Simulation:
             
             # Check if a revolt should occur
             if population_component.check_for_revolt(current_turn):
-                print(f"🔥 Population revolt occurring in {house.get_name()}!")
+                log.info(f"🔥 Population revolt occurring in {house.get_name()}!")
                 
                 # Execute the revolt
                 revolt_result = population_component.execute_revolt(self.hex_grid)
                 
                 if revolt_result['success']:
-                    print(f"💥 {revolt_result['message']}")
+                    log.info(f"💥 {revolt_result['message']}")
                     
                     # Display resource losses if any
                     if revolt_result.get('resource_losses'):
@@ -889,7 +888,7 @@ class Simulation:
                             if amount > 0:
                                 loss_details.append(f"{amount} {resource}")
                         if loss_details:
-                            print(f"🔴 Resource losses: {', '.join(loss_details)}")
+                            log.info(f"🔴 Resource losses: {', '.join(loss_details)}")
                     
                     # Add AI observation about the revolt
                     if ai_component:
@@ -912,13 +911,13 @@ class Simulation:
                     territory_component: TerritoryComponent = house.get_component(TerritoryComponent)
                     if territory_component:
                         new_capacity = population_component.calculate_capacity_from_territories(territory_component.territory)
-                        print(f"📉 {house.get_name()} population capacity reduced to {new_capacity}")
+                        log.info(f"📉 {house.get_name()} population capacity reduced to {new_capacity}")
                         
                         # If population exceeds new capacity, reduce it
                         if population_component.population > new_capacity:
                             excess = population_component.population - new_capacity
                             population_component.population = new_capacity
-                            print(f"👥 {house.get_name()} population reduced by {excess} due to lost territory")
+                            log.info(f"👥 {house.get_name()} population reduced by {excess} due to lost territory")
                             
                             if ai_component:
                                 ai_component.add_observation(
@@ -926,7 +925,7 @@ class Simulation:
                                     "Events"
                                 )
                 else:
-                    print(f"⚠️ Revolt attempted in {house.get_name()}, but {revolt_result['message']}")
+                    log.warning(f"⚠️ Revolt attempted in {house.get_name()}, but {revolt_result['message']}")
                     
                     if ai_component:
                         ai_component.add_observation(
@@ -937,12 +936,12 @@ class Simulation:
     def execute_cleanup_phase(self):
         """Handle end-of-turn cleanup and display."""
         status = self.time_manager.get_current_status()
-        print(f"📊 Turn Summary - {status['season']} Year {status['year']}")
+        log.info(f"📊 Turn Summary - {status['season']} Year {status['year']}")
         
         for house in self.houses:
             resources = house.resources
-            print(f"House {house.get_name()} Resources: {resources}")
-            print(f"House {house.get_name()} Population: {house.population}, Loyalty: {house.population_loyalty}")
+            log.info(f"House {house.get_name()} Resources: {resources}")
+            log.info(f"House {house.get_name()} Population: {house.population}, Loyalty: {house.population_loyalty}")
         
         # Clear raven turn data
         RavenDeliverySystem.clear_turn_data_for_all(self.entity_manager)
@@ -1202,8 +1201,8 @@ class Simulation:
                     )
                 else:
                     ai.clear_situation('siege_opportunity')
-            except Exception:
-                pass
+            except Exception as _e:
+                log.warning(f"⚠️  siege_opportunity: {_e}")
 
             # Situation: neighbor_proximity — warn when another house is very close
             if self.entity_manager:
@@ -1237,8 +1236,8 @@ class Simulation:
                             )
                         else:
                             ai.clear_situation('neighbor_proximity')
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.warning(f"⚠️  neighbor_proximity: {_e}")
 
             # Situation: winter_approaching — inject in Autumn Week 3+
             if season == 'autumn' and week >= 3:
@@ -1447,7 +1446,7 @@ class Simulation:
                 if d_grp:
                     d_grp.in_contact_event = True
 
-                print(f"⚔️  Contact detected: {attacker.name} vs {defender.name}"
+                log.info(f"⚔️  Contact detected: {attacker.name} vs {defender.name}"
                       f"{' (AMBUSH)' if is_ambush else ''}")
 
     def _process_resupply_delivery(self, action):
@@ -1477,5 +1476,5 @@ class Simulation:
                         "Events"
                     )
         except Exception as e:
-            print(f"⚠️ Resupply delivery failed for {payload.get('general_name')}: {e}")
+            log.warning(f"⚠️ Resupply delivery failed for {payload.get('general_name')}: {e}")
             

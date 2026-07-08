@@ -86,8 +86,7 @@ class TimeManager:
         old_phase = self.game_time.phase
         old_season = self.game_time.season
         old_year = self.game_time.year
-        old_turn = self.game_time.turn
-        
+
         self.game_time.advance_phase()
         
         # Emit phase change event

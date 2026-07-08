@@ -99,8 +99,6 @@ def _apply_resource_change(event, simulation) -> str:
             delta = float(params.get(resource, 0))
             if delta == 0:
                 continue
-            current = res.resources.get(resource)
-            new_val = max(0.0, current + delta)
             res.resources.add(resource, delta) if delta > 0 else res.resources.consume(resource, abs(delta))
             applied.append(f"{house.name}: {resource} {delta:+.0f}")
 
@@ -227,7 +225,7 @@ def _apply_spawn_general(event, simulation) -> str:
 
 def _apply_spawn_caravan(event, simulation) -> str:
     from feudal_sim.entities.caravan import TradeCaravan
-    from feudal_sim.components.cargo import TradeGoods, TradeTerms
+    from feudal_sim.components.cargo import TradeGoods
     from feudal_sim.components.territory import TerritoryComponent
 
     params = event.effect_params
@@ -243,10 +241,6 @@ def _apply_spawn_caravan(event, simulation) -> str:
         metal=float(params.get('metal', 0)),
         gold=float(params.get('gold', 0)),
     )
-    terms = TradeTerms(proposed_by=sender.id,
-                       offered_goods=cargo,
-                       additional_terms=params.get('terms', 'Oracle gift from the realm.'))
-
     # Starting position: centre of sender territory or map edge
     start_pos = (simulation.hex_grid.size // 2, 0)
     terr = sender.get_component(TerritoryComponent)

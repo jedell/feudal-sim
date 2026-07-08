@@ -10,6 +10,9 @@ from typing import List, Dict, Any
 from agents import function_tool
 
 from feudal_sim.core.priority_actions import PriorityActionHandler, PriorityActionEvent
+from feudal_sim.core.logger import get_logger
+
+log = get_logger(__name__)
 
 
 class TradeCaravanHandler(PriorityActionHandler):
@@ -141,11 +144,7 @@ class TradeCaravanHandler(PriorityActionHandler):
         """Execute the trade resolution based on agent decisions."""
         trade_decision = event.context_data.get('trade_decision')
         trade_negotiation = event.context_data.get('trade_negotiation')
-        
-        # Get entities involved
-        caravan_data = event.context_data.get('caravan', {})
-        caravan_id = caravan_data.get('id')
-        
+
         if trade_decision:
             decision = trade_decision['decision']
             terms = trade_decision.get('terms', '')
@@ -213,8 +212,8 @@ class TradeCaravanHandler(PriorityActionHandler):
         cargo_comp.complete_trade("accepted", arrival_turn)
         try:
             entity_manager.destroy_entity(caravan_id)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.warning(f"⚠️  {_e}")
 
         return (f"{', '.join(transferred)} delivered to {recipient.name}."
                 if transferred else "caravan arrived with no goods.")
@@ -321,7 +320,6 @@ class EnemyEncounterHandler(PriorityActionHandler):
     
     def generate_context_message(self, event: PriorityActionEvent, agent_id: str) -> str:
         """Generate context message for enemy encounter."""
-        encounter_type = event.context_data.get('encounter_type', 'enemy forces')
         enemy_force = event.context_data.get('enemy_force', {})
         location = event.context_data.get('location', 'unknown location')
         
@@ -532,12 +530,8 @@ class GeneralContactHandler(PriorityActionHandler):
         return tools
 
     def execute_resolution(self, event, resolution_data: Dict[str, Any]) -> str:
-        from feudal_sim.core.combat import resolve_combat, VALID_TACTICS
+        from feudal_sim.core.combat import resolve_combat
         from feudal_sim.map.types import HexTileType
-        from feudal_sim.components.subagent_group import SubAgentGroup
-        from feudal_sim.components.position import PositionComponent
-        from feudal_sim.components.ai import AIComponent
-        from feudal_sim.components.rookery import RookeryComponent
 
         cd = event.context_data
         em = cd.get('entity_manager')
@@ -584,7 +578,6 @@ class GeneralContactHandler(PriorityActionHandler):
         )
 
         # Apply casualties
-        winner_id = a_id if result.attacker_wins else d_id
         loser_id  = d_id if result.attacker_wins else a_id
         self._apply_combat_result(event, result, em)
 

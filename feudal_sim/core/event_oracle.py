@@ -11,7 +11,6 @@ Architecture:
   - Returns structured JSON validated against GeneratedEvent schema
 """
 
-import asyncio
 import json
 import random
 import uuid

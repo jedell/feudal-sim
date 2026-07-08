@@ -8,10 +8,16 @@ conversation history continuity.
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
 from feudal_sim.components.ai import AIComponent
+from feudal_sim.core.logger import get_logger
+
+if TYPE_CHECKING:
+    from feudal_sim.core.conversation_manager import ConversationManager
+
+log = get_logger(__name__)
 
 
 @dataclass
@@ -153,7 +159,7 @@ class PriorityActionEventProcessor:
             handler: The handler instance
         """
         self.resolution_handlers[event_type] = handler
-        print(f"🎯 Registered priority action handler for '{event_type}'")
+        log.info(f"🎯 Registered priority action handler for '{event_type}'")
     
     def add_event(self, event: PriorityActionEvent):
         """
@@ -163,7 +169,7 @@ class PriorityActionEventProcessor:
             event: The priority action event to add
         """
         self.active_events.append(event)
-        print(f"🚨 Priority action event added: {event.event_type} ({event.event_id})")
+        log.info(f"🚨 Priority action event added: {event.event_type} ({event.event_id})")
     
     async def process_all_events(self) -> List[str]:
         """
@@ -203,7 +209,7 @@ class PriorityActionEventProcessor:
                     return await self.process_single_event(ev), ev
                 except Exception as exc:
                     msg = f"Error processing priority action {ev.event_id}: {exc}"
-                    print(f"❌ {msg}")
+                    log.warning(f"❌ {msg}")
                     ev.is_resolved = True
                     return msg, ev
 
@@ -320,7 +326,7 @@ class PriorityActionEventProcessor:
             if event.is_resolved:
                 break
             
-            print(f"🗣️ Starting conversation round {round_num + 1}/{event.max_conversation_rounds} for {event.event_type}")
+            log.info(f"🗣️ Starting conversation round {round_num + 1}/{event.max_conversation_rounds} for {event.event_type}")
             
             # Each agent gets a turn to speak in this round
             continue_conversation = await self._handle_conversation_round(

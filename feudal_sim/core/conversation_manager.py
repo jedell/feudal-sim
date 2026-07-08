@@ -6,7 +6,7 @@ seamless message delivery with asymmetric perspectives where each agent
 sees the conversation from their own viewpoint.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from agents import function_tool
 
 from feudal_sim.components.ai import AIComponent
