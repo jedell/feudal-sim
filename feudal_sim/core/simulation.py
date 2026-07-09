@@ -695,8 +695,8 @@ class Simulation:
             if p['resources']:
                 p['resources'].consume_for_action(order.resource_cost,
                                                   f"Territory Expansion ({order.direction})")
-            if p['population'] and order.population_loyalty_cost > 0:
-                p['population'].adjust_loyalty(-order.population_loyalty_cost)
+            # Loyalty is charged only for tiles actually gained (phase 4) —
+            # burning loyalty on failed rolls made low-loyalty houses spiral
             p['roll'] = random.random()
             p['success'] = p['roll'] <= order.success_probability
 
@@ -755,6 +755,10 @@ class Simulation:
                         "Events")
             elif p['success'] and order.target_tiles:
                 result = p['territory'].resolve_expansion_order(order, True, self.hex_grid)
+                # Loyalty strain scales with land actually absorbed
+                if p['population']:
+                    per_tile = config.get('simulation.territory.expansion.loyalty_cost_per_tile', 1)
+                    p['population'].adjust_loyalty(-per_tile * len(order.target_tiles))
                 log.info(f"✅ {result['message']} (rolled {p['roll']:.2f} vs {order.success_probability:.2f})")
                 if ai_component:
                     ai_component.add_observation(

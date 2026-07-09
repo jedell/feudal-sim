@@ -25,8 +25,9 @@
     "birth_rate": 0.035,
     "death_rate": 0.030,
     "food_per_capita": 0.05,
-    "starvation_mortality": 0.10,
+    "starvation_mortality": 0.25,
     "immigration_per_surplus_food": 0.25,
+    "immigration_max_pct_per_turn": 0.02,
     "loyalty_decay_rate": 1.0,
     "efficiency_curve_steepness": 1.0,
     "ratios": {
@@ -40,7 +41,7 @@
       "loyalty_threshold": 40,
       "chance_per_turn": 0.25,
       "tiles_lost_per_revolt": 1,
-      "cooldown_turns": 2,
+      "cooldown_turns": 4,
       "resource_loss": {
         "food_percent": 0.15,
         "material_percent": 0.1,

@@ -127,13 +127,16 @@ class PopulationComponent(Component):
             import math
             starved = math.ceil(self.population * shortfall_ratio * starvation_mortality)
 
-        # Prosperity attracts settlers: surplus food draws migrants (bounded
-        # by carrying capacity)
+        # Prosperity attracts settlers: surplus food draws migrants — but
+        # capped per turn as a fraction of current population, or surplus
+        # feedback grows settlements exponentially past what tiles can feed
         immigration = 0.0
         if shortfall_ratio == 0 and resource_component:
             surplus = resource_component.resources.food
             per_food = config.get('simulation.population.immigration_per_surplus_food', 0.25)
+            max_pct = config.get('simulation.population.immigration_max_pct_per_turn', 0.02)
             immigration = min(surplus * per_food,
+                              self.population * max_pct,
                               max(0, self.population_capacity - self.population))
 
         # Fractional accumulator so sub-1 per-turn changes still add up

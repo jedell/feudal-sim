@@ -67,6 +67,10 @@ async def run(turns: int) -> int:
     expander_terr = expander.get_component(TerritoryComponent)
     total_land = len(land_tiles(sim))
 
+    expander_pop = expander.get_component(PopulationComponent)
+    expander_res = expander.get_component(ResourceComponent)
+    feasts_held = 0
+
     for i in range(turns):
         # Scripted expander: house 0 orders expansion in every direction with
         # opportunities each turn (one pending per direction, like the tool
@@ -76,6 +80,14 @@ async def run(turns: int) -> int:
             for direction in DIRECTIONS:
                 if direction not in already:
                     expander_terr.create_expansion_order(direction, sim.hex_grid, sim.global_turn)
+        # ...who also maintains legitimacy the way agents are instructed to:
+        # feast when loyalty sags and the granary allows (emulates hold_feast)
+        if expander_pop and expander_res and \
+                expander_pop.population_loyalty < 50 and expander_res.resources.food >= 150:
+            expander_res.resources.consume('food', 150)
+            boost = config.get('simulation.population.feast.base_loyalty_boost', 8) + 3
+            expander_pop.adjust_loyalty(boost)
+            feasts_held += 1
         await sim.step()
         if sim.game_over:
             print(f"Game over at turn {i + 1}: {sim.winner}")
@@ -115,7 +127,7 @@ async def run(turns: int) -> int:
     # coverage. Hard floor 7%, ceiling 40%.
     share = end[expander.name]['tiles'] / max(1, total_land)
     print(f"\nExpander ({expander.name}) land share: {share:.1%} of {total_land} land tiles "
-          f"(loyalty {end[expander.name]['loyalty']})")
+          f"(loyalty {end[expander.name]['loyalty']}, {feasts_held} feasts held)")
     # Observed band across seeds/weather: ~5-8% by year 2 border-only.
     # Floor 4% catches mechanical breakage, not tuning drift.
     if turns >= 32 and share < 0.04:
