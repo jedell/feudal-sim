@@ -4,17 +4,17 @@
     "model": "gpt-5-mini-2025-08-07",
     "models": {
       "house_lord": "gpt-5-mini-2025-08-07",
-      "general":    "gpt-5-nano-2025-08-07",
-      "merchant":   "gpt-5-nano-2025-08-07",
-      "scout":      "gpt-5-nano-2025-08-07",
-      "diplomat":   "gpt-5-nano-2025-08-07"
+      "general": "gpt-5-nano-2025-08-07",
+      "merchant": "gpt-5-nano-2025-08-07",
+      "scout": "gpt-5-nano-2025-08-07",
+      "diplomat": "gpt-5-nano-2025-08-07"
     },
     "reasoning_effort": {
       "house_lord": "medium",
-      "general":    null,
-      "merchant":   null,
-      "scout":      null,
-      "diplomat":   "low"
+      "general": null,
+      "merchant": null,
+      "scout": null,
+      "diplomat": "low"
     },
     "disabled_tools": [],
     "max_message_history": 80,
@@ -23,11 +23,13 @@
   },
   "population": {
     "birth_rate": 0.035,
-    "death_rate": 0.030,
-    "food_per_capita": 0.05,
+    "death_rate": 0.03,
+    "food_per_capita": 0.1,
     "starvation_mortality": 0.25,
     "immigration_per_surplus_food": 0.25,
     "immigration_max_pct_per_turn": 0.02,
+    "granary_capacity_per_capita": 6,
+    "spoilage_rate": 0.1,
     "loyalty_decay_rate": 1.0,
     "efficiency_curve_steepness": 1.0,
     "ratios": {
@@ -83,10 +85,26 @@
   "resources": {
     "gathering_multiplier": 10,
     "seasonal_modifiers": {
-      "spring": {"farming": 1.2, "trade": 1.0, "military": 1.0},
-      "summer": {"farming": 1.5, "trade": 1.3, "military": 1.2},
-      "autumn": {"farming": 1.8, "trade": 1.1, "military": 1.0},
-      "winter": {"farming": 0.3, "trade": 0.7, "military": 0.8}
+      "spring": {
+        "farming": 1.2,
+        "trade": 1.0,
+        "military": 1.0
+      },
+      "summer": {
+        "farming": 1.5,
+        "trade": 1.3,
+        "military": 1.2
+      },
+      "autumn": {
+        "farming": 1.8,
+        "trade": 1.1,
+        "military": 1.0
+      },
+      "winter": {
+        "farming": 0.3,
+        "trade": 0.7,
+        "military": 0.8
+      }
     }
   },
   "territory": {
@@ -103,7 +121,57 @@
       "gold_cost": 10
     },
     "min_spacing_tiles": 5,
-    "outpost_delay_turns": 1
+    "outpost_delay_turns": 1,
+    "tiers": {
+      "1": {
+        "name": "Outpost"
+      },
+      "2": {
+        "name": "Village",
+        "cost": {
+          "food": 60,
+          "material": 40
+        },
+        "min_age_turns": 4,
+        "output_mult": 1.5,
+        "population_bonus": 1.5
+      },
+      "3": {
+        "name": "Walled Town",
+        "cost": {
+          "material": 80,
+          "gold": 30
+        },
+        "min_age_turns": 8,
+        "output_mult": 1.25,
+        "defense_mult": 1.6,
+        "population_bonus": 1.8
+      },
+      "4": {
+        "name": "Castle",
+        "cost": {
+          "material": 120,
+          "gold": 80,
+          "metal": 40
+        },
+        "min_age_turns": 12,
+        "output_mult": 1.1,
+        "defense_mult": 2.5,
+        "population_bonus": 2.0
+      },
+      "5": {
+        "name": "City",
+        "cost": {
+          "food": 150,
+          "gold": 100
+        },
+        "min_age_turns": 16,
+        "output_mult": 1.5,
+        "defense_mult": 2.5,
+        "population_bonus": 2.5,
+        "gold_income_per_turn": 3
+      }
+    }
   },
   "time": {
     "turns_per_season": 4,
@@ -138,19 +206,19 @@
         "farming_delta": 0.25,
         "trade_delta": 0.1,
         "military_delta": 0.0,
-        "announcement": "The skies favor the realm — gentle rains and warm sun promise a bountiful season."
+        "announcement": "The skies favor the realm \u2014 gentle rains and warm sun promise a bountiful season."
       },
       "adverse": {
-        "probability": 0.20,
+        "probability": 0.2,
         "farming_delta": -0.35,
         "trade_delta": -0.1,
         "military_delta": -0.2,
-        "announcement": "Grim skies over the realm — drought and storms will make this a lean, hard season. Mind your granaries."
+        "announcement": "Grim skies over the realm \u2014 drought and storms will make this a lean, hard season. Mind your granaries."
       }
     }
   },
   "victory": {
-    "hegemony_land_pct": 0.40,
+    "hegemony_land_pct": 0.4,
     "hegemony_rival_multiple": 2.0,
     "capital_elimination": true,
     "last_survivor": true

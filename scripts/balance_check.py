@@ -71,11 +71,16 @@ async def run(turns: int) -> int:
     expander_res = expander.get_component(ResourceComponent)
     feasts_held = 0
 
-    for i in range(turns):
+    # sim.step() advances ONE PHASE; a game turn is 4 phases
+    PHASES_PER_TURN = 4
+    for i in range(turns * PHASES_PER_TURN):
         # Scripted expander: house 0 orders expansion in every direction with
         # opportunities each turn (one pending per direction, like the tool
         # allows) — approximates an aggressive expansion-focused player
-        if expander_terr:
+        # ...but pauses while loyalty is dangerous, as any lord heeding the
+        # 'revolt imminent' warnings would
+        loyalty_ok = not expander_pop or expander_pop.population_loyalty >= 25
+        if expander_terr and loyalty_ok:
             already = {o.direction for o in expander_terr.get_pending_expansions()}
             for direction in DIRECTIONS:
                 if direction not in already:
@@ -90,7 +95,7 @@ async def run(turns: int) -> int:
             feasts_held += 1
         await sim.step()
         if sim.game_over:
-            print(f"Game over at turn {i + 1}: {sim.winner}")
+            print(f"Game over at turn {(i // PHASES_PER_TURN) + 1}: {sim.winner}")
             break
 
     end = snapshot(sim)
@@ -112,28 +117,28 @@ async def run(turns: int) -> int:
             failures.append(f"{name} died out passively (pop 0)")
         if s['loyalty'] <= 10:
             failures.append(f"{name} loyalty collapsed passively ({s['loyalty']})")
-    # Invariant 2: PASSIVE food stays sane — neither collapse nor explosion.
-    # (The expander's surplus legitimately snowballs with territory.)
+    # Invariant 2: PASSIVE food equilibrates — spoilage should hold stocks
+    # near the granary cap instead of letting them grow without bound.
+    per_capita_storage = config.get('simulation.population.granary_capacity_per_capita', 6)
     for name, s in end.items():
         if s['food'] < 0:
             failures.append(f"{name} food went negative")
-        if name != expander.name and start[name]['food'] > 0 and \
-                s['food'] > 12 * start[name]['food']:
-            failures.append(f"{name} food exploded {s['food'] / start[name]['food']:.0f}x "
-                            f"passively (no consumption pressure?)")
-    # Invariant 3: expansion pacing. Border expansion alone should reach ~8-15%
-    # of land by year 2 — loyalty (1/tile vs +1/turn when fed) is the intended
-    # brake, and outposts (not scripted here) provide the other half of real
-    # coverage. Hard floor 7%, ceiling 40%.
+        if name != expander.name:
+            cap = max(200, s['pop'] * per_capita_storage)
+            if s['food'] > cap * 2:
+                failures.append(f"{name} food {s['food']:.0f} is >2x its granary cap "
+                                f"({cap:.0f}) — spoilage not binding")
+    # Invariant 3: expansion pacing. With frontier starts and 6-tile orders an
+    # aggressive expander saturates its reachable land fast by design (the
+    # land-grab phase should end ~year 2, forcing the conflict phase). Floor
+    # catches mechanical breakage; ceiling catches runaway costless expansion.
     share = end[expander.name]['tiles'] / max(1, total_land)
     print(f"\nExpander ({expander.name}) land share: {share:.1%} of {total_land} land tiles "
           f"(loyalty {end[expander.name]['loyalty']}, {feasts_held} feasts held)")
-    # Observed band across seeds/weather: ~5-8% by year 2 border-only.
-    # Floor 4% catches mechanical breakage, not tuning drift.
-    if turns >= 32 and share < 0.04:
+    if turns >= 16 and share < 0.10:
         failures.append(f"expansion too slow: {share:.1%} land after {years:.1f} years "
-                        f"(border-only breakage floor 4%)")
-    if turns >= 32 and share > 0.40:
+                        f"(breakage floor 10%)")
+    if turns >= 16 and share > 0.60:
         failures.append(f"expansion too fast: {share:.1%} land after {years:.1f} years")
 
     if failures:

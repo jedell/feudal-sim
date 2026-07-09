@@ -154,6 +154,18 @@ class PopulationComponent(Component):
             penalty = int(round(1 + 4 * shortfall_ratio))
             self.population_loyalty = max(self.population_loyalty - penalty, 0)
 
+        # --- Granary limits: food beyond what stores can hold spoils.
+        # Surplus must be spent (feasts, trade, upgrades, armies), not hoarded.
+        spoiled = 0.0
+        if resource_component:
+            per_capita_storage = config.get('simulation.population.granary_capacity_per_capita', 12)
+            spoilage_rate = config.get('simulation.population.spoilage_rate', 0.10)
+            granary_cap = max(200.0, self.population * per_capita_storage)
+            excess = resource_component.resources.food - granary_cap
+            if excess > 0 and spoilage_rate > 0:
+                spoiled = excess * spoilage_rate
+                resource_component.resources.consume('food', spoiled)
+
         # Store for next turn comparison
         self._previous_population = old_population
         self._previous_loyalty = old_loyalty
@@ -162,6 +174,7 @@ class PopulationComponent(Component):
             'consumed': consumed,
             'shortfall_ratio': shortfall_ratio,
             'starved': starved,
+            'spoiled': spoiled,
         }
     
     def check_revolt_risk(self) -> bool:
