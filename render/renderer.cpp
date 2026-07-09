@@ -1155,10 +1155,11 @@ public:
 
    std::string get_city_development_name(int level) {
         switch (level) {
-            case 1: return "Village";
-            case 2: return "Town";
-            case 3: return "City";
-            case 4: return "Metropolis";
+            case 1: return "Outpost";
+            case 2: return "Village";
+            case 3: return "Walled Town";
+            case 4: return "Castle";
+            case 5: return "City";
             default: return "Unknown";
         }
    }

@@ -258,6 +258,72 @@ def create_house_toolset(house) -> list:
     equip_general.action_description = "**Equip General**: Spend metal to arm your forces — critical before combat"
     tools.append(equip_general)
 
+    # Upgrade a settlement to its next tier (lord's strategic investment)
+    @function_tool
+    def upgrade_settlement(ctx: RunContextWrapper["SimulationContext"], settlement_name: str) -> str:
+        """
+        Invest in a settlement to raise it to its next tier:
+        Outpost -> Village -> Walled Town -> Castle -> City.
+        Each tier improves the surrounding land's output and population capacity;
+        Walled Town and Castle greatly harden it against sieges; a City generates
+        gold income every turn. Costs and minimum settlement age apply — check
+        view_cities for what each settlement can become and the price.
+
+        Args:
+            settlement_name: Exact name of the settlement to upgrade
+
+        Returns:
+            Result of the upgrade attempt
+        """
+        from feudal_sim.components.city import CityComponent, get_tier, tier_name
+        from feudal_sim.components.resource import ResourceComponent
+        sim_context = ctx.context
+        city_comp: CityComponent = house.get_component(CityComponent)
+        res: ResourceComponent = house.get_component(ResourceComponent)
+        if not city_comp or not res:
+            return "Cannot upgrade — missing city or resource management"
+        city = city_comp.get_city(settlement_name)
+        if not city:
+            names = ", ".join(city_comp.get_all_cities().keys()) or "none"
+            return f"No settlement named '{settlement_name}'. Your settlements: {names}"
+        nxt = get_tier(city.development_level + 1)
+        if not nxt:
+            return f"{settlement_name} is already a {tier_name(city.development_level)} — the highest tier."
+        sim_obj = getattr(sim_context, 'simulation', None) if sim_context else None
+        current_turn = getattr(sim_obj, 'global_turn', 0)
+        min_age = nxt.get('min_age_turns', 0)
+        age = current_turn - getattr(city, 'founded_turn', 0)
+        if age < min_age:
+            return (f"{settlement_name} is too young to become a {nxt['name']} — "
+                    f"needs {min_age - age} more turn(s) of establishment.")
+        costs = dict(nxt.get('cost', {}))
+        if not res.can_afford_action(costs):
+            cost_str = ", ".join(f"{v} {k}" for k, v in costs.items())
+            return f"Cannot afford upgrade to {nxt['name']} (needs {cost_str})."
+        res.consume_for_action(costs, f"Settlement Upgrade ({settlement_name})")
+        city.development_level += 1
+        if nxt.get('population_bonus'):
+            city.population_bonus = max(city.population_bonus, nxt['population_bonus'])
+        # Update the tile: encoding for rendering/sieges, and improved output
+        if sim_obj is not None and getattr(sim_context, 'hex_grid', None):
+            tile = sim_context.hex_grid.get_tile(*city.position)
+            if tile:
+                house._encode_city_on_tile(tile, city.city_type, city.development_level, city.name)
+                mult = nxt.get('output_mult', 1.0)
+                tile.food_output = min(tile.food_output * mult, 20.0)
+                tile.material_output = min(tile.material_output * mult, 20.0)
+        from feudal_sim.components.ai import AIComponent as _AIC
+        ai = house.get_component(_AIC)
+        if ai:
+            ai.record_journal_entry(f"'{settlement_name}' raised to {nxt['name']}")
+        balance = _balance_line(res, list(costs.keys()))
+        return (f"{settlement_name} is now a {nxt['name']}! "
+                f"{'Its defenses are formidable. ' if nxt.get('defense_mult') else ''}"
+                f"{'It will generate gold every turn. ' if nxt.get('gold_income_per_turn') else ''}"
+                f"{balance}")
+    upgrade_settlement.action_description = "**Upgrade Settlement**: Raise an outpost/village toward a walled city — economy, defense, and gold"
+    tools.append(upgrade_settlement)
+
     # Update orders for a deployed general — delivered next turn (courier delay)
     @function_tool
     def update_general_orders(ctx: RunContextWrapper["SimulationContext"], general_name: str, orders: str, strategic_intent: str = "") -> str:

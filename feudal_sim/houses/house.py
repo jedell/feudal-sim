@@ -236,6 +236,11 @@ The world bends to dragonfire and steel. Your generals are instruments of conque
                 f"{result['consumed']:.0f} food against {result['food_needed']:.0f} needed. "
                 f"Secure food or the dying continues.", "Production")
             ai_component.record_journal_entry(f"Famine: {result['starved']} subjects starved")
+        if ai_component and result.get('spoiled', 0) >= 20:
+            ai_component.add_observation(
+                f"Granaries overflow: {result['spoiled']:.0f} food spoiled this week. "
+                f"Surplus beyond storage rots — spend it on feasts, trade caravans, "
+                f"settlement upgrades, or armies.", "Production")
         
         # Check for revolt and print warning
         if population_component.check_revolt_risk():
@@ -325,17 +330,19 @@ The world bends to dragonfire and steel. Your generals are instruments of conque
         closest_tile = min(territory_list, key=lambda tile: 
                           abs(tile.q - center_q) + abs(tile.r - center_r))
         
-        # Establish capital city
+        # Establish capital city — capitals begin at the top settlement tier
+        from feudal_sim.components.city import MAX_TIER
         success = city_component.add_city(
             name=city_name,
             position=(closest_tile.q, closest_tile.r),
             city_type="capital",
-            founded_turn=1
+            founded_turn=1,
+            development_level=MAX_TIER
         )
-        
+
         if success:
             # Encode city onto the tile for rendering
-            self._encode_city_on_tile(closest_tile, "capital", 1, city_name)
+            self._encode_city_on_tile(closest_tile, "capital", MAX_TIER, city_name)
             print(f"🏰 {self.name} established capital city '{city_name}' at ({closest_tile.q}, {closest_tile.r})")
             # Recalculate population capacity with city bonus
             self._update_population_capacity()

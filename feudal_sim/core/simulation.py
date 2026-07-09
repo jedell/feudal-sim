@@ -351,6 +351,20 @@ class Simulation:
         for house in self.houses:
             house.gather_resources(farming_modifier)
             house.manage_population()
+            self._collect_settlement_income(house)
+
+    def _collect_settlement_income(self, house):
+        """High-tier settlements (Cities) generate gold each turn — markets,
+        tolls, and trade concentrate coin where people do."""
+        from feudal_sim.components.city import CityComponent, get_tier
+        city_comp = house.get_component(CityComponent)
+        res_comp = house.get_component(ResourceComponent)
+        if not city_comp or not res_comp:
+            return
+        income = sum(get_tier(c.development_level).get('gold_income_per_turn', 0)
+                     for c in city_comp.get_all_cities().values())
+        if income > 0:
+            res_comp.resources.add('gold', income)
 
     def _announce_season_weather(self):
         """At each season's first turn, tell every house what weather the
@@ -888,53 +902,35 @@ class Simulation:
             return f"{primary_reason}."
     
     def process_settlement_upgrades(self, global_turn: int):
-        """Upgrade settlements that meet age and resource requirements."""
-        UPGRADE_RULES = {
-            1: {'turns_required': 5,  'food': 50,  'material': 0,   'to_name': 'Village'},
-            2: {'turns_required': 10, 'food': 100, 'material': 50,  'to_name': 'Town'},
-        }
-        from feudal_sim.components.city import CityComponent
+        """Notify lords when a settlement becomes eligible for its next tier.
+        Upgrading is a deliberate lord decision (upgrade_settlement tool),
+        not an automatic drain — this only surfaces the opportunity once."""
+        from feudal_sim.components.city import CityComponent, get_tier
         from feudal_sim.components.resource import ResourceComponent
         for house in self.houses:
             city_comp = house.get_component(CityComponent)
             res_comp = house.get_component(ResourceComponent)
             ai = house.get_component(AIComponent)
-            if not city_comp or not res_comp:
+            if not city_comp or not res_comp or not ai:
                 continue
             for city_name, city in list(city_comp.get_all_cities().items()):
-                dev = getattr(city, 'development_level', 1)
-                if dev not in UPGRADE_RULES:
+                nxt = get_tier(city.development_level + 1)
+                if not nxt:
                     continue
-                rule = UPGRADE_RULES[dev]
-                founded = getattr(city, 'founded_turn', global_turn)
-                if global_turn - founded < rule['turns_required']:
+                age = global_turn - getattr(city, 'founded_turn', global_turn)
+                if age < nxt.get('min_age_turns', 0):
                     continue
-                if res_comp.resources.food < rule['food']:
+                if not res_comp.can_afford_action(dict(nxt.get('cost', {}))):
                     continue
-                if rule['material'] > 0 and res_comp.resources.material < rule['material']:
+                notified = getattr(city, '_upgrade_notified_level', 0)
+                if notified >= city.development_level + 1:
                     continue
-                costs = {k: v for k, v in [('food', rule['food']), ('material', rule['material'])] if v > 0}
-                if not res_comp.consume_for_action(costs, f"Settlement Upgrade ({city_name})"):
-                    continue
-                # Upgrade in CityComponent and on tile
-                city.development_level = dev + 1
-                tile = self.hex_grid.get_tile(*city.position)
-                if tile:
-                    try:
-                        from feudal_sim.map.city_extensions import upgrade_city
-                        upgrade_city(tile)
-                        tile.food_output = min(tile.food_output * 1.5, 20.0)
-                        tile.material_output = min(tile.material_output * 1.5, 20.0)
-                    except Exception as _e:
-                        log.warning(f"⚠️  upgrade_city: {_e}")
-                new_name = rule['to_name']
-                log.info(f"🏘️  {city_name} in House {house.name} upgraded to {new_name}")
-                self._log_event(f"{house.name}: '{city_name}' upgraded to {new_name}")
-                if ai:
-                    ai.add_observation(
-                        f"Settlement '{city_name}' has grown into a {new_name}! Its output improves.", "Events"
-                    )
-                    ai.record_journal_entry(f"'{city_name}' upgraded to {new_name}")
+                city._upgrade_notified_level = city.development_level + 1
+                cost_str = ", ".join(f"{v} {k}" for k, v in nxt.get('cost', {}).items())
+                ai.add_observation(
+                    f"'{city_name}' is ready to become a {nxt['name']} ({cost_str}) — "
+                    f"use upgrade_settlement('{city_name}') when you judge the moment right.",
+                    "Events")
 
     def check_victory_conditions(self, global_turn: int) -> bool:
         """Check if any house has achieved a victory condition. Returns True if game should end."""

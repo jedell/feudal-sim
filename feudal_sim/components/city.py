@@ -12,13 +12,30 @@ from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 
 
+MAX_TIER = 5
+
+
+def get_tier(level: int) -> dict:
+    """Tier definition (name, cost, bonuses) for a development level."""
+    from feudal_sim.core.config import config
+    try:
+        return config.get(f'simulation.settlements.tiers.{level}', {}) or {}
+    except KeyError:
+        return {}
+
+
+def tier_name(level: int) -> str:
+    """Display name for a development level (Outpost ... City)."""
+    return get_tier(level).get('name', f"Tier {level}")
+
+
 @dataclass
 class City:
     """Represents a city with position and development."""
     name: str
     position: Tuple[int, int]  # (q, r) hex coordinates
     city_type: str = "capital"  # capital, trade, military, agricultural
-    development_level: int = 1  # 1=village, 2=town, 3=city, 4=metropolis
+    development_level: int = 1  # settlement tier: 1=Outpost ... 5=City
     population_bonus: float = 1.5  # Multiplier for population capacity
     tax_efficiency: float = 1.3  # Multiplier for tax collection
     founded_turn: int = 1
@@ -48,32 +65,34 @@ class CityComponent(Component):
             4: {"material": 200, "gold": 150}  # city -> metropolis
         }
     
-    def add_city(self, name: str, position: Tuple[int, int], city_type: str = "capital", 
-                 founded_turn: int = 1) -> bool:
+    def add_city(self, name: str, position: Tuple[int, int], city_type: str = "capital",
+                 founded_turn: int = 1, development_level: int = 1) -> bool:
         """
         Add a new city to this entity.
-        
+
         Args:
             name: Name of the city
             position: (q, r) hex coordinates
             city_type: Type of city (capital, trade, military, agricultural)
             founded_turn: Turn when city was founded
-            
+            development_level: Starting tier (1=Outpost ... 5=City)
+
         Returns:
             True if city was added successfully
         """
         if name in self.cities:
             return False
-        
+
         # Set bonuses based on city type
         bonuses = self._get_city_type_bonuses(city_type)
-        
+
         city = City(
             name=name,
             position=position,
             city_type=city_type,
-            development_level=1,
-            population_bonus=bonuses["population_bonus"],
+            development_level=development_level,
+            population_bonus=max(bonuses["population_bonus"],
+                                 get_tier(development_level).get('population_bonus', 0)),
             tax_efficiency=bonuses["tax_efficiency"],
             founded_turn=founded_turn
         )
@@ -229,10 +248,14 @@ class CityComponent(Component):
         summary += f"Tax Efficiency: +{(self.get_total_tax_efficiency() - 1) * 100:.0f}%\n\n"
         
         for city in self.cities.values():
-            level_names = {1: "Village", 2: "Town", 3: "City", 4: "Metropolis"}
-            level_name = level_names.get(city.development_level, "Unknown")
-            summary += f"• {city.name} ({city.city_type.title()} {level_name})\n"
-        
+            level_name = tier_name(city.development_level)
+            nxt = get_tier(city.development_level + 1)
+            upgrade_note = ""
+            if nxt:
+                cost = ", ".join(f"{v} {k}" for k, v in nxt.get('cost', {}).items())
+                upgrade_note = f" — upgradeable to {nxt['name']} ({cost})"
+            summary += f"• {city.name} ({city.city_type.title()}, {level_name}){upgrade_note}\n"
+
         return summary
     
     def get_cities_near_position(self, position: Tuple[int, int], max_distance: float = 5.0) -> List[City]:

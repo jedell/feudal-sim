@@ -892,8 +892,10 @@ def create_general_toolset(general_entity) -> list:
         morale_mult = grp.morale / 100.0
         attacker_power = grp.assigned_population.soldiers * equip_mult * morale_mult
 
-        # Defence: base 20 + 15 per development level; capitals are much harder
-        base_defence = 20 + dev_level * 15
+        # Defence: base 20 + 15 per development level, times the tier's
+        # fortification multiplier (walls, castle); capitals are much harder
+        from feudal_sim.components.city import get_tier as _get_tier
+        base_defence = (20 + dev_level * 15) * _get_tier(dev_level).get('defense_mult', 1.0)
         if city_info == CityType.CAPITAL:
             base_defence *= 3
         defender_power = base_defence * _random.uniform(0.8, 1.2)
