@@ -102,9 +102,56 @@ class Simulation:
             house = House(name, color=color, known_recipients=house_names)
             house.expand_territory(starting_territories[i], self.hex_grid)
             house.establish_capital_city(capital)
+            self._establish_starting_outpost(house)
             self.entity_manager._entities[house.id] = house
             houses.append(house)
         return houses
+
+    def _establish_starting_outpost(self, house):
+        """Give each house one frontier outpost toward the map center at game
+        start — pulls every house's border inward so realms meet within the
+        first couple of years instead of expanding in isolation."""
+        from feudal_sim.components.city import CityComponent
+        distance = config.get('simulation.world_generation.starting_outpost_distance', 5)
+        if not distance:
+            return
+        terr: TerritoryComponent = house.get_component(TerritoryComponent)
+        if not terr or not terr.territory:
+            return
+        # Capital centroid, stepped toward map center (0,0)
+        cq = sum(t.q for t in terr.territory) / len(terr.territory)
+        cr = sum(t.r for t in terr.territory) / len(terr.territory)
+        norm = max(1.0, (abs(cq) + abs(cr) + abs(-cq - cr)) / 2)
+        step = min(1.0, distance / norm)
+        target_q, target_r = round(cq * (1 - step)), round(cr * (1 - step))
+        # Find the nearest unowned land tile to the ideal site
+        site = None
+        best = None
+        for tile in self.hex_grid.tiles:
+            if getattr(tile, 'owner', None):
+                continue
+            if tile.terrain_type in {HexTileType.RIVER, HexTileType.LAKE, HexTileType.OCEAN}:
+                continue
+            d = (abs(tile.q - target_q) + abs(tile.r - target_r) +
+                 abs((-tile.q - tile.r) - (-target_q - target_r))) // 2
+            if best is None or d < best:
+                best, site = d, tile
+        if not site:
+            return
+        # Claim the site and its unowned land neighbors, register the outpost
+        to_claim = [site]
+        for neigh, _dirn in self.hex_grid.get_neighbors(site.q, site.r):
+            if neigh and not getattr(neigh, 'owner', None) and \
+                    neigh.terrain_type not in {HexTileType.RIVER, HexTileType.LAKE, HexTileType.OCEAN}:
+                to_claim.append(neigh)
+        house.expand_territory(to_claim, self.hex_grid)
+        city: CityComponent = house.get_component(CityComponent)
+        if city:
+            outpost_name = f"{house.get_name()} Outpost 1"
+            city.add_city(outpost_name, (site.q, site.r), city_type="outpost", founded_turn=0)
+            house._encode_city_on_tile(site, "outpost", 1, outpost_name)
+        log.info(f"🏕️  {house.get_name()} starting outpost at ({site.q},{site.r}), "
+                 f"{len(to_claim)} tiles")
     
     def _register_priority_action_handlers(self):
         """Register default priority action handlers."""
@@ -162,7 +209,8 @@ class Simulation:
             to_check = list(self.hex_grid.get_neighbors(tile.q, tile.r))
             checked = set()
 
-            while len(territory) < 7 and to_check:
+            start_tiles = config.get('simulation.world_generation.starting_territory_tiles', 12)
+            while len(territory) < start_tiles and to_check:
 
                 neighbor, _ = to_check.pop(0)
                 checked.add(neighbor)

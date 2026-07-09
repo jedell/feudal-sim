@@ -91,10 +91,10 @@
   },
   "territory": {
     "expansion": {
-      "base_material_cost": 8,
+      "base_material_cost": 6,
       "base_gold_cost": 0,
       "loyalty_cost_per_tile": 1,
-      "max_tiles_per_order": 4
+      "max_tiles_per_order": 6
     }
   },
   "settlements": {
@@ -162,6 +162,8 @@
   "world_generation": {
     "map_size": 20,
     "num_houses": 4,
+    "starting_territory_tiles": 12,
+    "starting_outpost_distance": 5,
     "num_rivers": 4,
     "resource_nodes": {
       "count_multiplier": 0.005,
