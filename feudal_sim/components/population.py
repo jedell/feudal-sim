@@ -147,9 +147,16 @@ class PopulationComponent(Component):
                                      self.population_capacity))
         self._last_starved = starved
 
-        # --- Loyalty is earned, not automatic: recovery only when fully fed
+        # --- Loyalty: fed subjects forgive faster the angrier they were —
+        # recovery scales with distance below a contentment baseline, so deep
+        # unrest heals in seasons, not decades. Above the baseline, loyalty
+        # must be earned (feasts). Hunger still erodes it.
         if shortfall_ratio == 0:
-            self.population_loyalty = min(self.population_loyalty + 1, 100)
+            baseline = config.get('simulation.population.loyalty_baseline', 50)
+            rate = config.get('simulation.population.loyalty_recovery_rate', 0.10)
+            gap = baseline - self.population_loyalty
+            recovery = max(1, round(gap * rate)) if gap > 0 else 1
+            self.population_loyalty = min(self.population_loyalty + recovery, 100)
         else:
             penalty = int(round(1 + 4 * shortfall_ratio))
             self.population_loyalty = max(self.population_loyalty - penalty, 0)

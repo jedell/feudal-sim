@@ -30,10 +30,13 @@ def create_collect_taxes_tool(house_entity) -> Callable:
     def collect_taxes(tax_rate: float) -> str:
         """
         Collect taxes from your population to raise gold. Higher tax rates collect more gold but reduce population loyalty.
-        
+        Disloyal subjects hide their wealth: at low loyalty the same rate yields as little as half the gold, so taxing an
+        unhappy population is wasteful — restore loyalty first (feasts, full granaries), or build settlements that pay
+        steady gold income without angering anyone (Walled Town, Castle, City).
+
         Args:
             tax_rate: Tax rate as a decimal (0.1 = 10% taxes, 0.2 = 20% taxes, etc.). Must be between 0.1 and 1.0.
-            
+
         Returns:
             Result of tax collection including gold gained and loyalty impact
         """

@@ -56,7 +56,9 @@
       "base_loyalty_boost": 8,
       "food_factor": 0.02,
       "gold_factor": 0.03
-    }
+    },
+    "loyalty_baseline": 50,
+    "loyalty_recovery_rate": 0.1
   },
   "subagents": {
     "supply_consumption_per_turn": 3,
@@ -145,7 +147,8 @@
         "min_age_turns": 8,
         "output_mult": 1.25,
         "defense_mult": 1.6,
-        "population_bonus": 1.8
+        "population_bonus": 1.8,
+        "gold_income_per_turn": 1
       },
       "4": {
         "name": "Castle",
@@ -157,7 +160,8 @@
         "min_age_turns": 12,
         "output_mult": 1.1,
         "defense_mult": 2.5,
-        "population_bonus": 2.0
+        "population_bonus": 2.0,
+        "gold_income_per_turn": 2
       },
       "5": {
         "name": "City",

@@ -397,13 +397,18 @@ The world bends to dragonfire and steel. Your generals are instruments of conque
         if city_component:
             tax_efficiency = city_component.get_total_tax_efficiency()
             effective_tax_rate = tax_rate * tax_efficiency
-        
+
+        # Sullen subjects hide their grain: yield shrinks with low loyalty
+        # (50% at loyalty 0, full at 100) — desperation taxation pays poorly
+        loyalty_yield = 0.5 + population_component.loyalty / 200.0
+        effective_tax_rate *= loyalty_yield
+
         tax_collected = resource_component.collect_taxes(population_component.population, effective_tax_rate)
-        
+
         # loyalty decreases with higher tax rate (base rate, not efficiency-modified)
-        loyalty_decrease = math.ceil(tax_rate * 50)  # Reduced from 80 — 10% tax now costs ~5 loyalty
+        loyalty_decrease = math.ceil(tax_rate * 50)  # 10% tax costs ~5 loyalty
         population_component.adjust_loyalty(-loyalty_decrease)
-        
+
         return tax_collected
 
     def send_message(self, message: str, recipient: str):
