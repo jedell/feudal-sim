@@ -482,15 +482,43 @@ class HexGrid:
         self.set_ocean(start_tile)
 
         # if tile is land, apply some more elevation noise
-        elevation_seed = random.randint(0, 100)                     
+        elevation_seed = random.randint(0, 100)
         for tile in tiles:
             if self.is_land(tile):
                 tile.elevation += max(0.0, self.get_random_noise(tile.q/size + 100, tile.r/size + 100, scale=6, octaves=8, persistence=0.5, lacunarity=2.0, seed=elevation_seed))
                 tile.elevation = min(1.0, tile.elevation)
-                tile.terrain_type = self.determine_terrain_type(tile.elevation, tile.moisture, tile.temperature)
+                # refresh_terrain re-derives outputs/capacity — re-typing
+                # without it leaves stale yields from the original biome
+                tile.refresh_terrain(self.determine_terrain_type(tile.elevation, tile.moisture, tile.temperature))
 
+        from feudal_sim.core.config import config as _cfg
         river_system = RiverSystem(self, 0.00)
-        self.tiles = river_system.generate_rivers(4)
+        self.tiles = river_system.generate_rivers(_cfg.get('simulation.world_generation.num_rivers', 4))
+
+        # Floodplains: fresh water raises the moisture of nearby lowlands,
+        # and biomes (hence food) follow — river valleys become the fertile,
+        # contested corridors they were historically
+        moisture_bonus = {1: _cfg.get('simulation.world_generation.floodplain_moisture_bonus', 0.25),
+                          2: _cfg.get('simulation.world_generation.floodplain_moisture_bonus', 0.25) / 2}
+        water_tiles = [t for t in self.tiles
+                       if t.terrain_type in {HexTileType.RIVER, HexTileType.LAKE}]
+        touched = {}
+        for wt in water_tiles:
+            for tile in self.tiles:
+                d = self.hex_distance(wt.q, wt.r, tile.q, tile.r)
+                # is_land() counts RIVER as land — exclude it explicitly or
+                # the floodplain pass erases the rivers it flows from
+                if d in moisture_bonus and self.is_land(tile) and \
+                        tile.terrain_type != HexTileType.RIVER:
+                    touched[(tile.q, tile.r)] = max(touched.get((tile.q, tile.r), 0.0),
+                                                    moisture_bonus[d])
+        for (q, r), bonus in touched.items():
+            tile = self.tile_map.get((q, r))
+            if tile is None:
+                continue
+            tile.moisture = min(1.0, tile.moisture + bonus)
+            tile.refresh_terrain(self.determine_terrain_type(
+                tile.elevation, tile.moisture, tile.temperature))
 
         return tiles
 
@@ -531,26 +559,37 @@ class HexGrid:
             return None
 
     def determine_terrain_type(self, elevation, moisture, temperature):
-        # Add noise to thresholds
-        mountain_threshold = 0.55
-        hill_threshold = 0.45
-        land_threshold = 0.05
+        # Thresholds from config (world_generation.terrain_thresholds), with
+        # noise added so biome edges stay organic
+        from feudal_sim.core.config import config as _cfg
+        th = _cfg.get('simulation.world_generation.terrain_thresholds', {})
+        mountain_threshold = th.get('mountain', 0.55)
+        hill_threshold = th.get('hill', 0.45)
+        land_threshold = th.get('land', 0.05)
 
         moisture_noise = min(1.0, max(0.0, self.get_random_noise(moisture, moisture, scale=4.0, octaves=12, persistence=0.8, lacunarity=2.0, seed=100)))
-        forest_threshold = 0.65 + moisture_noise
-        grassland_threshold = 0.3
-        desert_threshold = 0.55
+        forest_threshold = th.get('forest_base', 0.65) + moisture_noise
+        grassland_threshold = th.get('grassland', 0.3)
+        desert_threshold = th.get('desert', 0.55)
 
         # add noise to thresholds
         temperature_noise = self.get_random_noise(temperature, temperature, scale=2, octaves=4, persistence=0.8, lacunarity=2.0, seed=100)
-        cold_threshold = 0.4 + temperature_noise
-        warm_threshold = 0.65 + temperature_noise
+        cold_threshold = th.get('cold_base', 0.4) + temperature_noise
+        warm_threshold = th.get('warm_base', 0.65) + temperature_noise
 
         if elevation > mountain_threshold:
+            # Frozen peaks in the far cold
+            if temperature < th.get('ice_temp', 0.15):
+                return HexTileType.ICE_CAP
             return HexTileType.MOUNTAIN
         elif elevation > hill_threshold:
             return HexTileType.HILL
         elif elevation > land_threshold:
+            # Waterlogged lowlands become swamp (any non-frozen climate)
+            if elevation < th.get('swamp_elevation', 0.15) and \
+                    moisture > th.get('swamp_moisture', 0.75) and \
+                    temperature > cold_threshold:
+                return HexTileType.SWAMP
             if temperature < cold_threshold:
                 if moisture > forest_threshold:
                     return HexTileType.BOREAL_FOREST

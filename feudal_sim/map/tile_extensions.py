@@ -83,8 +83,18 @@ def add_gold_mine(tile: HexTile) -> None:
 
 
 def add_iron_deposit(tile: HexTile) -> None:
-    """Add an iron deposit to this tile.""" 
+    """Add an iron deposit to this tile."""
     set_resource_node(tile, ResourceNodeType.IRON_DEPOSIT)
+
+
+def add_stone_quarry(tile: HexTile) -> None:
+    """Add a stone quarry to this tile."""
+    set_resource_node(tile, ResourceNodeType.STONE_QUARRY)
+
+
+def add_rare_herbs(tile: HexTile) -> None:
+    """Add a rare herbs node to this tile."""
+    set_resource_node(tile, ResourceNodeType.RARE_HERBS)
 
 
 def get_resource_description(tile: HexTile) -> str:

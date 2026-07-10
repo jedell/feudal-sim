@@ -226,30 +226,64 @@ class Simulation:
         return territories
     
     def add_resource_nodes(self):
-        """Add some resource nodes to random tiles on the map."""
+        """Place resource nodes where geology puts them: iron and stone in
+        the shadow of mountains, gold in the hills, rare herbs in forest and
+        swamp. Geography creates contestable prizes instead of uniform noise."""
+        from feudal_sim.map.tile_extensions import add_stone_quarry, add_rare_herbs
         log.info("🏗️  Adding resource nodes to the map...")
-        
-        # Get some random land tiles
-        land_tiles = [tile for tile in self.hex_grid.tiles 
+
+        land_tiles = [tile for tile in self.hex_grid.tiles
                       if self.hex_grid.is_land(tile)]
-        
-        # Use config for resource node generation
         count_multiplier = config.get('simulation.world_generation.resource_nodes.count_multiplier', 0.05)
-        gold_ratio = config.get('simulation.world_generation.resource_nodes.gold_mine_ratio', 0.5)
-        
-        num_resources = max(1, int(len(land_tiles) * count_multiplier))
-        selected_tiles = random.sample(land_tiles, num_resources)
-        
-        for i, tile in enumerate(selected_tiles):
-            # Use configured ratio to determine resource type
-            if i / len(selected_tiles) < gold_ratio:
-                add_gold_mine(tile)
-                log.info(f"   💰 Added gold mine at ({tile.q}, {tile.r})")
-            else:
-                add_iron_deposit(tile)  
-                log.info(f"   ⛏️  Added iron deposit at ({tile.q}, {tile.r})")
-        
-        log.info(f"✅ Added {len(selected_tiles)} resource nodes")
+        num_resources = max(2, int(len(land_tiles) * count_multiplier))
+
+        def _adjacent_to(tile, terrain_types):
+            for nb, _d in self.hex_grid.get_neighbors(tile.q, tile.r):
+                if nb is not None and nb.terrain_type in terrain_types:
+                    return True
+            return False
+
+        # Candidate pools by geology (a tile may qualify for several)
+        pools = {
+            'iron': [t for t in land_tiles
+                     if t.terrain_type == HexTileType.MOUNTAIN or
+                     _adjacent_to(t, {HexTileType.MOUNTAIN})],
+            'stone': [t for t in land_tiles
+                      if t.terrain_type in {HexTileType.HILL, HexTileType.MOUNTAIN}],
+            'gold': [t for t in land_tiles if t.terrain_type == HexTileType.HILL],
+            'herbs': [t for t in land_tiles
+                      if t.terrain_type in {HexTileType.TEMPERATE_FOREST,
+                                            HexTileType.BOREAL_FOREST,
+                                            HexTileType.RAINFOREST,
+                                            HexTileType.SWAMP}],
+        }
+        weights = config.get('simulation.world_generation.resource_nodes.type_weights',
+                             {'iron': 0.35, 'stone': 0.2, 'gold': 0.25, 'herbs': 0.2})
+        placers = {'iron': add_iron_deposit, 'stone': add_stone_quarry,
+                   'gold': add_gold_mine, 'herbs': add_rare_herbs}
+        icons = {'iron': '⛏️', 'stone': '🪨', 'gold': '💰', 'herbs': '🌿'}
+
+        used = set()
+        placed = 0
+        kinds = list(weights.keys())
+        kind_weights = [weights[k] for k in kinds]
+        attempts = 0
+        while placed < num_resources and attempts < num_resources * 20:
+            attempts += 1
+            kind = random.choices(kinds, weights=kind_weights, k=1)[0]
+            pool = [t for t in pools.get(kind, []) if (t.q, t.r) not in used]
+            if not pool:
+                # Geology doesn't support this kind on this map — fall back
+                pool = [t for t in land_tiles if (t.q, t.r) not in used]
+                if not pool:
+                    break
+            tile = random.choice(pool)
+            placers[kind](tile)
+            used.add((tile.q, tile.r))
+            placed += 1
+            log.info(f"   {icons[kind]} Added {kind} node at ({tile.q}, {tile.r}) [{tile.terrain_type.name.lower()}]")
+
+        log.info(f"✅ Added {placed} resource nodes (geology-weighted)")
     
     def initialize_house_intelligence(self):
         """Initialize intelligence reports for all houses after territories are assigned."""        

@@ -247,7 +247,27 @@
     "num_rivers": 4,
     "resource_nodes": {
       "count_multiplier": 0.005,
-      "gold_mine_ratio": 0.1
+      "gold_mine_ratio": 0.1,
+      "type_weights": {
+        "iron": 0.35,
+        "stone": 0.2,
+        "gold": 0.25,
+        "herbs": 0.2
+      }
+    },
+    "floodplain_moisture_bonus": 0.25,
+    "terrain_thresholds": {
+      "mountain": 0.55,
+      "hill": 0.45,
+      "land": 0.05,
+      "forest_base": 0.65,
+      "grassland": 0.3,
+      "desert": 0.55,
+      "cold_base": 0.4,
+      "warm_base": 0.65,
+      "ice_temp": 0.15,
+      "swamp_elevation": 0.15,
+      "swamp_moisture": 0.75
     }
   },
   "priority_actions": {
