@@ -66,14 +66,36 @@ def get_resource_bonus(tile: HexTile) -> dict:
     """
     node = get_resource_node_type(tile)
     if node == ResourceNodeType.IRON_DEPOSIT:
-        return {'metal_flat': 2.0}  # deposits are THE metal source
+        bonus = {'metal_flat': 2.0}  # deposits are THE metal source
     elif node == ResourceNodeType.STONE_QUARRY:
-        return {'material_multiplier': 2.0}
+        bonus = {'material_multiplier': 2.0}
     elif node == ResourceNodeType.GOLD_MINE:
-        return {'gold_flat': 2.0}  # flat gold per turn per tile
+        bonus = {'gold_flat': 2.0}  # flat gold per turn per tile
     elif node == ResourceNodeType.RARE_HERBS:
-        return {'gold_flat': 1.0}  # luxury trade income
-    return {}
+        bonus = {'gold_flat': 1.0}  # luxury trade income
+    else:
+        return {}
+
+    # A node must be WORKED to pay in full: without a settlement on its tile
+    # it yields only surface scavenging. Razing the settlement (sieges) drops
+    # it back to scraps automatically — the encoding disappears with the city.
+    if not is_node_developed(tile):
+        from feudal_sim.core.config import config
+        scale = config.get('simulation.world_generation.resource_nodes.undeveloped_yield', 0.25)
+        scaled = {}
+        for key, value in bonus.items():
+            if key.endswith('_multiplier'):
+                scaled[key] = 1.0 + (value - 1.0) * scale
+            else:
+                scaled[key] = value * scale
+        return scaled
+    return bonus
+
+
+def is_node_developed(tile: HexTile) -> bool:
+    """A resource node is developed when a settlement stands on its tile
+    (city encoding lives in population_capacity >= 1000)."""
+    return getattr(tile, 'population_capacity', 0) >= 1000
 
 
 def has_special_resource(tile: HexTile) -> bool:

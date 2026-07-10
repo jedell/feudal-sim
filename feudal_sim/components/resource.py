@@ -343,7 +343,7 @@ class ResourceComponent(Component):
 **The Taxman's Burden:**
 When gold runs low, you may levy taxes upon your subjects. Higher rates fill your treasury quickly but breed resentment among your people. A lord who taxes too heavily may face their subjects' loyalty cracking like ice in spring.
 
-Your lands produce food and building materials in abundance, but METAL and GOLD are scarce: ordinary ground yields only a trickle of metal, and none of gold. Iron deposits and gold mines — marked, known places on the map — are the true sources, alongside taxes, trade, and city markets. Houses that hold the deposits arm and enrich themselves; houses that do not must trade, tax, or take them. Stone quarries double a tile's material yield; rare herbs bring luxury trade income.
+Your lands produce food and building materials in abundance, but METAL and GOLD are scarce: ordinary ground yields only a trickle of metal, and none of gold. Iron deposits and gold mines — marked, known places on the map — are the true sources, alongside taxes, trade, and city markets. A node pays only scraps until it is WORKED: build an outpost on the node's tile (node camps are exempt from settlement spacing) to unlock its full yield. A razed camp is a crippled mine — enemy resource camps are legitimate targets of war. Stone quarries double a tile's material yield; rare herbs bring luxury trade income.
 """
 
     def update(self, dt: float, event_bus=None):

@@ -254,7 +254,8 @@
         "stone": 0.2,
         "gold": 0.25,
         "herbs": 0.2
-      }
+      },
+      "undeveloped_yield": 0.25
     },
     "floodplain_moisture_bonus": 0.25,
     "terrain_thresholds": {

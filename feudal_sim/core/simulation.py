@@ -1198,12 +1198,17 @@ class Simulation:
                                 continue
                         except Exception as _e:
                             log.warning(f"⚠️  {_e}")
-                        # Enforce within-house spacing constraint
+                        # Enforce within-house spacing constraint — resource
+                        # node camps are exempt (work camps, not towns)
                         try:
-                            from feudal_sim.core.config import config
-                            min_spacing = int(config.get('simulation.settlements.min_spacing_tiles', 3))
+                            from feudal_sim.map.tile_extensions import has_special_resource as _has_node
+                            _node_camp = tile is not None and _has_node(tile)
                         except Exception:
-                            min_spacing = 3
+                            _node_camp = False
+                        try:
+                            min_spacing = 0 if _node_camp else int(config.get('simulation.settlements.min_spacing_tiles', 3))
+                        except Exception:
+                            min_spacing = 0 if _node_camp else 3
                         too_close = False
                         nearest_name = None
                         nearest_dist = None

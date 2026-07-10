@@ -505,11 +505,16 @@ def create_general_toolset(general_entity) -> list:
         except Exception:
             pass
 
-        # Spacing constraint: enforce minimum distance from this house's settlements (cities/outposts)
+        # Spacing constraint: enforce minimum distance from this house's
+        # settlements — EXCEPT on resource nodes: mining/quarry camps are work
+        # camps, exempt from town spacing, or nodes near capitals could never
+        # be developed
+        from feudal_sim.map.tile_extensions import has_special_resource as _has_node
+        node_site = _has_node(center_tile)
         try:
             from feudal_sim.components.city import CityComponent
             from feudal_sim.core.config import config as _cfg
-            min_spacing = int(_cfg.get('simulation.settlements.min_spacing_tiles', 3))
+            min_spacing = 0 if node_site else int(_cfg.get('simulation.settlements.min_spacing_tiles', 3))
             nearest_dist = None
             nearest_name = None
             # Check against this house's existing settlements
@@ -691,13 +696,19 @@ def create_general_toolset(general_entity) -> list:
                     break
                 if _has_city(neighbor):
                     continue
+                from feudal_sim.map.tile_extensions import has_special_resource as _has_node2, get_resource_node_type as _node_type
+                is_node_tile = _has_node2(neighbor)
                 sdist = _settlement_dist(current[0], current[1])
-                if sdist is not None and sdist < min_spacing:
+                # Resource-node camps are exempt from settlement spacing
+                if not is_node_tile and sdist is not None and sdist < min_spacing:
                     still_needed = min_spacing - sdist
                     if steps == 12:
                         dir_status[dir_upper] = f"all owned tiles too close to existing settlement (need {still_needed} more)"
                     continue
                 terrain_name = terrain.name.lower().replace('_', ' ') if terrain else 'land'
+                if is_node_tile:
+                    node_name = _node_type(neighbor).name.lower().replace('_', ' ')
+                    terrain_name += f" — {node_name.upper()}, undeveloped: build here to work it"
                 valid_options.append((steps, dir_upper, terrain_name, current))
                 dir_status[dir_upper] = f"✓ valid site at {steps} tile(s) ({terrain_name})"
                 found = True
