@@ -222,30 +222,24 @@ class PathfindingComponent(Component):
             Movement cost (float('inf') means impassable)
         """
         base_cost = 1.0 * self.movement_cost_multiplier
-        
+
         # Water tiles
         if tile.terrain_type in {HexTileType.OCEAN, HexTileType.LAKE, HexTileType.RIVER}:
             if self.avoid_water:
                 return float('inf')  # Impassable for trade caravans
             else:
                 return base_cost * 3.0  # High cost if water travel allowed
-        
-        # Terrain-based costs
-        if tile.terrain_type == HexTileType.MOUNTAIN:
-            return base_cost * 2.5  # Mountains are difficult
-        elif tile.terrain_type == HexTileType.HILL:
-            return base_cost * 1.5  # Hills are moderately difficult
-        elif tile.terrain_type in {HexTileType.TEMPERATE_FOREST, HexTileType.BOREAL_FOREST, HexTileType.RAINFOREST}:
-            return base_cost * 1.3  # Forests slow movement
-        elif tile.terrain_type == HexTileType.GRASSLAND:  # GRASSLAND instead of PLAINS
-            return base_cost * 0.8  # Plains are easy to cross
-        
+
+        # Terrain-based costs — shared config table with general movement
+        from feudal_sim.components.position import terrain_step_cost
+        cost = base_cost * terrain_step_cost(tile)
+
         # Territory-based costs
         if self.avoid_enemy_territory and hasattr(tile, 'owner') and tile.owner:
             if hasattr(tile.owner, 'id') and tile.owner.id != entity_house_id:
-                return base_cost * 2.0  # Higher cost to cross enemy territory
-        
-        return base_cost
+                cost *= 2.0  # Higher cost to cross enemy territory
+
+        return cost
     
     def _reconstruct_path(self, came_from: Dict[Tuple[int, int], Tuple[int, int]], 
                          current: Tuple[int, int]) -> List[Tuple[int, int]]:

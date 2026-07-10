@@ -349,7 +349,7 @@ class TerritoryComponent(Component):
             },
             'total_population_capacity': total_population_capacity,
             'opportunities': opportunities,
-            'expansion_cost_estimate': self._estimate_expansion_cost(len(opportunities)),
+            'expansion_cost_estimate': self._estimate_expansion_cost(len(opportunities), [op['tile'] for op in opportunities]),
             'message': f"Found {len(opportunities)} expansion opportunities in {direction} direction"
         }
     
@@ -715,24 +715,40 @@ Territory expansion takes time - orders given this week resolve next week based 
         return len(self.deployed_generals)
 
     
-    def _estimate_expansion_cost(self, num_tiles: int) -> Dict[str, int]:
+    def _estimate_expansion_cost(self, num_tiles: int, tiles: list = None) -> Dict[str, int]:
         """
         Estimate the resource cost for expanding by a number of tiles.
-        
+        Harsh terrain (mountains, swamp, desert) costs more to settle;
+        grassland less — multipliers from config.
+
         Args:
             num_tiles: Number of tiles to expand into
-            
+            tiles: The actual target tiles, for terrain-based cost scaling
+
         Returns:
             Dictionary with estimated costs
         """
-        
         # Get costs from config with fallback to original values
         base_material_cost = config.get('simulation.territory.expansion.base_material_cost', 30)
         base_gold_cost = config.get('simulation.territory.expansion.base_gold_cost', 20)
 
+        harshness = 1.0
+        if tiles:
+            mults = config.get('simulation.territory.expansion.terrain_cost_mult', {})
+            total = 0.0
+            for tile in tiles:
+                name = getattr(getattr(tile, 'terrain_type', None), 'name', '') or ''
+                if 'FOREST' in name:
+                    key = 'default'
+                else:
+                    key = name.lower()
+                total += float(mults.get(key, mults.get('default', 1.0)))
+            harshness = total / len(tiles)
+
+        import math
         return {
-            'material': base_material_cost * num_tiles,
-            'gold': base_gold_cost * num_tiles
+            'material': math.ceil(base_material_cost * num_tiles * harshness),
+            'gold': math.ceil(base_gold_cost * num_tiles * harshness)
         }
     
     def create_expansion_order(self, direction: str, hex_grid, current_turn: int, delay_turns: int = 1, max_tiles: int = None) -> ExpansionOrder:
@@ -766,7 +782,7 @@ Territory expansion takes time - orders given this week resolve next week based 
             )[:max_tiles]
 
         # Calculate costs
-        expansion_costs = self._estimate_expansion_cost(len(opportunities))
+        expansion_costs = self._estimate_expansion_cost(len(opportunities), [op['tile'] for op in opportunities])
         loyalty_cost_per_tile = config.get('simulation.territory.expansion.loyalty_cost_per_tile', 1)
         loyalty_cost = loyalty_cost_per_tile * len(opportunities)
         

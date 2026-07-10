@@ -114,7 +114,15 @@
       "base_material_cost": 6,
       "base_gold_cost": 0,
       "loyalty_cost_per_tile": 1,
-      "max_tiles_per_order": 6
+      "max_tiles_per_order": 6,
+      "terrain_cost_mult": {
+        "grassland": 0.9,
+        "hill": 1.1,
+        "desert": 1.2,
+        "swamp": 1.3,
+        "mountain": 1.5,
+        "default": 1.0
+      }
     }
   },
   "settlements": {
@@ -254,6 +262,17 @@
     "diplomatic_summit": {
       "max_participants": 4,
       "negotiation_rounds": 5
+    }
+  },
+  "movement": {
+    "points_per_turn": 3,
+    "terrain_costs": {
+      "grassland": 0.8,
+      "forest": 1.3,
+      "hill": 1.5,
+      "mountain": 2.5,
+      "swamp": 2.0,
+      "default": 1.0
     }
   }
 }

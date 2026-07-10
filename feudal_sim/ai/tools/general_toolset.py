@@ -159,7 +159,9 @@ def create_general_toolset(general_entity) -> list:
                         'ours' if getattr(owner, 'id', None) == getattr(general_entity, 'house_id', None)
                         else getattr(owner, 'name', 'foreign')
                     )
-                    completed.append(f"{dir_upper}({terrain_name},{owner_label})")
+                    step_cost = result.get('movement_cost', 1)
+                    cost_label = f",{step_cost:g}MP" if step_cost != 1 else ""
+                    completed.append(f"{dir_upper}({terrain_name},{owner_label}{cost_label})")
             except Exception:
                 completed.append(dir_upper)
 

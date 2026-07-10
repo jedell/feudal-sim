@@ -7,11 +7,29 @@ It provides movement validation, distance calculations, and area of influence.
 """
 
 from typing import Tuple, List, Optional, Dict, Any
+from feudal_sim.core.config import config
 from feudal_sim.core.entities import Component
 from feudal_sim.core.events import event_bus, EventType
 from feudal_sim.utils.directions import neighbor_delta_to_dir
 from feudal_sim.utils.observations import ObservationFormatter
 from feudal_sim.map.types import HexTileType
+
+
+def terrain_step_cost(tile) -> float:
+    """Movement-point cost of stepping onto a tile — shared by general
+    movement and caravan pathfinding (config simulation.movement.terrain_costs)."""
+    terrain = getattr(tile, 'terrain_type', None)
+    name = getattr(terrain, 'name', '') or ''
+    if name in ('MOUNTAIN', 'HILL', 'GRASSLAND'):
+        key = name.lower()
+    elif 'FOREST' in name or name == 'RAINFOREST':
+        key = 'forest'
+    elif name == 'SWAMP':
+        key = 'swamp'
+    else:
+        key = 'default'
+    costs = config.get('simulation.movement.terrain_costs', {})
+    return float(costs.get(key, costs.get('default', 1.0)))
 
 
 class PositionComponent(Component):
@@ -25,15 +43,18 @@ class PositionComponent(Component):
     - Movement history for AI observations
     """
     
-    def __init__(self, entity_id: str = None, position: Tuple[int, int] = None, 
-                 operational_range: int = 3, movement_points: int = 2):
+    def __init__(self, entity_id: str = None, position: Tuple[int, int] = None,
+                 operational_range: int = 3, movement_points: int = None):
         super().__init__(entity_id)
-        
+
         # Core position data
         self.q, self.r = position if position else (0, 0)
         self.previous_position: Optional[Tuple[int, int]] = None
-        
-        # Movement capabilities
+
+        # Movement capabilities — points per turn from config; terrain makes
+        # individual steps cost more or less than 1 (see terrain_step_cost)
+        if movement_points is None:
+            movement_points = config.get('simulation.movement.points_per_turn', 3)
         self.operational_range = operational_range  # Hex radius for influence/actions
         self.movement_points = movement_points  # How far can move per turn
         self.max_movement_points = movement_points  # Maximum movement per turn
@@ -82,10 +103,18 @@ class PositionComponent(Component):
             Dictionary with movement result and details
         """
         target_q, target_r = target_position
-        
-        # Calculate movement distance
+
+        # Calculate movement distance and terrain-adjusted cost. For the
+        # normal single-step case the destination tile's terrain sets the
+        # price (mountains 2.5, forest 1.3, grassland 0.8...); multi-tile
+        # jumps (teleport-style internal moves) fall back to flat distance.
         distance = self.hex_distance(self.position, target_position)
-        
+        movement_cost = float(distance)
+        if hex_grid is not None and distance == 1:
+            target_tile = hex_grid.get_tile(target_q, target_r)
+            if target_tile is not None:
+                movement_cost = terrain_step_cost(target_tile)
+
         # Validate movement if requested
         if validate_movement:
             validation_result = self.validate_movement(target_position, hex_grid)
@@ -94,22 +123,23 @@ class PositionComponent(Component):
                     'success': False,
                     'message': f"Cannot move to ({target_q}, {target_r}): {validation_result['reason']}",
                     'distance': distance,
-                    'movement_cost': distance
+                    'movement_cost': movement_cost
                 }
-        
+
         # Check movement points
-        if distance > self.remaining_movement:
+        if movement_cost > self.remaining_movement + 1e-9:
             return {
                 'success': False,
-                'message': f"Insufficient movement points: need {distance}, have {self.remaining_movement}",
+                'message': (f"Insufficient movement points: need {movement_cost:g}, "
+                            f"have {self.remaining_movement:g}"),
                 'distance': distance,
-                'movement_cost': distance
+                'movement_cost': movement_cost
             }
-        
+
         # Execute movement
         old_position = self.position
         self.position = target_position
-        self.remaining_movement -= distance
+        self.remaining_movement = round(self.remaining_movement - movement_cost, 3)
         
         # Record movement in history
         movement_record = {
@@ -117,22 +147,22 @@ class PositionComponent(Component):
             'from': old_position,
             'to': target_position,
             'distance': distance,
-            'movement_cost': distance
+            'movement_cost': movement_cost
         }
         self.movement_history.append(movement_record)
         self.turn_moved = current_turn or -1
-        
+
         # Keep movement history manageable
         if len(self.movement_history) > 10:
             self.movement_history.pop(0)
 
         dir_code = neighbor_delta_to_dir((target_q - old_position[0], target_r - old_position[1]))
-        
+
         return {
             'success': True,
             'message': ObservationFormatter.movement_single_step(dir_code, self.remaining_movement),
             'distance': distance,
-            'movement_cost': distance,
+            'movement_cost': movement_cost,
             'remaining_movement': self.remaining_movement
         }
     
