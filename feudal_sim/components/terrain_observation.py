@@ -472,6 +472,59 @@ class TerrainObservation(Component):
             } if self.opportunities_found else {}
         }
     
+    TERRAIN_SYMBOLS = {
+        'grassland': '.', 'steppe': ',', 'temperate_forest': 'F',
+        'boreal_forest': 'f', 'rainforest': 'J', 'hill': 'n',
+        'mountain': '^', 'desert': 'd', 'tundra': 't', 'swamp': 'w',
+        'ice_cap': 'i', 'ocean': '~', 'lake': '~', 'river': '~',
+    }
+
+    def render_local_map(self, center, hex_grid, current_turn: int, radius: int = 2,
+                         own_house_name: str = None) -> str:
+        """Compact ASCII hex window around the general, built from remembered
+        observations. Terrain is static so remembered tiles render as known;
+        tiles never observed render '?'. Ownership facts go in the notes with
+        their observation age — memory is labeled, never passed off as truth."""
+        q0, r0 = center
+        rows = []
+        notes = []
+        for dr in range(-radius, radius + 1):
+            symbols = []
+            for dq in range(max(-radius, -dr - radius), min(radius, -dr + radius) + 1):
+                coord = (q0 + dq, r0 + dr)
+                if dq == 0 and dr == 0:
+                    symbols.append('@')
+                    continue
+                obs = self.observed_tiles.get(coord)
+                if not obs:
+                    symbols.append('?')
+                    continue
+                sym = self.TERRAIN_SYMBOLS.get(
+                    str(obs.terrain_type).lower().replace('hextiletype.', ''), '?')
+                tile = hex_grid.get_tile(*coord) if hex_grid else None
+                if tile is not None and getattr(tile, 'population_capacity', 0) >= 1000:
+                    sym = '#'  # settlement overlay
+                symbols.append(sym)
+                if obs.owner_house and obs.owner_house != own_house_name:
+                    age = current_turn - obs.last_observed_turn
+                    age_note = "current" if age <= 1 else f"as of {age} turns ago"
+                    notes.append(f"{self._direction_label(dq, dr)}: held by {obs.owner_house} ({age_note})")
+            rows.append(' ' * abs(dr) + ' '.join(symbols))
+        legend = ("@ you | ? unscouted | . grass | , steppe | F/f/J forest | n hill | "
+                  "^ mountain | d desert | t tundra | w swamp | ~ water | # settlement")
+        out = [f"Local map (radius {radius}, N at top):"] + rows + [f"Legend: {legend}"]
+        if notes:
+            out.append("Holdings in view: " + "; ".join(sorted(set(notes))[:6]))
+        return "\n".join(out)
+
+    @staticmethod
+    def _direction_label(dq: int, dr: int) -> str:
+        """Grid-direction label + distance for an axial offset."""
+        from feudal_sim.utils.directions import offset_to_bearing
+        dist = (abs(dq) + abs(dr) + abs(-dq - dr)) // 2
+        bearing = offset_to_bearing(dq, dr)
+        return f"{dist} {bearing}" if bearing != "CENTER" else "here"
+
     def get_passive_observation_text(self) -> str:
         """
         Generate a concise natural language summary of the current observation state.

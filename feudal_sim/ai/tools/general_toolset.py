@@ -12,6 +12,34 @@ from feudal_sim.ai.tools.communication import create_rookery_toolset, end_turn
 from feudal_sim.utils.observations import ObservationFormatter
 
 
+def _home_gloss(sim_context, general_entity, q: int, r: int) -> str:
+    """Directional gloss for a raw coordinate — ' (~4 tiles NE of home)'.
+    Keeps coordinates usable as handles while grounding them spatially."""
+    try:
+        em = getattr(sim_context, 'entity_manager', None)
+        house_id = getattr(general_entity, 'house_id', None)
+        if not em or not house_id:
+            return ""
+        house = em.get_entity(house_id)
+        from feudal_sim.components.territory import TerritoryComponent
+        terr = house.get_component(TerritoryComponent) if house else None
+        if not terr or not terr.territory:
+            return ""
+        best_d, best_tile = None, None
+        for tile in list(terr.territory)[:20]:
+            d = (abs(q - tile.q) + abs(r - tile.r) +
+                 abs((-q - r) - (-tile.q - tile.r))) // 2
+            if best_d is None or d < best_d:
+                best_d, best_tile = d, tile
+        if best_d is None or best_d == 0:
+            return " (in home territory)"
+        from feudal_sim.utils.directions import offset_to_bearing
+        bearing = offset_to_bearing(best_tile.q - q, best_tile.r - r)
+        return f" (home territory ~{best_d} tile(s) {bearing})"
+    except Exception:
+        return ""
+
+
 def create_general_toolset(general_entity) -> list:
     """Create tools for general entities."""
     tools = []
@@ -144,13 +172,14 @@ def create_general_toolset(general_entity) -> list:
         path_str = " → ".join(completed) if completed else "no movement"
         q, r = pos.position
         remaining_mp = getattr(pos, 'remaining_movement', '?')
+        home_gloss = _home_gloss(sim_context, general_entity, q, r)
 
         if stopped_reason:
             return (f"Moved {len(completed)}/{len(steps)} step(s): {path_str}. "
                     f"Stopped: {stopped_reason}. "
-                    f"Position ({q},{r}), {remaining_mp} movement point(s) remaining.")
+                    f"Position ({q},{r}){home_gloss}, {remaining_mp} movement point(s) remaining.")
         return (f"Moved {len(completed)}/{len(steps)} step(s): {path_str}. "
-                f"Position ({q},{r}), {remaining_mp} movement point(s) remaining.")
+                f"Position ({q},{r}){home_gloss}, {remaining_mp} movement point(s) remaining.")
     move_along.action_description = "**Move Along Path**: Execute a planned sequence of steps in one action — prefer this over multiple move() calls"
     tools.append(move_along)
 

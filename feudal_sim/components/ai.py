@@ -761,6 +761,31 @@ class AIComponent(Component):
                     context_parts.append(f"Orders issued turn {mp.assigned_turn} ({turns_in_field} turns ago)")
                 context_parts.append("")
 
+            # Spatial memory: what this general already knows of the ground —
+            # passive summary + local map from remembered observations, so the
+            # field picture survives between turns without re-scanning
+            from feudal_sim.components.terrain_observation import TerrainObservation
+            terrain_obs = self.entity.get_component(TerrainObservation)
+            if terrain_obs:
+                passive = terrain_obs.get_passive_observation_text()
+                if passive:
+                    context_parts.append(passive)
+                pos_comp = self.entity.get_component(PositionComponent)
+                hex_grid = getattr(self.context, 'hex_grid', None)
+                if pos_comp and pos_comp.position and hex_grid:
+                    own_house = None
+                    em = getattr(self.context, 'entity_manager', None)
+                    house_id = getattr(self.entity, 'house_id', None)
+                    if em and house_id:
+                        parent = em.get_entity(house_id)
+                        own_house = getattr(parent, 'name', None)
+                    local_map = terrain_obs.render_local_map(
+                        pos_comp.position, hex_grid, self.context.current_turn,
+                        own_house_name=own_house)
+                    if local_map:
+                        context_parts.append(local_map)
+                context_parts.append("")
+
         # Expire any stale situations
         self._expire_situations(self.context.current_turn)
 

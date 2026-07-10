@@ -478,6 +478,12 @@ Territory expansion takes time - orders given this week resolve next week based 
         result.sort(key=lambda x: (0 if x['is_main'] else 1, -x['tile_count']))
         return result
 
+    @staticmethod
+    def _compass_bearing(dq: float, dr: float) -> str:
+        """Bearing for an axial offset, snapped to the grid's six directions."""
+        from feudal_sim.utils.directions import offset_to_bearing
+        return offset_to_bearing(dq, dr)
+
     def format_realm_overview(self, hex_grid, entity_manager=None) -> str:
         """
         Generate a natural language realm overview for injection into the lord's
@@ -583,6 +589,9 @@ Territory expansion takes time - orders given this week resolve next week based 
         # --- Known houses with distances ---
         if entity_manager and self.entity and components:
             try:
+                our_tiles = list(components[0]['tiles'])
+                our_cq = sum(t.q for t in our_tiles) / len(our_tiles)
+                our_cr = sum(t.r for t in our_tiles) / len(our_tiles)
                 house_distances = []
                 for other_entity in entity_manager.get_all_entities():
                     if other_entity.id == self.entity.id:
@@ -593,7 +602,7 @@ Territory expansion takes time - orders given this week resolve next week based 
                     if not other_terr or not other_terr.territory:
                         continue
                     min_dist = None
-                    for our_tile in list(components[0]['tiles'])[:8]:
+                    for our_tile in our_tiles[:8]:
                         for their_tile in list(other_terr.territory)[:8]:
                             d = (abs(our_tile.q - their_tile.q) +
                                  abs(our_tile.r - their_tile.r) +
@@ -601,11 +610,17 @@ Territory expansion takes time - orders given this week resolve next week based 
                             if min_dist is None or d < min_dist:
                                 min_dist = d
                     if min_dist is not None:
-                        house_distances.append((min_dist, other_entity.name))
+                        # Bearing from our centroid to theirs — realm topology
+                        their_tiles = list(other_terr.territory)
+                        tcq = sum(t.q for t in their_tiles) / len(their_tiles)
+                        tcr = sum(t.r for t in their_tiles) / len(their_tiles)
+                        bearing = self._compass_bearing(tcq - our_cq, tcr - our_cr)
+                        house_distances.append((min_dist, other_entity.name, bearing))
                 if house_distances:
                     house_distances.sort()
-                    dist_parts = [f"{name} (~{d} tiles)" for d, name in house_distances]
-                    lines.append(f"  Known houses: {', '.join(dist_parts)}")
+                    dist_parts = [f"{name} to your {bearing} (nearest holdings ~{d} tiles)"
+                                  for d, name, bearing in house_distances]
+                    lines.append(f"  Known houses: {'; '.join(dist_parts)}")
             except Exception as e:
                 log.warning(f"Territory known-houses distance calc failed: {e}")
 
