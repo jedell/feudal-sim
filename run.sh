@@ -21,7 +21,8 @@ if curl -s --max-time 1 http://127.0.0.1:5000/health >/dev/null 2>&1; then
     export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
     echo "MLflow: using tracking server at 127.0.0.1:5000"
 else
-    echo "MLflow: no server on :5000, using local file store (mlruns/)"
+    export MLFLOW_TRACKING_URI="sqlite:///mlruns.db"
+    echo "MLflow: no server on :5000, using local sqlite store (mlruns.db)"
 fi
 
 # Merge stderr into stdout so both go to the tee

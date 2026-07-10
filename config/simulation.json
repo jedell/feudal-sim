@@ -1,25 +1,25 @@
 {
   "ai": {
     "enabled": true,
-    "model": "gpt-5-mini-2025-08-07",
+    "model": "fireworks/accounts/fireworks/models/glm-5p2",
     "models": {
-      "house_lord": "gpt-5-mini-2025-08-07",
-      "general": "gpt-5-nano-2025-08-07",
-      "merchant": "gpt-5-nano-2025-08-07",
-      "scout": "gpt-5-nano-2025-08-07",
-      "diplomat": "gpt-5-nano-2025-08-07"
+      "house_lord": "fireworks/accounts/fireworks/models/glm-5p2",
+      "general": "fireworks/accounts/fireworks/models/glm-5p2",
+      "merchant": "fireworks/accounts/fireworks/models/glm-5p2",
+      "scout": "fireworks/accounts/fireworks/models/glm-5p2",
+      "diplomat": "fireworks/accounts/fireworks/models/glm-5p2"
     },
     "reasoning_effort": {
-      "house_lord": "medium",
+      "house_lord": "low",
       "general": null,
       "merchant": null,
       "scout": null,
       "diplomat": "low"
     },
     "disabled_tools": [],
-    "max_message_history": 80,
-    "max_turns_house": 25,
-    "max_turns_general": 15
+    "max_message_history": 60,
+    "max_turns_house": 12,
+    "max_turns_general": 10
   },
   "population": {
     "birth_rate": 0.035,

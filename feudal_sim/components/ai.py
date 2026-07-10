@@ -37,12 +37,45 @@ from feudal_sim.ai.persona_generator import (
 
 log = get_logger(__name__)
 
+# mlflow >=3.4 rejects the legacy ./mlruns file store; default to sqlite
+# when no tracking destination is configured (run.sh may point at a server)
+if not os.environ.get("MLFLOW_TRACKING_URI"):
+    mlflow.set_tracking_uri("sqlite:///mlruns.db")
 set_trace_processors([MlflowOpenAgentTracingProcessor()])
 mlflow.set_experiment("feudal_sim")
 
 MAX_TURNS_HOUSE = config.get("simulation.ai.max_turns_house", 15)
 MAX_TURNS_GENERAL = config.get("simulation.ai.max_turns_general", 20)
 MAX_TURNS = MAX_TURNS_HOUSE  # default; overridden per agent type in make_decisions()
+
+# Shared client for OpenAI-compatible third-party providers (Fireworks)
+_fireworks_client = None
+
+
+def resolve_model(model_name: str):
+    """Resolve a config model string to an Agents SDK model.
+
+    Plain names ("gpt-5-mini-...") pass through to the default OpenAI
+    provider. Names prefixed "fireworks/" route through Fireworks'
+    OpenAI-compatible Chat Completions endpoint, e.g.
+    "fireworks/accounts/fireworks/models/glm-5p2".
+    Requires FIREWORKS_API_KEY in the environment.
+    """
+    if not model_name or not model_name.startswith("fireworks/"):
+        return model_name
+    global _fireworks_client
+    if _fireworks_client is None:
+        from openai import AsyncOpenAI
+        _fireworks_client = AsyncOpenAI(
+            base_url=os.environ.get("FIREWORKS_BASE_URL",
+                                    "https://api.fireworks.ai/inference/v1"),
+            api_key=os.environ["FIREWORKS_API_KEY"],
+        )
+    from agents import OpenAIChatCompletionsModel
+    return OpenAIChatCompletionsModel(
+        model=model_name.removeprefix("fireworks/"),
+        openai_client=_fireworks_client,
+    )
 
 class AIComponent(Component):
     """
@@ -142,17 +175,23 @@ class AIComponent(Component):
                 instructions = prompt_builder.build_prompt(tools)
                 log.info(f"🤖 Generated dynamic instructions for {self.agent_name} ({self.agent_type.value})")
             
-            # Build model settings — reasoning effort if configured for this agent type
+            model_name = (config.get(f"simulation.ai.models.{self.agent_type.value}")
+                          or config.get("simulation.ai.model", "gpt-4.1-mini"))
+
+            # Build model settings — reasoning effort if configured for this
+            # agent type (OpenAI models only; third-party providers reject it)
             effort = config.get(f"simulation.ai.reasoning_effort.{self.agent_type.value}")
-            model_settings = ModelSettings(reasoning=Reasoning(effort=effort)) if effort else ModelSettings()
+            if effort and not model_name.startswith("fireworks/"):
+                model_settings = ModelSettings(reasoning=Reasoning(effort=effort))
+            else:
+                model_settings = ModelSettings()
 
             # Create the agent with tools
             self.agent = Agent[SimulationContext](
                 name=self.agent_name,
                 instructions=instructions + "\n\nGrounding: Use directional language (north, NE, etc.) and avoid raw grid coordinates in observations and plans.",
                 tools=tools,
-                model=config.get(f"simulation.ai.models.{self.agent_type.value}")
-                      or config.get("simulation.ai.model", "gpt-4.1-mini"),
+                model=resolve_model(model_name),
                 model_settings=model_settings,
                 tool_use_behavior=StopAtTools(
                     stop_at_tool_names=["end_turn"]
