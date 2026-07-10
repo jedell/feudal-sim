@@ -107,7 +107,8 @@
         "trade": 0.7,
         "military": 0.8
       }
-    }
+    },
+    "passive_metal_multiplier": 0.15
   },
   "territory": {
     "expansion": {

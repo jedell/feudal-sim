@@ -61,13 +61,18 @@ def get_base_metal_output(tile: HexTile) -> float:
 def get_resource_bonus(tile: HexTile) -> dict:
     """
     Return additional resource bonuses granted by the tile's resource node.
-    Iron deposits boost metal; gold mines produce bonus gold.
+    Iron doubles metal, stone doubles material, gold mines pay flat gold,
+    rare herbs pay a smaller luxury-trade gold income.
     """
     node = get_resource_node_type(tile)
     if node == ResourceNodeType.IRON_DEPOSIT:
-        return {'metal_multiplier': 2.0}
+        return {'metal_flat': 2.0}  # deposits are THE metal source
+    elif node == ResourceNodeType.STONE_QUARRY:
+        return {'material_multiplier': 2.0}
     elif node == ResourceNodeType.GOLD_MINE:
         return {'gold_flat': 2.0}  # flat gold per turn per tile
+    elif node == ResourceNodeType.RARE_HERBS:
+        return {'gold_flat': 1.0}  # luxury trade income
     return {}
 
 

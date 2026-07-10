@@ -138,21 +138,30 @@ class ResourceComponent(Component):
             food_modifier = seasonal_modifier
             gathering_multiplier = config.get('simulation.resources.gathering_multiplier', 1.0)
 
+            bonus = get_resource_bonus(hex_tile)
             self.resources.add('food', math.ceil(
                 hex_tile.food_output * gathering_multiplier * efficiency * food_modifier
             ))
+            # Stone quarries double a tile's material yield
+            material_mult = bonus.get('material_multiplier', 1.0)
             self.resources.add('material', math.ceil(
-                hex_tile.material_output * gathering_multiplier * efficiency
+                hex_tile.material_output * gathering_multiplier * efficiency * material_mult
             ))
 
-            # Use base metal output (strips resource node encoding) then apply node bonus
+            # Metal is scarce: ordinary terrain yields only a trickle (no
+            # ceil — ceil would inflate it back to 1/tile); iron DEPOSITS are
+            # the real source, worth fighting over. Gold never comes from
+            # terrain at all — only mines, taxes, trade, tiers, and loot.
             base_metal = get_base_metal_output(hex_tile)
-            bonus = get_resource_bonus(hex_tile)
-            metal_mult = bonus.get('metal_multiplier', 1.0)
-            self.resources.add('metal', math.ceil(
-                base_metal * gathering_multiplier * efficiency * metal_mult
+            passive_metal_mult = config.get('simulation.resources.passive_metal_multiplier', 0.15)
+            self.resources.add('metal', round(
+                base_metal * gathering_multiplier * efficiency * passive_metal_mult, 2
             ))
-            # Gold mines produce bonus gold per turn
+            if bonus.get('metal_flat', 0) > 0:
+                self.resources.add('metal', math.ceil(
+                    bonus['metal_flat'] * gathering_multiplier * efficiency
+                ))
+            # Gold mines / herbs produce bonus gold per turn
             if bonus.get('gold_flat', 0) > 0:
                 self.resources.add('gold', math.ceil(
                     bonus['gold_flat'] * gathering_multiplier * efficiency
@@ -334,7 +343,7 @@ class ResourceComponent(Component):
 **The Taxman's Burden:**
 When gold runs low, you may levy taxes upon your subjects. Higher rates fill your treasury quickly but breed resentment among your people. A lord who taxes too heavily may face their subjects' loyalty cracking like ice in spring.
 
-Your lands produce four types of wealth: food to sustain your people, materials for construction, metals for arms and trade, and gold for purchasing power. The efficiency of your workers determines how much your territories yield each season.
+Your lands produce food and building materials in abundance, but METAL and GOLD are scarce: ordinary ground yields only a trickle of metal, and none of gold. Iron deposits and gold mines — marked, known places on the map — are the true sources, alongside taxes, trade, and city markets. Houses that hold the deposits arm and enrich themselves; houses that do not must trade, tax, or take them. Stone quarries double a tile's material yield; rare herbs bring luxury trade income.
 """
 
     def update(self, dt: float, event_bus=None):
