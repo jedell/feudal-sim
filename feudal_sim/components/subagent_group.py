@@ -77,6 +77,10 @@ class SubAgentGroup(Component):
 
         # Combat state
         self.equipment_level = 0       # 0-100 — percentage of soldiers with proper arms/armour
+        # Persistent itinerary: {'target': (q,r), 'purpose': str, 'issued_turn': int}
+        # — set by find_outpost_site/navigate_home, re-rendered each turn until
+        # arrival or invalidation so routes survive between turns
+        self.active_route = None
         self.stationary_turns = 0      # consecutive turns without moving
         self.last_position = None      # position at end of previous turn
         self.ambush_ready = False      # True when stationary 2+ turns (eligible to spring ambush)

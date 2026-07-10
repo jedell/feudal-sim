@@ -730,6 +730,53 @@ class AIComponent(Component):
 
         return f"{label}: {current:.0f}  {trend}{delta_text}{depletion_text}{suffix}"
 
+    def _render_active_route(self, group_comp) -> str:
+        """Render (and validate) the general's standing itinerary. Cleared on
+        arrival or when the destination is no longer valid — the general is
+        told why instead of marching to a stale target."""
+        route = getattr(group_comp, 'active_route', None) if group_comp else None
+        if not route or not self.entity or not self.context:
+            return ""
+        hex_grid = getattr(self.context, 'hex_grid', None)
+        pos_comp = self.entity.get_component(PositionComponent)
+        if not hex_grid or not pos_comp or not pos_comp.position:
+            return ""
+        target = tuple(route.get('target') or ())
+        purpose = route.get('purpose', 'destination')
+        if len(target) != 2:
+            group_comp.active_route = None
+            return ""
+        if tuple(pos_comp.position) == target:
+            group_comp.active_route = None
+            return (f"ARRIVED at your route target ({purpose}). "
+                    f"Take the action you came for (e.g. build_outpost).")
+        # Invalidate outpost-site routes whose ground has been taken
+        tile = hex_grid.get_tile(*target)
+        if 'outpost' in purpose:
+            owner = getattr(tile, 'owner', None) if tile else None
+            if tile is None or (owner is not None and
+                                getattr(owner, 'id', None) != getattr(self.entity, 'house_id', None)) or \
+                    getattr(tile, 'population_capacity', 0) >= 1000:
+                group_comp.active_route = None
+                return (f"Your planned route to the {purpose} is no longer valid — "
+                        f"the ground has been claimed. Scan again (find_outpost_site).")
+        try:
+            from feudal_sim.components.pathfinding import PathfindingComponent
+            from feudal_sim.utils.directions import path_to_directions
+            pf = PathfindingComponent('route-render')
+            path = pf.find_path(tuple(pos_comp.position), target, hex_grid,
+                                entity_house_id=getattr(self.entity, 'house_id', None))
+            if not path or len(path) < 2:
+                group_comp.active_route = None
+                return (f"Your route to the {purpose} is blocked — no path from here. "
+                        f"Reconsider or scan again.")
+            dirs = path_to_directions(path)
+            return (f"Active route ({purpose}): {len(dirs)} step(s) remaining — "
+                    f"move_along({dirs})")
+        except Exception as e:
+            log.warning(f"Active route render failed: {e}")
+            return ""
+
     def _generate_turn_context_message(self) -> str:
         """
         Generate the current turn context message.
@@ -759,6 +806,14 @@ class AIComponent(Component):
                 turns_in_field = self.context.current_turn - mp.assigned_turn
                 if mp.assigned_turn and turns_in_field > 0:
                     context_parts.append(f"Orders issued turn {mp.assigned_turn} ({turns_in_field} turns ago)")
+                context_parts.append("")
+
+            # Active route: re-render the standing itinerary from current
+            # position until arrival or invalidation — one-shot targets become
+            # persistent marching orders
+            route_block = self._render_active_route(group_comp)
+            if route_block:
+                context_parts.append(route_block)
                 context_parts.append("")
 
             # Spatial memory: what this general already knows of the ground —

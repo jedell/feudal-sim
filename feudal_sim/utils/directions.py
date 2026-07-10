@@ -27,6 +27,17 @@ def neighbor_delta_to_dir(delta: Tuple[int, int]) -> str:
     return _DELTA_TO_DIR.get(delta)
 
 
+def path_to_directions(path: List[Tuple[int, int]]) -> List[str]:
+    """Convert a coordinate path (successive neighbors, start included) to
+    move_along-ready direction codes. Unknown deltas are skipped."""
+    steps = []
+    for (q0, r0), (q1, r1) in zip(path, path[1:]):
+        code = _DELTA_TO_DIR.get((q1 - q0, r1 - r0))
+        if code:
+            steps.append(code)
+    return steps
+
+
 def offset_to_bearing(dq: float, dr: float) -> str:
     """Snap an arbitrary axial offset to the nearest of the grid's six
     directions (N, NE, SE, S, SW, NW) by cosine similarity in cartesian

@@ -696,7 +696,7 @@ def create_general_toolset(general_entity) -> list:
                         dir_status[dir_upper] = f"all owned tiles too close to existing settlement (need {still_needed} more)"
                     continue
                 terrain_name = terrain.name.lower().replace('_', ' ') if terrain else 'land'
-                valid_options.append((steps, dir_upper, terrain_name))
+                valid_options.append((steps, dir_upper, terrain_name, current))
                 dir_status[dir_upper] = f"✓ valid site at {steps} tile(s) ({terrain_name})"
                 found = True
                 break
@@ -713,10 +713,27 @@ def create_general_toolset(general_entity) -> list:
             )
 
         valid_options.sort()
-        best_steps, best_dir, best_terrain = valid_options[0]
-        lines = [f"Best site: {best_steps} tile(s) {best_dir} ({best_terrain}) — move there then build."]
+        best_steps, best_dir, best_terrain, best_coord = valid_options[0]
+        route = [best_dir] * best_steps
+        # Remember the itinerary — it re-renders in your context each turn
+        # until you arrive or the site becomes invalid
+        from feudal_sim.components.subagent_group import SubAgentGroup as _SAG
+        grp = general_entity.get_component(_SAG)
+        if grp:
+            grp.active_route = {
+                'target': best_coord,
+                'purpose': f"outpost site ({best_terrain})",
+                'issued_turn': getattr(sim_context, 'current_turn', 0),
+            }
+        mp_per_turn = getattr(pos, 'movement_points', 2) or 2
+        turns_needed = -(-best_steps // mp_per_turn)  # ceil
+        lines = [
+            f"Best site: {best_steps} tile(s) {best_dir} ({best_terrain}).",
+            f"Route: move_along({route}) — ~{turns_needed} turn(s) of marching, then build_outpost().",
+            "This route is remembered and will appear in your briefing until you arrive.",
+        ]
         if len(valid_options) > 1:
-            alts = ", ".join(f"{s} tile(s) {d}" for s, d, _ in valid_options[1:3])
+            alts = ", ".join(f"{s} tile(s) {d}" for s, d, _t, _c in valid_options[1:3])
             lines.append(f"Alternatives: {alts}.")
         lines.append("All directions:")
         for d in ALL_DIRS:
@@ -1098,8 +1115,32 @@ def create_general_toolset(general_entity) -> list:
                              getattr(sim_context, 'current_turn', None),
                              validate_movement=True)
         if result.get('success'):
+            # Remember the homeward itinerary and hand back the full route so
+            # the rest of the march is a single move_along next turn
+            route_text = ""
+            try:
+                from feudal_sim.components.pathfinding import PathfindingComponent
+                from feudal_sim.utils.directions import path_to_directions
+                pf = PathfindingComponent('nav')
+                path = pf.find_path(best_move, (best_tile.q, best_tile.r), hex_grid,
+                                    entity_house_id=general_entity.house_id)
+                if path and len(path) > 1:
+                    dirs = path_to_directions(path)
+                    if dirs:
+                        route_text = f" Remaining route home: move_along({dirs})."
+                from feudal_sim.components.subagent_group import SubAgentGroup as _SAG2
+                grp = general_entity.get_component(_SAG2)
+                if grp:
+                    grp.active_route = {
+                        'target': (best_tile.q, best_tile.r),
+                        'purpose': 'return to friendly territory',
+                        'issued_turn': getattr(sim_context, 'current_turn', 0),
+                    }
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger('feudal_sim').warning(f"navigate_home route computation failed: {_e}")
             return (f"Moved toward friendly territory — now {best_move_dist} tile(s) away. "
-                    f"{result.get('message', '')}")
+                    f"{result.get('message', '')}{route_text}")
         return f"Movement blocked: {result.get('message', 'unknown obstacle')}"
     navigate_home.action_description = "**Navigate Home**: Move one step toward nearest friendly territory — use when lost or returning"
     tools.append(navigate_home)
