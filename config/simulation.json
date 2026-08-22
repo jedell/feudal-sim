@@ -1,0 +1,300 @@
+{
+  "ai": {
+    "enabled": true,
+    "model": "fireworks/accounts/fireworks/models/glm-5p2",
+    "models": {
+      "house_lord": "fireworks/accounts/fireworks/models/glm-5p2",
+      "general": "fireworks/accounts/fireworks/models/glm-5p2",
+      "merchant": "fireworks/accounts/fireworks/models/glm-5p2",
+      "scout": "fireworks/accounts/fireworks/models/glm-5p2",
+      "diplomat": "fireworks/accounts/fireworks/models/glm-5p2"
+    },
+    "reasoning_effort": {
+      "house_lord": "low",
+      "general": null,
+      "merchant": null,
+      "scout": null,
+      "diplomat": "low"
+    },
+    "disabled_tools": [],
+    "max_message_history": 60,
+    "max_turns_house": 12,
+    "max_turns_general": 10
+  },
+  "population": {
+    "birth_rate": 0.035,
+    "death_rate": 0.03,
+    "food_per_capita": 0.1,
+    "starvation_mortality": 0.25,
+    "immigration_per_surplus_food": 0.25,
+    "immigration_max_pct_per_turn": 0.02,
+    "granary_capacity_per_capita": 6,
+    "spoilage_rate": 0.1,
+    "loyalty_decay_rate": 1.0,
+    "efficiency_curve_steepness": 1.0,
+    "ratios": {
+      "default_worker_ratio": 0.7,
+      "default_soldier_ratio": 0.3,
+      "worker_efficiency_power": 1.2,
+      "soldier_expansion_bonus_max": 0.3,
+      "soldier_expansion_multiplier": 0.5
+    },
+    "revolt": {
+      "loyalty_threshold": 40,
+      "chance_per_turn": 0.25,
+      "tiles_lost_per_revolt": 1,
+      "cooldown_turns": 4,
+      "resource_loss": {
+        "food_percent": 0.15,
+        "material_percent": 0.1,
+        "metal_percent": 0.1,
+        "gold_percent": 0.1
+      }
+    },
+    "feast": {
+      "cooldown_turns": 1,
+      "base_loyalty_boost": 8,
+      "food_factor": 0.02,
+      "gold_factor": 0.03
+    },
+    "loyalty_baseline": 50,
+    "loyalty_recovery_rate": 0.1
+  },
+  "subagents": {
+    "supply_consumption_per_turn": 3,
+    "low_supply_threshold": 25,
+    "resupply_per_turn_on_owned": 20,
+    "auto_resupply_food_cost_per_supply": 1.0,
+    "desertion_rate_at_zero_supplies": 0.05,
+    "upkeep": {
+      "gold_per_soldier": 1,
+      "gold_per_worker": 0,
+      "food_per_soldier": 0.25,
+      "food_per_worker": 0.25,
+      "max_unpaid_turns": 3,
+      "morale_disband_threshold": 10
+    },
+    "deploy_general": {
+      "base_gold": 30,
+      "base_material": 18,
+      "gold_per_soldier": 0.6,
+      "material_per_soldier": 0.6,
+      "gold_per_worker": 0,
+      "material_per_worker": 0.6
+    },
+    "settlement_material_cost": 8
+  },
+  "resources": {
+    "gathering_multiplier": 10,
+    "seasonal_modifiers": {
+      "spring": {
+        "farming": 1.2,
+        "trade": 1.0,
+        "military": 1.0
+      },
+      "summer": {
+        "farming": 1.5,
+        "trade": 1.3,
+        "military": 1.2
+      },
+      "autumn": {
+        "farming": 1.8,
+        "trade": 1.1,
+        "military": 1.0
+      },
+      "winter": {
+        "farming": 0.3,
+        "trade": 0.7,
+        "military": 0.8
+      }
+    },
+    "passive_metal_multiplier": 0.15
+  },
+  "territory": {
+    "expansion": {
+      "base_material_cost": 6,
+      "base_gold_cost": 0,
+      "loyalty_cost_per_tile": 1,
+      "max_tiles_per_order": 6,
+      "terrain_cost_mult": {
+        "grassland": 0.9,
+        "hill": 1.1,
+        "desert": 1.2,
+        "swamp": 1.3,
+        "mountain": 1.5,
+        "default": 1.0
+      }
+    }
+  },
+  "settlements": {
+    "outpost": {
+      "material_cost": 15,
+      "gold_cost": 10
+    },
+    "min_spacing_tiles": 5,
+    "outpost_delay_turns": 1,
+    "tiers": {
+      "1": {
+        "name": "Outpost"
+      },
+      "2": {
+        "name": "Village",
+        "cost": {
+          "food": 60,
+          "material": 40
+        },
+        "min_age_turns": 4,
+        "output_mult": 1.5,
+        "population_bonus": 1.5
+      },
+      "3": {
+        "name": "Walled Town",
+        "cost": {
+          "material": 80,
+          "gold": 30
+        },
+        "min_age_turns": 8,
+        "output_mult": 1.25,
+        "defense_mult": 1.6,
+        "population_bonus": 1.8,
+        "gold_income_per_turn": 1
+      },
+      "4": {
+        "name": "Castle",
+        "cost": {
+          "material": 120,
+          "gold": 80,
+          "metal": 40
+        },
+        "min_age_turns": 12,
+        "output_mult": 1.1,
+        "defense_mult": 2.5,
+        "population_bonus": 2.0,
+        "gold_income_per_turn": 2
+      },
+      "5": {
+        "name": "City",
+        "cost": {
+          "food": 150,
+          "gold": 100
+        },
+        "min_age_turns": 16,
+        "output_mult": 1.5,
+        "defense_mult": 2.5,
+        "population_bonus": 2.5,
+        "gold_income_per_turn": 3
+      }
+    }
+  },
+  "time": {
+    "turns_per_season": 4,
+    "starting_year": 1,
+    "starting_season": "spring"
+  },
+  "trade": {
+    "base_values": {
+      "food": 1.0,
+      "material": 1.5,
+      "metal": 3.0,
+      "gold": 5.0
+    },
+    "scarcity_norms": {
+      "food": 200,
+      "material": 150,
+      "metal": 60,
+      "gold": 100
+    }
+  },
+  "weather": {
+    "states": {
+      "normal": {
+        "probability": 0.65,
+        "farming_delta": 0.0,
+        "trade_delta": 0.0,
+        "military_delta": 0.0,
+        "announcement": ""
+      },
+      "bountiful": {
+        "probability": 0.15,
+        "farming_delta": 0.25,
+        "trade_delta": 0.1,
+        "military_delta": 0.0,
+        "announcement": "The skies favor the realm \u2014 gentle rains and warm sun promise a bountiful season."
+      },
+      "adverse": {
+        "probability": 0.2,
+        "farming_delta": -0.35,
+        "trade_delta": -0.1,
+        "military_delta": -0.2,
+        "announcement": "Grim skies over the realm \u2014 drought and storms will make this a lean, hard season. Mind your granaries."
+      }
+    }
+  },
+  "victory": {
+    "hegemony_land_pct": 0.4,
+    "hegemony_rival_multiple": 2.0,
+    "capital_elimination": true,
+    "last_survivor": true
+  },
+  "intelligence": {
+    "max_notes_per_topic": 20,
+    "max_topics": 30
+  },
+  "world_generation": {
+    "map_size": 20,
+    "num_houses": 4,
+    "starting_territory_tiles": 12,
+    "starting_outpost_distance": 5,
+    "num_rivers": 4,
+    "resource_nodes": {
+      "count_multiplier": 0.005,
+      "gold_mine_ratio": 0.1,
+      "type_weights": {
+        "iron": 0.35,
+        "stone": 0.2,
+        "gold": 0.25,
+        "herbs": 0.2
+      },
+      "undeveloped_yield": 0.25
+    },
+    "floodplain_moisture_bonus": 0.25,
+    "terrain_thresholds": {
+      "mountain": 0.55,
+      "hill": 0.45,
+      "land": 0.05,
+      "forest_base": 0.65,
+      "grassland": 0.3,
+      "desert": 0.55,
+      "cold_base": 0.4,
+      "warm_base": 0.65,
+      "ice_temp": 0.15,
+      "swamp_elevation": 0.15,
+      "swamp_moisture": 0.75
+    }
+  },
+  "priority_actions": {
+    "max_concurrent_events": 5,
+    "conversation_timeout_turns": 2,
+    "default_conversation_rounds": 3,
+    "trade_caravan": {
+      "negotiation_enabled": true,
+      "max_negotiation_rounds": 3,
+      "auto_timeout_turns": 2
+    },
+    "diplomatic_summit": {
+      "max_participants": 4,
+      "negotiation_rounds": 5
+    }
+  },
+  "movement": {
+    "points_per_turn": 3,
+    "terrain_costs": {
+      "grassland": 0.8,
+      "forest": 1.3,
+      "hill": 1.5,
+      "mountain": 2.5,
+      "swamp": 2.0,
+      "default": 1.0
+    }
+  }
+}

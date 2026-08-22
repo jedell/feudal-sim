@@ -6,6 +6,7 @@ from feudal_sim.renderer import (
 )
 
 class Color:
+    """An RGBA color."""
     def __init__(self, r: int, g: int, b: int, a: int):
         self.r = r
         self.g = g
@@ -13,6 +14,7 @@ class Color:
         self.a = a
 
 class HexTileType(Enum):
+    """Terrain type of a hex tile."""
     GRASSLAND = "grassland"
     TUNDRA = "tundra"
     RIVER = "river"
@@ -29,6 +31,7 @@ class HexTileType(Enum):
     ICE_CAP = "ice_cap"
 
 class HexResourceType(Enum):
+    """Primary resource a hex tile yields."""
     NONE = "none"
     FOOD = "food"
     MATERIAL = "material"

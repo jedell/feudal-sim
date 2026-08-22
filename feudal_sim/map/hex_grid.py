@@ -10,9 +10,18 @@ from feudal_sim.map.types import (
 from feudal_sim.houses.house import House
 from feudal_sim.map.heightmap import Heightmap
 from feudal_sim.map.rivers import RiverSystem
+from feudal_sim.map.city_extensions import encode_city_for_rendering
+from feudal_sim.core.event_log import EventLog
+from feudal_sim.core.logger import get_logger
+from feudal_sim.components.rookery import RookeryComponent
+from feudal_sim.components.ai import AIComponent
+from feudal_sim.components.position import PositionComponent
+from feudal_sim.components.subagent_group import SubAgentGroup
 from multiprocessing import Process
 import noise
 import multiprocessing.shared_memory as shm
+
+log = get_logger(__name__)
 
 def get_tile_dtype():
     return np.dtype([
@@ -30,14 +39,51 @@ def get_tile_dtype():
         ('owner_color', np.uint8, (4,))
     ])
 
+def get_positioned_entity_dtype():
+    return np.dtype([
+        ('q', np.int32),
+        ('r', np.int32),
+        ('name', '|S50'),
+        ('house_name', '|S50'),
+        ('color', np.uint8, (4,)),
+        ('entity_type', np.int32),        # 0=GENERAL, 1=SCOUT, 2=ARMY, 3=MERCHANT, 4=CARAVAN
+        ('assigned_soldiers', np.int32),
+        ('movement_points', np.int32),
+        ('max_movement', np.int32),
+        ('operational_range', np.int32),
+        ('morale', np.uint8),             # 0-100 general morale
+        ('supplies', np.uint8),           # 0-100 general supplies
+        ('equipment_level', np.uint8),    # 0-100 equipment quality
+        ('orders', '|S60'),               # current mission/orders summary
+    ])
+
 class RendererWrapper:
+    """Bridges the hex grid to the renderer subprocess via shared memory."""
 
     TILE_SHARED_MEMORY_NAME = "psm_hex_grid"
     HOUSE_SHARED_MEMORY_NAME = "psm_houses"
+    ENTITIES_SHARED_MEMORY_NAME = "psm_entities"
 
-    def __init__(self, memory_size: int, num_tiles: int, house_memory_size: int, num_houses: int):
+    def __init__(self, memory_size: int, num_tiles: int, house_memory_size: int, num_houses: int, entities_memory_size: int = 0, num_entities: int = 0):
         self.shared_memory = shm.SharedMemory(name=self.TILE_SHARED_MEMORY_NAME, create=True, size=memory_size)
         self.house_shared_memory = shm.SharedMemory(name=self.HOUSE_SHARED_MEMORY_NAME, create=True, size=house_memory_size)
+        
+        # Initialize caches
+        self.houses_cache = []
+        
+        # Event log shared memory
+        self.event_log = EventLog()
+
+        # Initialize entities shared memory if specified
+        self.entities_shared_memory = None
+        if entities_memory_size > 0 and num_entities > 0:
+            self.entities_shared_memory = shm.SharedMemory(name=self.ENTITIES_SHARED_MEMORY_NAME, create=True, size=entities_memory_size)
+            self.entities_memory_size = entities_memory_size
+            self.num_entities = num_entities
+        else:
+            self.entities_memory_size = 0
+            self.num_entities = 0
+            
         self.memory_size = memory_size
         self.house_memory_size = house_memory_size
         self.renderer = renderer.Renderer()
@@ -46,6 +92,9 @@ class RendererWrapper:
 
     def setup(self, tiles: list[HexTile]):
         self.renderer.setup([tile.get_tile() for tile in tiles])
+        # Prime shared memory with initial tile data so the renderer subprocess
+        # sees valid (q,r) values when it builds shared_tile_map at startup.
+        self.update_tiles(tiles)
 
     def update_tiles(self, tiles: list[HexTile]):
         tile_data = np.array([(
@@ -59,59 +108,211 @@ class RendererWrapper:
             tile.material_output,
             tile.metal_output,
             tile.population_capacity,
-            tile.owner.name if tile.owner else "None",
-            [tile.owner_color.r, tile.owner_color.g, tile.owner_color.b, tile.owner_color.a]
+            encode_city_for_rendering(tile),
+            [tile.owner_color.r, tile.owner_color.g, tile.owner_color.b, tile.owner_color.a] if tile.owner_color else [0.5, 0.5, 0.5, 0.0]
         ) for tile in tiles], dtype=get_tile_dtype())
         np_array = np.ndarray((len(tiles),), dtype=get_tile_dtype(), buffer=self.shared_memory.buf)
         np_array[:] = tile_data
 
     def update_houses(self, houses: list[House]):
-        house_data = np.array([(
-            house.name,
-            [house.color.r, house.color.g, house.color.b, house.color.a],
-            house.resources['food'],
-            house.resources['material'],
-            house.resources['metal'],
-            house.population,
-            house.military_power
-        ) for house in houses], dtype=House.get_dtype())
+        # Cache houses for entity color lookup
+        self.houses_cache = houses
+
+        def _house_row(house):
+            rookery = house.get_component(RookeryComponent)
+            ravens = len(getattr(rookery, 'outgoing_ravens', [])) if rookery else 0
+            # war count from simulation war_registry if available
+            war_count = 0
+            try:
+                ai = house.get_component(AIComponent)
+                if ai and ai.context and ai.context.simulation:
+                    war_count = ai.context.simulation.war_registry.enemy_count(house.id)
+            except Exception as e:
+                log.warning(f"hex_grid house-row war count failed: {e}")
+            return (
+                house.name,
+                [house.color.r, house.color.g, house.color.b, house.color.a],
+                house.resources['food'],
+                house.resources['material'],
+                house.resources['metal'],
+                house.resources['gold'],
+                house.population,
+                house.population_loyalty,
+                house.military_power,
+                ravens,
+                war_count,
+            )
+
+        house_data = np.array([_house_row(h) for h in houses], dtype=House.get_dtype())
         np_array = np.ndarray((len(houses),), dtype=House.get_dtype(), buffer=self.house_shared_memory.buf)
         np_array[:] = house_data
 
+    def update_positioned_entities(self, positioned_entities: list):
+        """Update positioned entities (generals, scouts, etc.) in shared memory."""
+        if not self.entities_shared_memory:
+            return
+            
+        entity_data = []
+        for entity in positioned_entities:
+            # Get position component
+            pos_comp = entity.get_component(PositionComponent)
+            if not pos_comp:
+                continue
+                
+            # Determine entity type (map from agent type or other indicator)
+            entity_type = 0  # Default to GENERAL
+            if hasattr(entity, 'entity_type'):
+                if entity.entity_type == 'scout':
+                    entity_type = 1
+                elif entity.entity_type == 'army':
+                    entity_type = 2
+                elif entity.entity_type == 'merchant':
+                    entity_type = 3
+                elif entity.entity_type == 'caravan':
+                    entity_type = 4
+            elif 'caravan' in entity.__class__.__name__.lower():
+                # TradeCaravan class - detect by class name
+                entity_type = 4
+            
+            # Get house color if available
+            house_color = [128, 128, 128, 255]  # Default gray
+            if hasattr(entity, 'house_id') or hasattr(entity, 'sender_house_id'):
+                # Look up house color from the houses list
+                entity_house_id = getattr(entity, 'house_id', None) or getattr(entity, 'sender_house_id', None)
+                for house in self.houses_cache or []:
+                    if hasattr(house, 'id') and house.id == entity_house_id:
+                        try:
+                            c = house.color
+                            house_color = [c.r, c.g, c.b, c.a]
+                        except Exception as e:
+                            log.debug(f"hex_grid entity house color lookup failed: {e}")
+                        break
+                
+            # Get military count, morale/supplies/equipment/orders if available
+            military_count = getattr(entity, 'assigned_soldiers', 0)
+            morale = 100
+            supplies = 100
+            equipment_level = 0
+            orders_bytes = b''
+            try:
+                grp = entity.get_component(SubAgentGroup)
+                if grp:
+                    morale = max(0, min(100, int(grp.morale)))
+                    supplies = max(0, min(100, int(grp.supplies)))
+                    equipment_level = max(0, min(100, int(grp.equipment_level)))
+                    mp = grp.mission_parameters
+                    if mp:
+                        parts = [mp.mission_type or '']
+                        if mp.orders:
+                            parts.append(mp.orders)
+                        orders_text = ': '.join(p for p in parts if p)
+                        orders_bytes = orders_text[:59].encode('utf-8')
+            except Exception as e:
+                log.warning(f"hex_grid entity subagent-group fields read failed: {e}")
+
+            entity_data.append((
+                pos_comp.position[0],
+                pos_comp.position[1],
+                entity.name[:49].encode('utf-8'),
+                getattr(entity, 'house_id', '')[:49].encode('utf-8'),
+                house_color,
+                entity_type,
+                military_count,
+                pos_comp.remaining_movement,
+                pos_comp.movement_points,
+                pos_comp.operational_range,
+                morale,
+                supplies,
+                equipment_level,
+                orders_bytes,
+            ))
+        
+        # Convert to numpy array and write to shared memory
+        # Always create array for the full capacity, not just actual entities
+        np_array = np.ndarray((self.num_entities,), dtype=get_positioned_entity_dtype(), buffer=self.entities_shared_memory.buf)
+        
+        if entity_data:
+            entities_array = np.array(entity_data, dtype=get_positioned_entity_dtype())
+            np_array[:len(entity_data)] = entities_array
+            
+            # Zero out remaining slots if we have fewer entities than capacity
+            if len(entity_data) < self.num_entities:
+                for i in range(len(entity_data), self.num_entities):
+                    np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0, 100, 100, 0, b'')
+        else:
+            for i in range(self.num_entities):
+                np_array[i] = (0, 0, b'', b'', [0, 0, 0, 0], 0, 0, 0, 0, 0, 100, 100, 0, b'')
+
+
     def run(self):
-        self.renderer.run(
-            f"/{self.TILE_SHARED_MEMORY_NAME}",
-            self.memory_size,
-            self.num_tiles,
-            f"/{self.HOUSE_SHARED_MEMORY_NAME}",
-            self.house_memory_size,
-            self.num_houses,
-        )
+        if self.entities_shared_memory:
+            # Pass positioned entities data to renderer
+            self.renderer.run(
+                f"/{self.TILE_SHARED_MEMORY_NAME}",
+                self.memory_size,
+                self.num_tiles,
+                f"/{self.HOUSE_SHARED_MEMORY_NAME}",
+                self.house_memory_size,
+                self.num_houses,
+                f"/{self.ENTITIES_SHARED_MEMORY_NAME}",
+                self.entities_memory_size,
+                self.num_entities
+            )
+        else:
+            # Original call without positioned entities
+            self.renderer.run(
+                f"/{self.TILE_SHARED_MEMORY_NAME}",
+                self.memory_size,
+                self.num_tiles,
+                f"/{self.HOUSE_SHARED_MEMORY_NAME}",
+                self.house_memory_size,
+                self.num_houses
+            )
 
     def close(self):
         self.shared_memory.close()
         self.shared_memory.unlink()
+        self.house_shared_memory.close()
+        self.house_shared_memory.unlink()
+
+        if self.entities_shared_memory:
+            self.entities_shared_memory.close()
+            self.entities_shared_memory.unlink()
+
+        self.event_log.close()
 
 class HexGrid:
-    def __init__(self, size: int = 80, num_houses: int = 10):
+    """The hexagonal game map: tiles, terrain generation, and rendering."""
+    def __init__(self, size: int = 80, num_houses: int = 10, debug=False, max_positioned_entities: int = 50):
+        self.debug = debug
         self.size = size
         self.num_houses = num_houses
+        self.max_positioned_entities = max_positioned_entities
         self.tile_map = {}
         for q in range(-size, size + 1):
             for r in range(max(-size, -q-size), min(size, -q+size) + 1):
                 self.tile_map[(q, r)] = None
         self.tiles = self.create_hex_grid(size)
 
-        print("Tile dtype: ", get_tile_dtype().itemsize)
-        memory_size = len(self.tiles) * get_tile_dtype().itemsize
+        if not self.debug: # only render if not in debug mode
+            print("Tile dtype: ", get_tile_dtype().itemsize)
+            memory_size = len(self.tiles) * get_tile_dtype().itemsize
 
-        print("House dtype: ", House.get_dtype().itemsize)
-        house_memory_size = self.num_houses * House.get_dtype().itemsize
+            print("House dtype: ", House.get_dtype().itemsize)
+            house_memory_size = self.num_houses * House.get_dtype().itemsize
+            
+            # Calculate positioned entities memory size
+            print("PositionedEntity dtype: ", get_positioned_entity_dtype().itemsize)
+            entities_memory_size = self.max_positioned_entities * get_positioned_entity_dtype().itemsize
 
-        self.renderer = RendererWrapper(memory_size, len(self.tiles), house_memory_size, self.num_houses)
-        self.renderer.setup(self.tiles)
-        self.renderer_process = Process(target=self.renderer.run)
-        self.renderer_process.start()
+            self.renderer = RendererWrapper(
+                memory_size, len(self.tiles), 
+                house_memory_size, self.num_houses,
+                entities_memory_size, self.max_positioned_entities
+            )
+            self.renderer.setup(self.tiles)
+            self.renderer_process = Process(target=self.renderer.run)
+            self.renderer_process.start()
 
     # function to change tile attributes
     def update_tile_attribute(self, tile: HexTile, attribute: str, value):
@@ -125,9 +326,12 @@ class HexGrid:
         for tile in tiles:
             self.update_tile(tile)
 
-    def render(self, houses: list[House]):
+    def render(self, houses: list[House], positioned_entities: list = None):
         self.renderer.update_tiles(self.tiles)
         self.renderer.update_houses(houses)
+        
+        # Always update positioned entities; send empty list to clear stale slots
+        self.renderer.update_positioned_entities(positioned_entities or [])
 
     def terminate_renderer(self):
         self.renderer_process.terminate()
@@ -147,7 +351,6 @@ class HexGrid:
         """ Creates a temperature gradient from north to south. """
         temperature_map = {}
         seed = random.randint(0, 100)
-        max_distance = np.sqrt(3 * (size // 2) ** 2)
         noise_scale = 3.0
         noise_intensity = 0.2
 
@@ -279,15 +482,43 @@ class HexGrid:
         self.set_ocean(start_tile)
 
         # if tile is land, apply some more elevation noise
-        elevation_seed = random.randint(0, 100)                     
+        elevation_seed = random.randint(0, 100)
         for tile in tiles:
             if self.is_land(tile):
                 tile.elevation += max(0.0, self.get_random_noise(tile.q/size + 100, tile.r/size + 100, scale=6, octaves=8, persistence=0.5, lacunarity=2.0, seed=elevation_seed))
                 tile.elevation = min(1.0, tile.elevation)
-                tile.terrain_type = self.determine_terrain_type(tile.elevation, tile.moisture, tile.temperature)
+                # refresh_terrain re-derives outputs/capacity — re-typing
+                # without it leaves stale yields from the original biome
+                tile.refresh_terrain(self.determine_terrain_type(tile.elevation, tile.moisture, tile.temperature))
 
+        from feudal_sim.core.config import config as _cfg
         river_system = RiverSystem(self, 0.00)
-        self.tiles = river_system.generate_rivers(4)
+        self.tiles = river_system.generate_rivers(_cfg.get('simulation.world_generation.num_rivers', 4))
+
+        # Floodplains: fresh water raises the moisture of nearby lowlands,
+        # and biomes (hence food) follow — river valleys become the fertile,
+        # contested corridors they were historically
+        moisture_bonus = {1: _cfg.get('simulation.world_generation.floodplain_moisture_bonus', 0.25),
+                          2: _cfg.get('simulation.world_generation.floodplain_moisture_bonus', 0.25) / 2}
+        water_tiles = [t for t in self.tiles
+                       if t.terrain_type in {HexTileType.RIVER, HexTileType.LAKE}]
+        touched = {}
+        for wt in water_tiles:
+            for tile in self.tiles:
+                d = self.hex_distance(wt.q, wt.r, tile.q, tile.r)
+                # is_land() counts RIVER as land — exclude it explicitly or
+                # the floodplain pass erases the rivers it flows from
+                if d in moisture_bonus and self.is_land(tile) and \
+                        tile.terrain_type != HexTileType.RIVER:
+                    touched[(tile.q, tile.r)] = max(touched.get((tile.q, tile.r), 0.0),
+                                                    moisture_bonus[d])
+        for (q, r), bonus in touched.items():
+            tile = self.tile_map.get((q, r))
+            if tile is None:
+                continue
+            tile.moisture = min(1.0, tile.moisture + bonus)
+            tile.refresh_terrain(self.determine_terrain_type(
+                tile.elevation, tile.moisture, tile.temperature))
 
         return tiles
 
@@ -320,28 +551,45 @@ class HexGrid:
             return self.get_tile(q + 1, r)
         elif direction == "S":
             return self.get_tile(q, r + 1)
+        elif direction == "SW":
+            return self.get_tile(q - 1, r + 1)
+        elif direction == "NW":
+            return self.get_tile(q - 1, r)
+        else:
+            return None
 
     def determine_terrain_type(self, elevation, moisture, temperature):
-        # Add noise to thresholds
-        mountain_threshold = 0.55
-        hill_threshold = 0.45
-        land_threshold = 0.05
+        # Thresholds from config (world_generation.terrain_thresholds), with
+        # noise added so biome edges stay organic
+        from feudal_sim.core.config import config as _cfg
+        th = _cfg.get('simulation.world_generation.terrain_thresholds', {})
+        mountain_threshold = th.get('mountain', 0.55)
+        hill_threshold = th.get('hill', 0.45)
+        land_threshold = th.get('land', 0.05)
 
         moisture_noise = min(1.0, max(0.0, self.get_random_noise(moisture, moisture, scale=4.0, octaves=12, persistence=0.8, lacunarity=2.0, seed=100)))
-        forest_threshold = 0.65 + moisture_noise
-        grassland_threshold = 0.3
-        desert_threshold = 0.55
+        forest_threshold = th.get('forest_base', 0.65) + moisture_noise
+        grassland_threshold = th.get('grassland', 0.3)
+        desert_threshold = th.get('desert', 0.55)
 
         # add noise to thresholds
         temperature_noise = self.get_random_noise(temperature, temperature, scale=2, octaves=4, persistence=0.8, lacunarity=2.0, seed=100)
-        cold_threshold = 0.4 + temperature_noise
-        warm_threshold = 0.65 + temperature_noise
+        cold_threshold = th.get('cold_base', 0.4) + temperature_noise
+        warm_threshold = th.get('warm_base', 0.65) + temperature_noise
 
         if elevation > mountain_threshold:
+            # Frozen peaks in the far cold
+            if temperature < th.get('ice_temp', 0.15):
+                return HexTileType.ICE_CAP
             return HexTileType.MOUNTAIN
         elif elevation > hill_threshold:
             return HexTileType.HILL
         elif elevation > land_threshold:
+            # Waterlogged lowlands become swamp (any non-frozen climate)
+            if elevation < th.get('swamp_elevation', 0.15) and \
+                    moisture > th.get('swamp_moisture', 0.75) and \
+                    temperature > cold_threshold:
+                return HexTileType.SWAMP
             if temperature < cold_threshold:
                 if moisture > forest_threshold:
                     return HexTileType.BOREAL_FOREST

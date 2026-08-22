@@ -1,0 +1,21 @@
+{
+  "tile_size": 30,
+  "resource_indicators": {
+    "radius_multiplier": 0.3,
+    "font_size_multiplier": 0.25,
+    "min_font_size": 8,
+    "max_font_size": 16
+  },
+  "colors": {
+    "gold_mine": [255, 215, 0, 200],
+    "iron_deposit": [169, 169, 169, 200],
+    "stone_quarry": [105, 105, 105, 200],
+    "rare_herbs": [0, 255, 127, 200]
+  },
+  "controls": {
+    "camera_speed": 10,
+    "zoom_speed": 0.025,
+    "min_zoom": 1.0,
+    "max_zoom": 3.0
+  }
+}

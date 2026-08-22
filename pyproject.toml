@@ -1,3 +1,42 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "pybind11"]
+build-backend = "hatchling.build"
+
+[project]
+name = "feudal-sim"
+version = "0.1.0"
+description = "A feudal simulation game with hex-based territories"
+authors = [
+    {name = "Feudal Sim Team"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pybind11>=2.10.0",
+    "numpy>=1.20.0",
+    "noise>=1.2.2",
+    "click>=8.1.8",
+    "openai-agents>=0.18",
+    "mlflow>=3.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "ruff>=0.1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["feudal_sim"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "build_hook.py"
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"

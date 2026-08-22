@@ -11,6 +11,7 @@ from feudal_sim.map.types import (
 )
 
 class HexTile:
+    """A single hexagonal map tile with terrain, ownership, and features."""
 
     def __init__(
         self,
@@ -38,10 +39,21 @@ class HexTile:
         # render
         self.owner_color: Color = owner_color
 
+    def refresh_terrain(self, terrain_type: HexTileType):
+        """Change this tile's terrain and re-derive the outputs and capacity
+        that depend on it — terrain changes without this leave stale yields."""
+        self.terrain_type = terrain_type
+        self.food_output = RESOURCE_DISTRIBUTION[terrain_type][HexResourceType.FOOD]
+        self.material_output = RESOURCE_DISTRIBUTION[terrain_type][HexResourceType.MATERIAL]
+        self.metal_output = RESOURCE_DISTRIBUTION[terrain_type][HexResourceType.METAL]
+        self.population_capacity = POPULATION_CAPACITY[terrain_type]
+
     def get_tile(self) -> _HexTile:
 
-        # convert owner name to array of chars
-        owner_name = self.owner.name if self.owner else "None"
+        # convert owner name to array of chars, using city encoding if applicable
+        from feudal_sim.map.city_extensions import encode_city_for_rendering  # deferred: circular with feudal_sim.map.city_extensions
+        owner_name = encode_city_for_rendering(self)
+        
         # init array size 50
         owner_name_array = [" "] * 50
         for i, char in enumerate(owner_name):

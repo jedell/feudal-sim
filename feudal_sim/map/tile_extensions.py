@@ -1,0 +1,141 @@
+"""
+Simple extensibility helpers for tile properties.
+Shows how to add new features without modifying core structs.
+"""
+
+from enum import Enum
+from feudal_sim.map.hex_tile import HexTile
+
+
+class ResourceNodeType(Enum):
+    """Special resource node a tile may contain (mine, deposit, etc.)."""
+    NONE = 0
+    GOLD_MINE = 1
+    IRON_DEPOSIT = 2
+    STONE_QUARRY = 3
+    RARE_HERBS = 4
+
+
+def get_resource_node_type(tile: HexTile) -> ResourceNodeType:
+    """
+    Extract resource node type from existing tile data.
+    Uses metal_output field as indicator (values > 100 indicate special resources).
+    """
+    if tile.metal_output > 100:
+        # Decode the resource type from the value
+        resource_code = int(tile.metal_output) - 100
+        try:
+            return ResourceNodeType(resource_code)
+        except ValueError:
+            return ResourceNodeType.NONE
+    return ResourceNodeType.NONE
+
+
+def set_resource_node(tile: HexTile, node_type: ResourceNodeType) -> None:
+    """
+    Set a resource node on a tile using existing field.
+    Preserves original metal output while encoding the resource type.
+    """
+    if node_type == ResourceNodeType.NONE:
+        # Keep original metal output if any
+        if tile.metal_output > 100:
+            tile.metal_output = tile.metal_output % 100
+    else:
+        # Encode resource type (100 + type value)
+        original_output = tile.metal_output % 100 if tile.metal_output > 100 else tile.metal_output
+        tile.metal_output = 100 + node_type.value + (original_output / 100)
+
+
+def get_base_metal_output(tile: HexTile) -> float:
+    """
+    Get the actual base metal output, stripping the resource node encoding.
+    Encoding: metal_output = 100 + node_type.value + (original_output / 100)
+    So original = fractional part * 100.
+    """
+    if tile.metal_output > 100:
+        # The fractional part encodes original_output / 100
+        return round((tile.metal_output - int(tile.metal_output)) * 100, 4)
+    return tile.metal_output
+
+
+def get_resource_bonus(tile: HexTile) -> dict:
+    """
+    Return additional resource bonuses granted by the tile's resource node.
+    Iron doubles metal, stone doubles material, gold mines pay flat gold,
+    rare herbs pay a smaller luxury-trade gold income.
+    """
+    node = get_resource_node_type(tile)
+    if node == ResourceNodeType.IRON_DEPOSIT:
+        bonus = {'metal_flat': 2.0}  # deposits are THE metal source
+    elif node == ResourceNodeType.STONE_QUARRY:
+        bonus = {'material_multiplier': 2.0}
+    elif node == ResourceNodeType.GOLD_MINE:
+        bonus = {'gold_flat': 2.0}  # flat gold per turn per tile
+    elif node == ResourceNodeType.RARE_HERBS:
+        bonus = {'gold_flat': 1.0}  # luxury trade income
+    else:
+        return {}
+
+    # A node must be WORKED to pay in full: without a settlement on its tile
+    # it yields only surface scavenging. Razing the settlement (sieges) drops
+    # it back to scraps automatically — the encoding disappears with the city.
+    if not is_node_developed(tile):
+        from feudal_sim.core.config import config
+        scale = config.get('simulation.world_generation.resource_nodes.undeveloped_yield', 0.25)
+        scaled = {}
+        for key, value in bonus.items():
+            if key.endswith('_multiplier'):
+                scaled[key] = 1.0 + (value - 1.0) * scale
+            else:
+                scaled[key] = value * scale
+        return scaled
+    return bonus
+
+
+def is_node_developed(tile: HexTile) -> bool:
+    """A resource node is developed when a settlement stands on its tile
+    (city encoding lives in population_capacity >= 1000)."""
+    return getattr(tile, 'population_capacity', 0) >= 1000
+
+
+def has_special_resource(tile: HexTile) -> bool:
+    """Quick check if tile has any special resource node."""
+    return get_resource_node_type(tile) != ResourceNodeType.NONE
+
+
+# Example usage functions
+def add_gold_mine(tile: HexTile) -> None:
+    """Add a gold mine to this tile."""
+    set_resource_node(tile, ResourceNodeType.GOLD_MINE)
+
+
+def add_iron_deposit(tile: HexTile) -> None:
+    """Add an iron deposit to this tile."""
+    set_resource_node(tile, ResourceNodeType.IRON_DEPOSIT)
+
+
+def add_stone_quarry(tile: HexTile) -> None:
+    """Add a stone quarry to this tile."""
+    set_resource_node(tile, ResourceNodeType.STONE_QUARRY)
+
+
+def add_rare_herbs(tile: HexTile) -> None:
+    """Add a rare herbs node to this tile."""
+    set_resource_node(tile, ResourceNodeType.RARE_HERBS)
+
+
+def get_resource_description(tile: HexTile) -> str:
+    """Get human-readable description of tile's special resources."""
+    node_type = get_resource_node_type(tile)
+    if node_type == ResourceNodeType.NONE:
+        return "No special resources"
+    elif node_type == ResourceNodeType.GOLD_MINE:
+        return "Gold Mine"
+    elif node_type == ResourceNodeType.IRON_DEPOSIT:
+        return "Iron Deposit" 
+    elif node_type == ResourceNodeType.STONE_QUARRY:
+        return "Stone Quarry"
+    elif node_type == ResourceNodeType.RARE_HERBS:
+        return "Rare Herbs"
+    else:
+        return f"Unknown Resource ({node_type.value})"

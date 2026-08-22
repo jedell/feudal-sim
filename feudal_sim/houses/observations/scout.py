@@ -1,25 +1,68 @@
 import random
-import dspy
-
-lm = dspy.LM(model="openai/gpt-4o-mini", cache=False)
-dspy.configure(lm=lm)
 
 SCOUT_STEPS = 10
 NUM_SCOUTS = 3
 
-def make_scout(house_name: str):
+class ScoutReport:
+    """Formats raw scouting data into a human-readable report."""
+    def __init__(self, raw_data):
+        self.raw_data = raw_data
+        self.report = self._generate_report()
+    
+    def _generate_report(self):
+        if not self.raw_data:
+            return "Scouts report: No tiles explored."
 
-    scout = dspy.make_signature(
-        signature="raw_data -> report",
-        instructions="""
-        You are a scout for House {house_name}.
-        You are tasked with exploring the surrounding area and reporting on the state of the land.
-        You will be given raw data collected from a series of tiles you have scouted.
-        You must parse this data and summarize your findings into a concise report for your lord.
-        """.format(house_name=house_name),
-        signature_name="House {house_name} Scout".format(house_name=house_name)
-    )
-    return dspy.Predict(scout)
+        total = len(self.raw_data)
+
+        # Count terrain types
+        terrain_counts = {}
+        for tile in self.raw_data:
+            terrain = tile.get("terrain_type", "unknown").lower().replace("_", " ")
+            terrain_counts[terrain] = terrain_counts.get(terrain, 0) + 1
+
+        sorted_terrains = sorted(terrain_counts.items(), key=lambda kv: kv[1], reverse=True)
+        primary = sorted_terrains[0][0]
+        if len(sorted_terrains) > 1:
+            secondary = sorted_terrains[1][0]
+            terrain_summary = f"mostly {primary} and {secondary}"
+        else:
+            terrain_summary = f"mostly {primary}"
+
+        # Ownership
+        unowned = [t for t in self.raw_data if t.get("owner") in (None, "None", "")]
+        foreign: dict = {}
+        for tile in self.raw_data:
+            owner = tile.get("owner")
+            if owner and owner != "None":
+                foreign[owner] = foreign.get(owner, 0) + 1
+
+        # Military presence
+        military_tiles = [t for t in self.raw_data if t.get("military_presence", 0) > 0]
+
+        parts = [f"Scouts report: {total} tiles explored — {terrain_summary}."]
+
+        if unowned:
+            parts.append(f"{len(unowned)} tiles unowned (expansion opportunities).")
+        dir_prose = {"N": "north", "NE": "northeast", "SE": "southeast",
+                     "S": "south", "SW": "southwest", "NW": "northwest"}
+        for owner_name, count in foreign.items():
+            # Get direction hints if available
+            owner_tiles = [t for t in self.raw_data if t.get("owner") == owner_name]
+            directions = list({t.get("direction", "").upper() for t in owner_tiles if t.get("direction")})
+            dir_text = f" to the {dir_prose.get(directions[0], directions[0].lower())}" if len(directions) == 1 else ""
+            parts.append(f"{count} tiles owned by {owner_name}{dir_text}.")
+        if military_tiles:
+            parts.append(f"Military presence detected on {len(military_tiles)} tile(s).")
+        else:
+            parts.append("No military presence detected.")
+
+        return " ".join(parts)
+
+def make_scout(house_name: str):
+    def scout_function(raw_data):
+        return ScoutReport(raw_data)
+    return scout_function
 
 # utils
 
@@ -90,7 +133,7 @@ def gather_scout_data(house, hex_grid):
 
     for i in range(NUM_SCOUTS):
         if not border_tiles:
-            print(f"{house.name} has no border tiles to deploy scouts from.")
+            print(f"{house.get_name()} has no border tiles to deploy scouts from.")
             break
 
         # Randomly select a border tile as the starting point

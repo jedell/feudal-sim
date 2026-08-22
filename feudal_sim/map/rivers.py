@@ -1,8 +1,8 @@
 import random
-from typing import List
 from feudal_sim.map.hex_tile import HexTile, HexTileType
 
 class RiverSystem:
+    """Generates rivers by tracing downhill flow across the hex grid."""
     def __init__(self, hex_grid, sealevel: float):
         self.hex_grid = hex_grid
         self.sealevel: float = sealevel

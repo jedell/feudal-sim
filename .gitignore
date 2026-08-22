@@ -176,3 +176,31 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+mlruns/
+mlartifacts/
+# Simulation logs
+logs/
+log.txt
+
+# macOS
+.DS_Store
+
+# Local agent config
+.claude/
+
+# MLflow experiment DB
+mlruns.db
+
+# AI-generated planning docs (kept local, not for public repo)
+IMPLEMENTATION_PLAN.md
+roadmap.md
+docs/refactor_grounding_plan.md
+docs/simulation_stability_and_emergence_plan.md
+docs/component_entity_system_vision.md
+docs/priority_action_system_implementation.md
+docs/event_system_implementation.md
+docs/resource_nodes_implementation.md
+docs/time_management_system.md
+docs/sub_agent_population_delegation.md
+docs/simulation_realism_scope.md
