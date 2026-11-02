@@ -17,7 +17,13 @@
       "diplomat": "low"
     },
     "disabled_tools": [],
-    "max_message_history": 60,
+    "compaction": {
+      "enabled": true,
+      "context_window": 128000,
+      "reserve_tokens": 8000,
+      "keep_recent_tokens": 20000,
+      "max_output_tokens": 2000
+    },
     "max_turns_house": 12,
     "max_turns_general": 10
   },

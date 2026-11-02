@@ -34,6 +34,9 @@ from feudal_sim.ai.prompts import AgentType
 from feudal_sim.ai.persona_generator import (
     generate_agent_identity, _get_fallback_name, _get_fallback_persona
 )
+from feudal_sim.ai.compaction import (
+    CompactionSettings, compact_messages, should_compact, estimate_total_tokens,
+)
 
 log = get_logger(__name__)
 
@@ -112,6 +115,10 @@ class AIComponent(Component):
         
         # Message history for LLM context (proper OpenAI format)
         self.messages: List[Dict[str, str]] = []
+
+        # Rolling compaction summary — updated (not replaced) each compaction
+        self._compaction_summary: Optional[str] = None
+        self._compaction_settings: Optional[CompactionSettings] = None
 
         # Persistent strategic objectives
         self.current_objectives: List[str] = []
@@ -440,8 +447,8 @@ class AIComponent(Component):
             return f"{self.agent_name} has no context - cannot make decisions"
         
         try:
-            # Compact message history before processing new observations
-            self._compact_message_history()
+            # Token-aware compaction before processing new observations
+            await self._maybe_compact()
 
             # Add pending observations to message history
             self._process_pending_observations()
@@ -520,90 +527,57 @@ class AIComponent(Component):
             log.error(f"❌ {error_msg}")
             return error_msg
     
-    def _compact_message_history(self):
+    async def _maybe_compact(self):
+        """Token-aware compaction with LLM summarization.
+
+        Replaces the old message-count-based truncation. Estimates token usage,
+        compacts only when approaching the model's context window, and uses an
+        LLM call to produce a structured summary of dropped context that gets
+        injected into the retained history. The summary is rolling — each
+        compaction updates the previous one rather than starting over.
         """
-        Trim message history to configured max, preserving the first system message.
-        Also removes orphaned tool responses — tool_call_output messages whose
-        corresponding tool_call was trimmed — which cause OpenAI 400 errors.
-        """
-        max_history = config.get("simulation.ai.max_message_history", 80)
-        if len(self.messages) <= max_history:
+        if not self.messages:
             return
 
-        if self.messages and isinstance(self.messages[0], dict) and self.messages[0].get("role") == "system":
-            keep_system = [self.messages[0]]
-            candidate = keep_system + self.messages[-(max_history - 1):]
-        else:
-            candidate = self.messages[-max_history:]
+        # Lazily build settings (per-agent-type overrides)
+        if self._compaction_settings is None:
+            agent_key = self.agent_type.value if self.agent_type else ""
+            self._compaction_settings = CompactionSettings.from_config(agent_key)
 
-        # Before discarding old messages, extract a brief historical summary and
-        # write it to the IntelligenceComponent so strategic context survives compaction.
-        being_dropped = self.messages[:len(self.messages) - len(candidate)]
-        if being_dropped and self.entity:
+        settings = self._compaction_settings
+
+        if not should_compact(self.messages, settings):
+            return
+
+        tokens_before = estimate_total_tokens(self.messages)
+        log.info(
+            f"📦 [{self.agent_name}] Compaction triggered: "
+            f"~{tokens_before:,} tokens (limit {settings.context_window - settings.reserve_tokens:,})"
+        )
+
+        # Resolve the model for the summarizer (reuse the agent's model)
+        model = None
+        if self.agent and hasattr(self.agent, 'model'):
+            model = self.agent.model
+
+        self.messages, result = await compact_messages(
+            self.messages,
+            settings,
+            model=model,
+            previous_summary=self._compaction_summary,
+        )
+
+        # Store rolling summary for next compaction's incremental update
+        self._compaction_summary = result.summary
+
+        # Also write to IntelligenceComponent for cross-compaction persistence
+        if self.entity:
             try:
                 intel = self.entity.get_component(IntelligenceComponent)
                 if intel:
-                    tool_calls = []
-                    for msg in being_dropped:
-                        if not isinstance(msg, dict):
-                            continue
-                        if msg.get('type') == 'function_call':
-                            name = msg.get('name', '')
-                            if name and name not in ('end_turn', 'write_compendium', 'read_compendium'):
-                                tool_calls.append(name)
-                    if tool_calls:
-                        summary = f"[Compacted] Actions taken: {', '.join(tool_calls[:12])}"
-                        intel.add_note("Historical Record", summary)
+                    intel.add_note("Historical Record", result.summary)
             except Exception as e:
-                log.warning(f"AI history-compaction intelligence note failed: {e}")
-
-        # Step 1: Advance to the first user message to avoid splitting reasoning+function_call
-        # pairs at the trim boundary. gpt-5 models return {"type":"reasoning"} items that must
-        # remain paired with their subsequent function_call items. Starting at a user message
-        # guarantees we never begin mid-turn.
-        first_user = next(
-            (i for i, msg in enumerate(candidate)
-             if isinstance(msg, dict) and msg.get("role") == "user"),
-            None
-        )
-        if first_user and first_user > 0:
-            # Preserve system message at index 0 if present
-            if isinstance(candidate[0], dict) and candidate[0].get("role") == "system":
-                candidate = [candidate[0]] + candidate[first_user:]
-            else:
-                candidate = candidate[first_user:]
-
-        # Step 2: Collect all function_call IDs in the candidate
-        call_ids: set = set()
-        for msg in candidate:
-            if not isinstance(msg, dict):
-                continue
-            msg_type = msg.get("type")
-            if msg_type == "function_call":
-                call_ids.add(msg.get("call_id"))
-            for tc in msg.get("tool_calls") or []:
-                if isinstance(tc, dict):
-                    call_ids.add(tc.get("id"))
-            content = msg.get("content") or []
-            if isinstance(content, list):
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") in ("tool_use", "function_call"):
-                        call_ids.add(item.get("id") or item.get("call_id"))
-
-        # Step 3: Drop orphaned tool responses whose matching call is no longer in the window
-        cleaned = []
-        for msg in candidate:
-            if isinstance(msg, dict):
-                msg_type = msg.get("type")
-                if msg_type == "function_call_output":
-                    if msg.get("call_id") not in call_ids:
-                        continue
-                elif msg.get("role") == "tool":
-                    if msg.get("tool_call_id") not in call_ids:
-                        continue
-            cleaned.append(msg)
-
-        self.messages = cleaned
+                log.warning(f"Failed to write compaction summary to intelligence: {e}")
 
     def _process_pending_observations(self):
         """
