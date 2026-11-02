@@ -453,6 +453,23 @@ class AIComponent(Component):
             # Add pending observations to message history
             self._process_pending_observations()
             
+            # System 1 pre-cognition: attempt a fast-path turn via Jev before
+            # paying for the full LLM loop. Returns a summary if handled.
+            from feudal_sim.ai.precognition import try_precognition
+            fast_path_outcome = await try_precognition(self)
+            if fast_path_outcome is not None:
+                if event_bus:
+                    event_bus.emit(
+                        EventType.VALUE_CHANGED,
+                        self,
+                        change_type='decision_made',
+                        entity_name=self.context.entity_name,
+                        decision=fast_path_outcome,
+                        turn=self.context.current_turn,
+                        fast_path=True,
+                    )
+                return fast_path_outcome
+            
             # Add current turn context as a user message
             turn_message = self._generate_turn_context_message()
             self.messages.append({

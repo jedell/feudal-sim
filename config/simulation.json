@@ -24,6 +24,15 @@
       "keep_recent_tokens": 20000,
       "max_output_tokens": 2000
     },
+    "precognition": {
+      "enabled": true,
+      "model": "typesafe-ai/jev",
+      "base_url": "https://ai-gateway.vercel.sh/typesafe",
+      "api_key_env": "AI_GATEWAY_API_KEY",
+      "confidence_threshold": 0.8,
+      "threat_threshold": 0.5,
+      "timeout_seconds": 3.0
+    },
     "max_turns_house": 12,
     "max_turns_general": 10
   },
