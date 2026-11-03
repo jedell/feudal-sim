@@ -1,13 +1,13 @@
 {
   "ai": {
     "enabled": true,
-    "model": "fireworks/accounts/fireworks/models/glm-5p2",
+    "model": "fireworks/accounts/fireworks/models/glm-5p3",
     "models": {
-      "house_lord": "fireworks/accounts/fireworks/models/glm-5p2",
-      "general": "fireworks/accounts/fireworks/models/glm-5p2",
-      "merchant": "fireworks/accounts/fireworks/models/glm-5p2",
-      "scout": "fireworks/accounts/fireworks/models/glm-5p2",
-      "diplomat": "fireworks/accounts/fireworks/models/glm-5p2"
+      "house_lord": "fireworks/accounts/fireworks/models/glm-5p3",
+      "general": "fireworks/accounts/fireworks/models/glm-5p3",
+      "merchant": "fireworks/accounts/fireworks/models/glm-5p3",
+      "scout": "fireworks/accounts/fireworks/models/glm-5p3",
+      "diplomat": "fireworks/accounts/fireworks/models/glm-5p3"
     },
     "reasoning_effort": {
       "house_lord": "low",
