@@ -40,6 +40,9 @@ async def main():
     parser.add_argument("--iterations", type=int, default=10)
     parser.add_argument("--base-seed", type=int, default=2000)
     parser.add_argument("--out-dir", default=None)
+    parser.add_argument("--smoke", action="store_true",
+                        help="Single iteration, then dump one captured trajectory "
+                             "(messages_and_choices) for fidelity inspection")
     args = parser.parse_args()
 
     import art
@@ -55,7 +58,8 @@ async def main():
         project=args.project,
         base_model=args.base_model,
     )
-    backend = art.LocalBackend()  # GPU process-local; swap for ServerlessBackend on OpenPipe
+    from art.local import LocalBackend
+    backend = LocalBackend()  # GPU process-local; swap for ServerlessBackend on OpenPipe
     await model.register(backend)
     print(f"🧠 policy: {args.base_model} as {args.policy_name} "
           f"(inference: {model.get_inference_name()})")
@@ -82,6 +86,18 @@ async def main():
         mean_r = sum(rewards) / len(rewards) if rewards else 0.0
         print(f"   rollouts: {len(rewards)}  mean reward: {mean_r:+.3f}  "
               f"({time.time() - t0:.0f}s)")
+
+        if args.smoke:
+            # Capture-fidelity check: dump one trajectory's raw
+            # messages_and_choices for inspection BEFORE any training step.
+            sample = gathered[0].trajectories[0]
+            sample_path = out_dir / "trajectory-sample.json"
+            sample_path.write_text(sample.model_dump_json(indent=2))
+            print(f"   🔬 smoke: dumped {sample_path} "
+                  f"({len(sample.messages_and_choices)} messages/choices, "
+                  f"reward={sample.reward:+.3f})")
+            print("   Inspect it, then rerun without --smoke to train.")
+            return
 
         await model.train(gathered, config=art.TrainConfig())
 

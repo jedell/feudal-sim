@@ -7,8 +7,8 @@ ENV FEUDAL_SIM_NO_RENDERER=1 \
 
 RUN pip install uv
 
-# noise==1.2.2 ships no aarch64 wheel — needs a C toolchain (gcc + libc headers)
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+# ART LocalBackend needs pkill for vLLM process cleanup
+RUN apt-get update && apt-get install -y --no-install-recommends procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

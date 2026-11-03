@@ -8,6 +8,7 @@ except (ImportError, OSError):
     # Debug/RL paths never touch it; constructing a RendererWrapper without
     # the module raises a clear error at that point.
     renderer = None
+from feudal_sim.map.perlin import fbm2
 from feudal_sim.map.hex_tile import HexTile
 from feudal_sim.map.types import (
     HexTileType,
@@ -24,7 +25,6 @@ from feudal_sim.components.ai import AIComponent
 from feudal_sim.components.position import PositionComponent
 from feudal_sim.components.subagent_group import SubAgentGroup
 from multiprocessing import Process
-import noise
 import multiprocessing.shared_memory as shm
 
 log = get_logger(__name__)
@@ -350,7 +350,10 @@ class HexGrid:
         self.renderer.close()
 
     def get_random_noise(self, q, r, scale, octaves, persistence, lacunarity, seed):
-        return noise.pnoise2(q * scale, r * scale, octaves=octaves, persistence=persistence, lacunarity=lacunarity, repeatx=1024, repeaty=1024, base=seed)
+        # Seeded Perlin fBm (feudal_sim.map.perlin) — replaces the old
+        # noise.pnoise2 C extension that fails to load on Linux.
+        return fbm2(q * scale, r * scale, octaves=octaves,
+                    persistence=persistence, lacunarity=lacunarity, seed=seed)
 
     def hex_to_cartesian(self, q, r):
         """ Convert hex coordinates (q, r) to Cartesian coordinates (x, y) for use in the heightmap. """

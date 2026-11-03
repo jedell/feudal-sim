@@ -10,11 +10,10 @@ authors = [
     {name = "Feudal Sim Team"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "pybind11>=2.10.0",
     "numpy>=1.20.0",
-    "noise>=1.2.2",
     "click>=8.1.8",
     "openai-agents>=0.18",
     "mlflow>=3.4",
@@ -30,7 +29,8 @@ dev = [
 rl = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
-    "openpipe-art",
+    "openpipe-art[backend]>=0.5",
+    "modal>=1.6.3",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -46,3 +46,9 @@ target-version = ['py39']
 [tool.ruff]
 line-length = 88
 target-version = "py39"
+
+# ART's backend stack (vllm<=0.10) pins openai<=1.99, but openai-agents>=0.18
+# needs openai>=2.36. The OpenAI client surface ART uses is stable across
+# v1→v3, so we force the newer SDK.
+[tool.uv]
+override-dependencies = ["openai>=2.36", "peft<0.18"]
