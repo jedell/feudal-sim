@@ -74,6 +74,10 @@ class RendererWrapper:
         # Event log shared memory
         self.event_log = EventLog()
 
+        # Per-agent observability shared memory
+        from feudal_sim.core.agent_inspector import AgentInspector
+        self.agent_inspector = AgentInspector()
+
         # Initialize entities shared memory if specified
         self.entities_shared_memory = None
         if entities_memory_size > 0 and num_entities > 0:
@@ -280,6 +284,7 @@ class RendererWrapper:
             self.entities_shared_memory.unlink()
 
         self.event_log.close()
+        self.agent_inspector.close()
 
 class HexGrid:
     """The hexagonal game map: tiles, terrain generation, and rendering."""

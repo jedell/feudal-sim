@@ -431,6 +431,12 @@ class HexGridRenderer {
     bool show_entity_list = false;        // 'I' key overlay
     bool show_minimap = true;             // 'M' key
     bool show_event_log = false;          // 'L' key
+    bool show_turn_stats = true;          // 'Y' key — default on
+    bool show_chat = false;               // 'C' key — agent chat inspector
+    int chat_agent_index = 0;             // selected agent in chat inspector
+    int chat_scroll = 0;                  // scroll offset (wrapped lines)
+    int agents_last_seq = -1;             // last seen inspector write_seq
+    bool chat_follow = true;              // auto-scroll to newest on update
     int selected_entity_index = -1;       // index into entity_data, -1 = none
     std::vector<bool> house_panels_expanded; // Track which house panels are expanded
 
@@ -444,6 +450,24 @@ class HexGridRenderer {
     static constexpr int EVENTS_MAX = 20;
     static constexpr int EVENT_STR_SIZE = 80;
     static constexpr int EVENTS_TOTAL = 4 + EVENTS_MAX * EVENT_STR_SIZE;
+
+    // Agent inspector shared memory — must match
+    // feudal_sim/core/agent_inspector.py byte-for-byte (raw offsets, no padding)
+    int agents_fd = -1;
+    void* agents_raw = MAP_FAILED;
+    static constexpr int AGENTS_MAX = 12;
+    static constexpr int AGENTS_HEADER = 28;
+    static constexpr int AGENT_SLOT = 29578;
+    static constexpr int AGENTS_TOTAL = AGENTS_HEADER + AGENTS_MAX * AGENT_SLOT;
+    static constexpr int AO_NAME = 0;
+    static constexpr int AO_KIND = 64;
+    static constexpr int AO_HOUSE = 80;
+    static constexpr int AO_COLOR = 130;
+    static constexpr int AO_STATUS = 134;
+    static constexpr int AO_OBJECTIVES = 390;
+    static constexpr int AO_CHAT_LEN = 902;
+    static constexpr int AO_CHAT = 906;
+    static constexpr int AGENT_CHAT_MAX = 28672;
     SpriteManager sprite_manager; // Sprite management system
 public:
     HexGridRenderer(int width = 800, int height = 600, const std::string& title = "Hex Grid Renderer")
@@ -656,6 +680,16 @@ public:
             }
         }
 
+        // Open agent inspector shared memory (optional — same pattern)
+        agents_fd = shm_open("/psm_agents", O_RDONLY, 0666);
+        if (agents_fd != -1) {
+            agents_raw = mmap(nullptr, AGENTS_TOTAL, PROT_READ, MAP_SHARED, agents_fd, 0);
+            if (agents_raw == MAP_FAILED) {
+                close(agents_fd);
+                agents_fd = -1;
+            }
+        }
+
         // Initialize house panel expansion state
         house_panels_expanded.resize(num_houses, false);
         
@@ -663,7 +697,9 @@ public:
         current_entity_data = entity_data;
         current_num_entities = num_entities;
 
+        SetConfigFlags(FLAG_WINDOW_RESIZABLE);
         InitWindow(width, height, title.c_str());
+        MaximizeWindow();
         SetTargetFPS(60);
         // ESC is bound to deselect (see handle_input); without this raylib
         // treats ESC as the window-exit key and quits the whole app.
@@ -673,6 +709,12 @@ public:
         load_sprites();
 
         while (!WindowShouldClose()) {
+            // Track window size live so panels layout correctly after
+            // resize / maximize / fullscreen transitions
+            if (IsWindowResized()) {
+                width = GetScreenWidth();
+                height = GetScreenHeight();
+            }
             handle_input(shared_tile_map);
             BeginDrawing();
             ClearBackground(RAYWHITE);
@@ -757,6 +799,8 @@ public:
             draw_entity_list_overlay();
             draw_minimap(tile_data, memory_size / sizeof(HexTile));
             draw_event_log_panel();
+            draw_turn_stats_panel(house_data, num_houses, entity_data, num_entities);
+            draw_chat_inspector();  // topmost overlay when open
             
             // Draw status indicators (top right); shift left of the entity
             // inspector panel (240px wide at the right edge) when it is open
@@ -809,7 +853,9 @@ public:
             }
             
             // Draw controls panel
-            int controls_panel_width = 520;
+            std::string controls = "WASD: Move | Wheel: Zoom | T: Territory | R: Resources | I: Entities | M: Map | L: Events | Y: Stats | C: Agent Chat | F11: Fullscreen";
+            Vector2 text_size = MeasureTextEx(GetFontDefault(), controls.c_str(), 10, 1);
+            int controls_panel_width = (int)text_size.x + 20;
             int controls_panel_height = 25;
             int controls_x = (width - controls_panel_width) / 2; // Center horizontally
             int controls_y = height - controls_panel_height - 10;
@@ -820,9 +866,7 @@ public:
             DrawRectangle(controls_x, controls_y, controls_panel_width, controls_panel_height, controls_bg);
             DrawRectangleLines(controls_x, controls_y, controls_panel_width, controls_panel_height, controls_border);
             
-            std::string controls = "WASD: Move | Wheel: Zoom | T: Territory | R: Resources | Click: Select | I: Entities | M: Map | L: Events | ESC: Deselect";
-            Vector2 text_size = MeasureTextEx(GetFontDefault(), controls.c_str(), 10, 1);
-            float text_x = controls_x + (controls_panel_width - text_size.x) / 2;
+            float text_x = controls_x + 10;
             DrawTextEx(GetFontDefault(), controls.c_str(), {text_x, (float)(controls_y + 6)}, 10, 1, WHITE);
             
             EndDrawing();
@@ -832,6 +876,8 @@ public:
 
         if (events_raw != MAP_FAILED) munmap(events_raw, EVENTS_TOTAL);
         if (events_fd != -1) close(events_fd);
+        if (agents_raw != MAP_FAILED) munmap(agents_raw, AGENTS_TOTAL);
+        if (agents_fd != -1) close(agents_fd);
 
         CloseWindow();
     }
@@ -1814,6 +1860,284 @@ private:
 
     // ── Event Log Panel ───────────────────────────────────────────────────────
 
+    // ── Agent inspector helpers ─────────────────────────────────────────────
+
+    static std::string shm_str(const char* p, int max_len) {
+        return std::string(p, strnlen(p, max_len));
+    }
+
+    // Word-wrap a single logical line into display lines fitting max_w
+    std::vector<std::string> wrap_line(const std::string& text, float max_w, int font_size) {
+        std::vector<std::string> out;
+        std::istringstream iss(text);
+        std::string word, line;
+        while (std::getline(iss, word, ' ')) {
+            std::string candidate = line.empty() ? word : line + " " + word;
+            if (!line.empty() &&
+                MeasureTextEx(GetFontDefault(), candidate.c_str(), font_size, 1).x > max_w) {
+                out.push_back(line);
+                line = word;
+            } else {
+                line = candidate;
+            }
+        }
+        out.push_back(line);  // keeps empty lines as paragraph breaks
+        return out;
+    }
+
+    // Color a chat transcript line by its role prefix
+    Color chat_line_color(const std::string& line, Color agent_color) {
+        if (line.rfind("── GAME MASTER", 0) == 0) return {120, 200, 255, 255};
+        if (line.rfind("── ", 0) == 0) return agent_color;
+        if (line.rfind("→ ", 0) == 0) return {255, 220, 120, 255};
+        if (line.find("↳") != std::string::npos) return {160, 160, 160, 255};
+        if (line.rfind("💭", 0) == 0) return {200, 160, 255, 255};
+        if (line.rfind("…", 0) == 0) return {110, 110, 110, 255};
+        return {232, 232, 232, 255};
+    }
+
+    // ── Turn stats panel ('Y', default on) ────────────────────────────────────
+
+    void draw_turn_stats_panel(House* house_data, int num_houses,
+                               PositionedEntity* entity_data, int num_entities) {
+        if (!show_turn_stats) return;
+
+        const int PANEL_W = 250;
+        const int PANEL_X = width - PANEL_W - 10;
+        int y = 70;
+
+        // Header clock from agent inspector shm
+        int turn = 0, year = 1, season_idx = 0, phase_idx = 0, step_count = 0;
+        bool have_clock = false;
+        if (agents_raw != MAP_FAILED) {
+            const char* base = static_cast<const char*>(agents_raw);
+            turn = *reinterpret_cast<const int*>(base + 4);
+            year = *reinterpret_cast<const int*>(base + 8);
+            season_idx = std::max(0, std::min(3, *reinterpret_cast<const int*>(base + 12)));
+            phase_idx = std::max(0, std::min(3, *reinterpret_cast<const int*>(base + 16)));
+            step_count = *reinterpret_cast<const int*>(base + 20);
+            have_clock = true;
+        }
+        const char* season_names[4] = {"Spring", "Summer", "Autumn", "Winter"};
+        const Color season_colors[4] = {{100,200,100,255},{255,200,50,255},{210,120,30,255},{180,220,255,255}};
+        const char* phase_names[4] = {"Production", "Actions", "Events", "Cleanup"};
+
+        int house_block = 66;
+        int header_h = have_clock ? 66 : 24;
+        int entities_h = 20;
+        int panel_h = header_h + 6 + num_houses * house_block + entities_h + 10;
+
+        DrawRectangle(PANEL_X, y, PANEL_W, panel_h, {10, 10, 30, 225});
+        DrawRectangleLines(PANEL_X, y, PANEL_W, panel_h, {120, 120, 180, 255});
+        DrawRectangle(PANEL_X, y, PANEL_W, 20, {30, 30, 80, 255});
+        DrawTextEx(GetFontDefault(), "Realm Status [Y]",
+                   {(float)(PANEL_X + 6), (float)(y + 4)}, 10, 1, WHITE);
+        y += 24;
+
+        if (have_clock) {
+            std::string l1 = std::string("Year ") + std::to_string(year) + "  ·  " +
+                             season_names[season_idx] + "  ·  Week " + std::to_string(turn);
+            DrawTextEx(GetFontDefault(), l1.c_str(), {(float)(PANEL_X + 8), (float)y},
+                       11, 1, season_colors[season_idx]);
+            y += 15;
+            std::string l2 = std::string(phase_names[phase_idx]) + " phase  ·  step " +
+                             std::to_string(step_count);
+            DrawTextEx(GetFontDefault(), l2.c_str(), {(float)(PANEL_X + 8), (float)y},
+                       9, 1, LIGHTGRAY);
+            y += 16;
+            DrawLine(PANEL_X + 6, y, PANEL_X + PANEL_W - 6, y, {60, 60, 100, 255});
+            y += 8;
+        }
+
+        if (house_data) {
+            for (int hi = 0; hi < num_houses; ++hi) {
+                House* h = &house_data[hi];
+                std::string hname = shm_str(h->name.data(), 50);
+                if (hname.empty() || hname == "None") continue;
+                Color hcol = {h->color[0], h->color[1], h->color[2], 255};
+
+                DrawRectangle(PANEL_X + 8, y + 2, 10, 10, hcol);
+                DrawTextEx(GetFontDefault(), hname.c_str(),
+                           {(float)(PANEL_X + 22), (float)y}, 11, 1, hcol);
+                if (h->at_war > 0) {
+                    std::string war = "⚔ " + std::to_string(h->at_war);
+                    DrawTextEx(GetFontDefault(), war.c_str(),
+                               {(float)(PANEL_X + PANEL_W - 40), (float)y}, 10, 1, RED);
+                }
+                y += 15;
+
+                char buf[128];
+                snprintf(buf, sizeof(buf), "F %-5.0f M %-5.0f Fe %-5.0f Au %-5.0f",
+                         h->food, h->material, h->metal, h->gold);
+                DrawTextEx(GetFontDefault(), buf, {(float)(PANEL_X + 12), (float)y}, 9, 1,
+                           {220, 220, 220, 255});
+                y += 13;
+                snprintf(buf, sizeof(buf), "Pop %-5d Loy %-4d Mil %-5d ravens %d",
+                         h->population, h->population_loyalty, h->military_power,
+                         h->ravens_in_transit);
+                DrawTextEx(GetFontDefault(), buf, {(float)(PANEL_X + 12), (float)y}, 9, 1,
+                           {180, 180, 200, 255});
+                y += 14;
+                DrawLine(PANEL_X + 6, y, PANEL_X + PANEL_W - 6, y, {45, 45, 70, 255});
+                y += 9;
+            }
+        }
+
+        if (entity_data && num_entities > 0) {
+            int generals = 0, caravans = 0;
+            for (int i = 0; i < num_entities; ++i) {
+                PositionedEntity* e = &entity_data[i];
+                std::string n = shm_str(e->name.data(), 50);
+                if (n.empty() || n.rfind("__", 0) == 0) continue;
+                if (e->entity_type == 0) generals++;
+                else if (e->entity_type == 4) caravans++;
+            }
+            char buf[64];
+            snprintf(buf, sizeof(buf), "Generals %d   Caravans %d", generals, caravans);
+            DrawTextEx(GetFontDefault(), buf, {(float)(PANEL_X + 8), (float)y}, 9, 1,
+                       {200, 200, 160, 255});
+        }
+    }
+
+    // ── Agent chat inspector ('C') ────────────────────────────────────────────
+
+    void draw_chat_inspector() {
+        if (!show_chat || agents_raw == MAP_FAILED) return;
+
+        const char* base = static_cast<const char*>(agents_raw);
+        int num_agents = *reinterpret_cast<const int*>(base + 0);
+        int write_seq = *reinterpret_cast<const int*>(base + 24);
+
+        int px = width / 20, py = height / 20;
+        int pw = width - 2 * px, ph = height - 2 * py;
+
+        DrawRectangle(px, py, pw, ph, {8, 8, 22, 245});
+        DrawRectangleLines(px, py, pw, ph, {120, 120, 180, 255});
+        DrawRectangle(px, py, pw, 24, {30, 30, 80, 255});
+        DrawTextEx(GetFontDefault(),
+                   "Agent Chat [C]   up/down select   PgUp/PgDn/wheel scroll   End latest   ESC close",
+                   {(float)(px + 8), (float)(py + 7)}, 10, 1, WHITE);
+
+        if (num_agents <= 0) {
+            DrawTextEx(GetFontDefault(), "No agents reporting yet.",
+                       {(float)(px + 20), (float)(py + 50)}, 12, 1, LIGHTGRAY);
+            return;
+        }
+        if (chat_agent_index >= num_agents) chat_agent_index = num_agents - 1;
+        if (chat_agent_index < 0) chat_agent_index = 0;
+
+        // Left: agent list
+        const int LIST_W = 240;
+        int ly = py + 34;
+        for (int i = 0; i < num_agents; ++i) {
+            const char* slot = base + AGENTS_HEADER + i * AGENT_SLOT;
+            std::string aname = shm_str(slot + AO_NAME, 64);
+            std::string kind = shm_str(slot + AO_KIND, 16);
+            const unsigned char* col = reinterpret_cast<const unsigned char*>(slot + AO_COLOR);
+            Color agent_col = {col[0], col[1], col[2], 255};
+
+            if (i == chat_agent_index)
+                DrawRectangle(px + 4, ly - 2, LIST_W - 8, 32, {40, 40, 90, 255});
+            DrawRectangle(px + 10, ly + 4, 10, 10, agent_col);
+            std::string display = aname.size() > 24 ? aname.substr(0, 23) + "..." : aname;
+            DrawTextEx(GetFontDefault(), display.c_str(), {(float)(px + 26), (float)ly},
+                       10, 1, i == chat_agent_index ? WHITE : LIGHTGRAY);
+            DrawTextEx(GetFontDefault(), kind.c_str(), {(float)(px + 26), (float)(ly + 13)},
+                       8, 1, {140, 140, 160, 255});
+            ly += 34;
+            if (ly > py + ph - 20) break;
+        }
+
+        DrawLine(px + LIST_W, py + 24, px + LIST_W, py + ph - 4, {60, 60, 100, 255});
+
+        // Right: selected agent detail
+        const char* slot = base + AGENTS_HEADER + chat_agent_index * AGENT_SLOT;
+        std::string aname = shm_str(slot + AO_NAME, 64);
+        std::string kind = shm_str(slot + AO_KIND, 16);
+        std::string house = shm_str(slot + AO_HOUSE, 50);
+        std::string status = shm_str(slot + AO_STATUS, 256);
+        std::string objectives = shm_str(slot + AO_OBJECTIVES, 512);
+        int chat_len = *reinterpret_cast<const int*>(slot + AO_CHAT_LEN);
+        chat_len = std::max(0, std::min(AGENT_CHAT_MAX - 1, chat_len));
+        std::string chat(slot + AO_CHAT, chat_len);
+        const unsigned char* col = reinterpret_cast<const unsigned char*>(slot + AO_COLOR);
+        Color agent_col = {col[0], col[1], col[2], 255};
+
+        int rx = px + LIST_W + 12;
+        int ry = py + 34;
+        int rw = px + pw - 12 - rx;
+
+        std::string title = aname + (house.empty() ? "" : "  ·  " + house) +
+                            (kind.empty() ? "" : "  (" + kind + ")");
+        DrawTextEx(GetFontDefault(), title.c_str(), {(float)rx, (float)ry}, 13, 1, agent_col);
+        ry += 20;
+        if (!status.empty()) {
+            DrawTextEx(GetFontDefault(), status.c_str(), {(float)rx, (float)ry}, 9, 1,
+                       {200, 200, 160, 255});
+            ry += 14;
+        }
+        if (!objectives.empty()) {
+            std::istringstream iss(objectives);
+            std::string obj;
+            DrawTextEx(GetFontDefault(), "Objectives:", {(float)rx, (float)ry}, 9, 1,
+                       {150, 200, 150, 255});
+            ry += 12;
+            while (std::getline(iss, obj) && ry < py + ph - 60) {
+                if (obj.empty()) continue;
+                std::string line = "  - " + obj;
+                DrawTextEx(GetFontDefault(), line.c_str(), {(float)rx, (float)ry}, 9, 1,
+                           {170, 210, 170, 255});
+                ry += 12;
+            }
+        }
+        ry += 4;
+        DrawLine(rx, ry, px + pw - 12, ry, {60, 60, 100, 255});
+        ry += 6;
+
+        // Chat transcript: wrap, then draw the scrolled visible slice
+        const int FONT = 10, LINE_H = FONT + 3;
+        std::vector<std::pair<std::string, Color>> wrapped;
+        {
+            std::istringstream iss(chat);
+            std::string raw_line;
+            while (std::getline(iss, raw_line)) {
+                Color c = chat_line_color(raw_line, agent_col);
+                for (auto& l : wrap_line(raw_line, (float)rw, FONT))
+                    wrapped.emplace_back(l, c);
+            }
+        }
+
+        int visible = (py + ph - 12 - ry) / LINE_H;
+        int total = (int)wrapped.size();
+        int max_scroll = std::max(0, total - visible);
+
+        // Auto-follow newest when Python writes a new snapshot
+        if (write_seq != agents_last_seq) {
+            agents_last_seq = write_seq;
+            if (chat_follow) chat_scroll = max_scroll;
+        }
+        if (chat_follow) chat_scroll = max_scroll;
+        chat_scroll = std::max(0, std::min(chat_scroll, max_scroll));
+
+        BeginScissorMode(rx, ry, rw, py + ph - 12 - ry);
+        for (int i = 0; i < visible && (chat_scroll + i) < total; ++i) {
+            auto& entry = wrapped[chat_scroll + i];
+            DrawTextEx(GetFontDefault(), entry.first.c_str(),
+                       {(float)rx, (float)(ry + i * LINE_H)}, FONT, 1, entry.second);
+        }
+        EndScissorMode();
+
+        // Scrollbar
+        if (total > visible && max_scroll > 0) {
+            int track_h = py + ph - 12 - ry;
+            float frac = (float)visible / total;
+            int bar_h = std::max(20, (int)(track_h * frac));
+            int bar_y = ry + (int)((track_h - bar_h) * ((float)chat_scroll / max_scroll));
+            DrawRectangle(px + pw - 8, ry, 4, track_h, {30, 30, 50, 255});
+            DrawRectangle(px + pw - 8, bar_y, 4, bar_h, {120, 120, 180, 255});
+        }
+    }
+
     void draw_event_log_panel() {
         if (!show_event_log || events_raw == MAP_FAILED) return;
 
@@ -2235,13 +2559,37 @@ private:
         if (IsKeyPressed(KEY_I)) show_entity_list = !show_entity_list;
         if (IsKeyPressed(KEY_M)) show_minimap = !show_minimap;
         if (IsKeyPressed(KEY_L)) show_event_log = !show_event_log;
+        if (IsKeyPressed(KEY_Y)) show_turn_stats = !show_turn_stats;
+        if (IsKeyPressed(KEY_C)) {
+            show_chat = !show_chat;
+            if (show_chat) chat_follow = true;  // snap to latest on open
+        }
+        if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
         if (IsKeyPressed(KEY_ESCAPE)) {
-            selected_entity_index = -1;
-            show_entity_list = false;
+            if (show_chat) { show_chat = false; }
+            else { selected_entity_index = -1; show_entity_list = false; }
         }
 
-        // Left click: entity list overlay first, then house panel, then entity select
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        // Chat inspector navigation (only while open)
+        if (show_chat) {
+            int num_agents = 0;
+            if (agents_raw != MAP_FAILED)
+                num_agents = *static_cast<int*>(agents_raw);
+            if (IsKeyPressed(KEY_DOWN) && chat_agent_index < num_agents - 1) {
+                chat_agent_index++; chat_scroll = 0; chat_follow = true;
+            }
+            if (IsKeyPressed(KEY_UP) && chat_agent_index > 0) {
+                chat_agent_index--; chat_scroll = 0; chat_follow = true;
+            }
+            if (IsKeyPressed(KEY_PAGE_DOWN)) { chat_scroll += 20; chat_follow = false; }
+            if (IsKeyPressed(KEY_PAGE_UP)) { chat_scroll -= 20; chat_follow = false; }
+            if (chat_scroll < 0) chat_scroll = 0;
+            if (IsKeyPressed(KEY_END)) chat_follow = true;
+        }
+
+        // Left click: entity list overlay first, then house panel, then entity select.
+        // Suppressed while the chat inspector overlay is open.
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !show_chat) {
             Vector2 mouse_pos = GetMousePosition();
             if (!check_entity_list_click(mouse_pos.x, mouse_pos.y) &&
                 !check_house_panel_click(mouse_pos.x, mouse_pos.y)) {
@@ -2250,7 +2598,13 @@ private:
         }
 
         float wheel = GetMouseWheelMove();
-        if (wheel != 0) {
+        if (wheel != 0 && show_chat) {
+            // While the chat inspector is open, the wheel scrolls chat
+            // instead of zooming the map
+            chat_scroll -= (int)(wheel * 3);
+            if (chat_scroll < 0) chat_scroll = 0;
+            chat_follow = false;
+        } else if (wheel != 0) {
             Vector2 mouse_pos = GetMousePosition();
             
             Vector2 world_pos_before_zoom = GetScreenToWorld2D(mouse_pos, camera);

@@ -357,6 +357,25 @@ class Simulation:
         # call hex grid render to update the tiles and entities
         self.hex_grid.render(self.houses, positioned_entities)
 
+        # Push per-agent observability snapshot (status, objectives, chat
+        # excerpts) to the renderer's inspector shared memory.
+        try:
+            from feudal_sim.core.agent_inspector import collect_agent_snapshots
+            wrapper = self.hex_grid.renderer  # RendererWrapper
+            status = self.time_manager.get_current_status()
+            phase = getattr(self.time_manager.game_time.phase, 'value', 'production')
+            snapshots = collect_agent_snapshots(self.houses, generals)
+            wrapper.agent_inspector.write(
+                snapshots,
+                turn=status.get('turn', 0),
+                year=status.get('year', 1),
+                season=status.get('season', 'spring'),
+                phase=str(phase),
+                step_count=self.step_count,
+            )
+        except Exception as e:
+            log.warning(f"agent inspector write failed: {e}")
+
     async def step(self):
         """Execute one phase of the simulation."""
         current_phase = self.time_manager.game_time.phase
