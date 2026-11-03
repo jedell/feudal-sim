@@ -120,6 +120,10 @@ class AIComponent(Component):
         self._compaction_summary: Optional[str] = None
         self._compaction_settings: Optional[CompactionSettings] = None
 
+        # Trajectory capture for RL rollouts (set each turn by make_decisions)
+        self.last_turn_observation: Optional[str] = None
+        self.last_turn_new_items: Optional[list] = None
+
         # Persistent strategic objectives
         self.current_objectives: List[str] = []
 
@@ -458,6 +462,12 @@ class AIComponent(Component):
             from feudal_sim.ai.precognition import try_precognition
             fast_path_outcome = await try_precognition(self)
             if fast_path_outcome is not None:
+                # Trajectory capture: fast-path turn atom
+                self.last_turn_observation = None
+                self.last_turn_new_items = [{
+                    'type': 'fast_path',
+                    'outcome': fast_path_outcome,
+                }]
                 if event_bus:
                     event_bus.emit(
                         EventType.VALUE_CHANGED,
@@ -478,6 +488,9 @@ class AIComponent(Component):
             })
             log.info(f"👀 [{self.agent_name}] {turn_message}")
             
+            # Trajectory capture: the observation shown to the agent this turn
+            self.last_turn_observation = turn_message
+            
             # Run the agent with full message history
             if config.get("simulation.ai.enabled", True):
                 agent_max_turns = MAX_TURNS_GENERAL if self.agent_type == AgentType.GENERAL else MAX_TURNS_HOUSE
@@ -490,6 +503,8 @@ class AIComponent(Component):
             
                 # Add the AI's decision to message history
                 self.messages = result.to_input_list()
+                # Trajectory capture: items produced this turn
+                self.last_turn_new_items = list(getattr(result, 'new_items', []) or [])
             else:
                 log.info(f"🤖 {self.agent_name} is disabled, skipping decision making")
                 return "AI is disabled"

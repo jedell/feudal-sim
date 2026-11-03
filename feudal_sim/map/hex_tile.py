@@ -13,6 +13,16 @@ from feudal_sim.map.types import (
 class HexTile:
     """A single hexagonal map tile with terrain, ownership, and features."""
 
+    # Content-based identity: tiles are unique per (q, r) in the tile map, and
+    # sets of tiles (territory, borders) must iterate in a deterministic order
+    # across processes for seeded RL episodes. Identity-hash (the default)
+    # follows memory addresses and is not reproducible.
+    def __hash__(self):
+        return hash((self.q, self.r))
+
+    def __eq__(self, other):
+        return isinstance(other, HexTile) and (self.q, self.r) == (other.q, other.r)
+
     def __init__(
         self,
         q: int,
