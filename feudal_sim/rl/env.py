@@ -37,6 +37,10 @@ class TaskConfig:
     world_config: str = "world"
     model: Optional[str] = None  # overrides simulation.ai.model for this episode
     ai_enabled: bool = True
+    # RL training rollouts must be pure policy-driven: the pre-cognition
+    # fast-path would silently remove decisions from the trajectory. Off by
+    # default; opt in only for non-training evals of the precog system itself.
+    allow_precognition: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -61,6 +65,7 @@ class FeudalEnv:
         config.set("simulation.world_generation.map_size", self.task.map_size)
         config.set("simulation.world_generation.num_houses", self.task.num_houses)
         config.set("simulation.ai.enabled", self.task.ai_enabled)
+        config.set("simulation.ai.precognition.enabled", self.task.allow_precognition)
         if self.task.model:
             config.set("simulation.ai.model", self.task.model)
 

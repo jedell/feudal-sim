@@ -31,23 +31,54 @@ def _serialize_item(item: Any) -> Dict[str, Any]:
 
 
 class TrajectoryWriter:
-    """Writes trajectory.jsonl + episode_meta.json into an episode directory."""
+    """Writes trajectory.jsonl + episode_meta.json into an episode directory.
 
-    def __init__(self, out_dir: str, task: Dict[str, Any]):
+    Row types:
+      - agent rows: one per AI-carrying entity per turn (houses, generals,
+        caravans, and any future agent type — anything with an AIComponent).
+        Contains only what that agent could observe (competitive MARL:
+        no opponent privileged state in an actor row).
+      - one global row per turn ("row_type": "global_state", "privileged": true):
+        all houses' signals for centralized-critic (CTDE) training. Training
+        pipelines must filter this out of actor data.
+    """
+
+    def __init__(self, out_dir: str, task: Dict[str, Any], episode_id: Optional[str] = None):
         self.dir = Path(out_dir)
         self.dir.mkdir(parents=True, exist_ok=True)
+        self.episode_id = episode_id or self.dir.name
         self._fp = open(self.dir / "trajectory.jsonl", "a", encoding="utf-8")
-        (self.dir / "episode_meta.json").write_text(json.dumps({"task": task}, indent=2))
+        (self.dir / "episode_meta.json").write_text(
+            json.dumps({"task": task, "episode_id": self.episode_id}, indent=2))
         self._last_signals: Dict[str, Dict[str, Any]] = {}
 
-    def record_turn(self, turn: int, simulation, signals: Dict[str, Dict[str, Any]]) -> int:
-        """Snapshot every AI agent's turn. Returns rows written."""
+    def record_turn(
+        self,
+        turn: int,
+        simulation,
+        signals: Dict[str, Dict[str, Any]],
+        done: bool = False,
+        winner: Optional[str] = None,
+    ) -> int:
+        """Snapshot every AI agent's turn plus the privileged global row.
+
+        Returns rows written."""
         from feudal_sim.components.ai import AIComponent
 
         rows = 0
-        entities = list(simulation.houses) + list(
-            simulation.entity_manager.get_entities_by_type("general") or []
-        )
+
+        # Generic coverage: houses live in simulation.houses; generals,
+        # caravans (and future scouts/diplomats) live in the entity manager.
+        entities = list(simulation.houses)
+        try:
+            managed = simulation.entity_manager.get_entities_with_component(AIComponent)
+            seen = {e.id for e in entities}
+            entities.extend(e for e in managed if e.id not in seen)
+        except Exception:
+            # Fallback: generals + caravans explicitly
+            for etype in ("general", "caravan", "scout"):
+                entities.extend(simulation.entity_manager.get_entities_by_type(etype) or [])
+
         for entity in entities:
             ai = entity.get_component(AIComponent)
             if not ai or not ai.is_enabled:
@@ -58,9 +89,7 @@ class TrajectoryWriter:
             if observation is None and not new_items:
                 continue  # agent hasn't acted yet this episode
 
-            house_name = getattr(entity, "name", None)
-            if not hasattr(entity, "resources"):  # general — resolve parent house
-                house_name = getattr(ai, "house_name", None) or house_name
+            house_name = getattr(ai, "house_name", None) or getattr(entity, "name", None)
 
             sig = signals.get(house_name, {}) if house_name else {}
             prev = self._last_signals.get(house_name, {}) if house_name else {}
@@ -72,7 +101,19 @@ class TrajectoryWriter:
                 and isinstance(prev.get(k), (int, float))
             }
 
+            # Competitive outcome from THIS agent's perspective
+            outcome = None
+            if done:
+                if winner is None:
+                    outcome = "timeout"
+                elif house_name and winner.lower() == str(house_name).lower():
+                    outcome = "win"
+                else:
+                    outcome = "loss"
+
             row = {
+                "row_type": "agent",
+                "episode_id": self.episode_id,
                 "turn": turn,
                 "agent": ai.agent_name,
                 "agent_type": ai.agent_type.value if ai.agent_type else None,
@@ -81,9 +122,24 @@ class TrajectoryWriter:
                 "items": [_serialize_item(i) for i in (new_items or [])],
                 "signals": sig,
                 "signal_deltas": deltas,
+                "done": done,
+                "outcome": outcome,
             }
             self._fp.write(json.dumps(row, default=str) + "\n")
             rows += 1
+
+        # Privileged global row — CTDE critic data, never actor input
+        global_row = {
+            "row_type": "global_state",
+            "privileged": True,
+            "episode_id": self.episode_id,
+            "turn": turn,
+            "all_houses": signals,
+            "done": done,
+            "winner": winner,
+        }
+        self._fp.write(json.dumps(global_row, default=str) + "\n")
+        rows += 1
 
         self._fp.flush()
         self._last_signals = {k: dict(v) for k, v in signals.items()}

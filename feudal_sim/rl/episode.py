@@ -34,10 +34,16 @@ async def run_episode(task_dict: dict, out_dir: str) -> dict:
         while not env.done:
             summary = await env.step_turn()
             signals = env.observe()
-            rows = writer.record_turn(env.simulation.global_turn, env.simulation, signals)
+            rows = writer.record_turn(
+                env.simulation.global_turn,
+                env.simulation,
+                signals,
+                done=env.done,
+                winner=summary.get("winner"),
+            )
             log.info(
                 f"📍 turn {summary['turn']} done "
-                f"({rows} agent rows, game_over={summary['game_over']})"
+                f"({rows} rows, game_over={summary['game_over']})"
             )
     finally:
         result = env.result()
