@@ -627,15 +627,16 @@ class Simulation:
         await asyncio.gather(*[make_entity_decision(entity) for entity in all_ai_entities])
 
         # After actions, refresh positioned entities in the renderer to clear any disbanded units
-        try:
-            positioned = []
-            generals = self.entity_manager.get_entities_by_type('general') or []
-            caravans = self.entity_manager.get_entities_by_type('caravan') or []
-            positioned.extend(generals)
-            positioned.extend(caravans)
-            self.hex_grid.render(self.houses, positioned)
-        except Exception as _e:
-            log.warning(f"⚠️  {_e}")
+        if not getattr(self.hex_grid, 'debug', False):
+            try:
+                positioned = []
+                generals = self.entity_manager.get_entities_by_type('general') or []
+                caravans = self.entity_manager.get_entities_by_type('caravan') or []
+                positioned.extend(generals)
+                positioned.extend(caravans)
+                self.hex_grid.render(self.houses, positioned)
+            except Exception as _e:
+                log.warning(f"⚠️  {_e}")
     
     def execute_events_phase(self):
         """Handle random events and diplomacy."""

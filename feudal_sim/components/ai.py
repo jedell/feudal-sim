@@ -63,8 +63,28 @@ def resolve_model(model_name: str):
     OpenAI-compatible Chat Completions endpoint, e.g.
     "fireworks/accounts/fireworks/models/glm-5p2".
     Requires FIREWORKS_API_KEY in the environment.
+
+    Names prefixed "local/" route to any OpenAI-compatible server — a
+    colocated vLLM policy during TRL training, or an SGLang endpoint on
+    Modal. Base URL from FEUDAL_POLICY_BASE_URL (default
+    http://127.0.0.1:8000/v1); API key from FEUDAL_POLICY_API_KEY
+    (default "EMPTY", which most inference servers accept).
     """
-    if not model_name or not model_name.startswith("fireworks/"):
+    if not model_name:
+        return model_name
+    if model_name.startswith("local/"):
+        from openai import AsyncOpenAI
+        from agents import OpenAIChatCompletionsModel
+        client = AsyncOpenAI(
+            base_url=os.environ.get("FEUDAL_POLICY_BASE_URL",
+                                    "http://127.0.0.1:8000/v1"),
+            api_key=os.environ.get("FEUDAL_POLICY_API_KEY", "EMPTY"),
+        )
+        return OpenAIChatCompletionsModel(
+            model=model_name.removeprefix("local/"),
+            openai_client=client,
+        )
+    if not model_name.startswith("fireworks/"):
         return model_name
     global _fireworks_client
     if _fireworks_client is None:
