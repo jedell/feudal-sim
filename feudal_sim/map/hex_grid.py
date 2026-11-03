@@ -3,10 +3,10 @@ import numpy as np
 import math
 try:
     import feudal_sim.renderer as renderer
-except ModuleNotFoundError:
-    # Headless environments (FEUDAL_SIM_NO_RENDERER=1 builds) ship no renderer
-    # .so. Debug/RL paths never touch it; constructing a RendererWrapper
-    # without the module will raise a clear error at that point.
+except (ImportError, OSError):
+    # Headless environments ship no renderer .so (or a foreign-arch one).
+    # Debug/RL paths never touch it; constructing a RendererWrapper without
+    # the module raises a clear error at that point.
     renderer = None
 from feudal_sim.map.hex_tile import HexTile
 from feudal_sim.map.types import (

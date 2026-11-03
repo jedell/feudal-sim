@@ -5,10 +5,10 @@ try:
         HexTileType as _HexTileType,
         HexResourceType as _HexResourceType,
     )
-except ModuleNotFoundError:
-    # Headless build (FEUDAL_SIM_NO_RENDERER=1): the pybind enums are only
-    # needed by the render-bridge converters below, which headless RL/CI
-    # paths never call.
+except (ImportError, OSError):
+    # Headless build, or a foreign-arch .so (e.g. macOS artifact in a Linux
+    # container): the pybind enums are only needed by the render-bridge
+    # converters below, which headless RL/CI paths never call.
     _HexTileType = None
     _HexResourceType = None
 

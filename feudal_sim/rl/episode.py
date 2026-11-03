@@ -27,7 +27,9 @@ async def run_episode(task_dict: dict, out_dir: str) -> dict:
 
     task = TaskConfig(**task_dict)
     env = FeudalEnv(task)
-    writer = TrajectoryWriter(out_dir, task.to_dict())
+    # episode_id is seed-derived (not the output dir name — inside Harbor the
+    # dir is always "/logs/episode")
+    writer = TrajectoryWriter(out_dir, task.to_dict(), episode_id=f"seed-{task.seed}")
 
     env.reset()
     try:

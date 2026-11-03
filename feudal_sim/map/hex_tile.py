@@ -2,8 +2,8 @@ try:
     from feudal_sim.renderer import (
         HexTile as _HexTile,
     )
-except ModuleNotFoundError:
-    # Headless build — get_tile() is render-only and never called headless.
+except (ImportError, OSError):
+    # Headless build / foreign-arch .so — get_tile() is render-only.
     _HexTile = None
 from feudal_sim.map.types import (
     HexTileType,

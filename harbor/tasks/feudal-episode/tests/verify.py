@@ -63,14 +63,19 @@ def main() -> int:
     # --- trajectory ---
     agent_rows = [r for r in rows if r.get("row_type") == "agent"]
     global_rows = [r for r in rows if r.get("row_type") == "global_state"]
-    houses = [
-        h for h, s in (result.get("final_state") or {}).items() if s.get("alive")
-    ]
-    houses_with_rows = {r.get("house") for r in agent_rows}
-    if agent_rows and houses and set(houses) <= houses_with_rows:
-        reward["trajectory"] = 1.0
-    elif agent_rows:
-        reward["trajectory"] = 0.5
+    if task.get("ai_enabled") is False:
+        # AI-free run: no agent rows exist by design. Credit the global
+        # (critic) rows covering every turn instead.
+        reward["trajectory"] = 1.0 if len(global_rows) >= max(1, turns_taken) else 0.5
+    else:
+        houses = [
+            h for h, s in (result.get("final_state") or {}).items() if s.get("alive")
+        ]
+        houses_with_rows = {r.get("house") for r in agent_rows}
+        if agent_rows and houses and set(houses) <= houses_with_rows:
+            reward["trajectory"] = 1.0
+        elif agent_rows:
+            reward["trajectory"] = 0.5
     detail["agent_rows"] = len(agent_rows)
     detail["global_rows"] = len(global_rows)
 
@@ -94,12 +99,14 @@ def main() -> int:
 
 
 def _write(reward: dict, detail: dict) -> int:
-    reward["detail"] = detail
     VERIFIER_DIR.mkdir(parents=True, exist_ok=True)
-    (VERIFIER_DIR / "reward.json").write_text(json.dumps(reward, indent=2))
-    # Scalar for simple consumers
+    # Harbor requires reward.json to be strictly numeric — diagnostics go in
+    # a separate file.
+    (VERIFIER_DIR / "verifier-detail.json").write_text(json.dumps(detail, indent=2))
+    numeric = {k: v for k, v in reward.items() if isinstance(v, (int, float))}
+    (VERIFIER_DIR / "reward.json").write_text(json.dumps(numeric, indent=2))
     (VERIFIER_DIR / "reward.txt").write_text(str(reward["total"]))
-    print(json.dumps(reward, indent=2))
+    print(json.dumps({**numeric, "detail": detail}, indent=2))
     return 0
 
 

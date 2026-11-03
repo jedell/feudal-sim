@@ -7,7 +7,10 @@ REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TASK_DIR="$REPO_ROOT/harbor/tasks/feudal-episode"
 
 echo "📦 Vendoring $REPO_ROOT → $TASK_DIR/environment/feudal-sim.tar.gz"
-tar czf "$TASK_DIR/environment/feudal-sim.tar.gz" \
+# COPYFILE_DISABLE: no macOS AppleDouble (._*) files in the tarball.
+# renderer*.so excluded: the .so is a macOS Mach-O build artifact; Linux
+# containers must have NO .so present (guarded imports treat it as headless).
+COPYFILE_DISABLE=1 tar czf "$TASK_DIR/environment/feudal-sim.tar.gz" \
     -C "$REPO_ROOT" \
     --exclude='.git' \
     --exclude='.venv' \
@@ -17,6 +20,8 @@ tar czf "$TASK_DIR/environment/feudal-sim.tar.gz" \
     --exclude='mlartifacts' \
     --exclude='render/build' \
     --exclude='render/CMakeFiles' \
+    --exclude='feudal_sim/renderer*.so' \
+    --exclude='render/renderer*.so' \
     --exclude='.claude' \
     --exclude='__pycache__' \
     --exclude='.pytest_cache' \
