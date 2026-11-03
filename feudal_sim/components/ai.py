@@ -54,6 +54,22 @@ MAX_TURNS = MAX_TURNS_HOUSE  # default; overridden per agent type in make_decisi
 # Shared client for OpenAI-compatible third-party providers (Fireworks)
 _fireworks_client = None
 
+# Training-time injection: when set (by the ART rollout driver), the local/
+# route uses this client instead of constructing one — calls flow through the
+# trainer's managed client so trajectories are auto-captured for RL.
+_policy_client_override = None
+
+
+def set_policy_client(client) -> None:
+    """Inject a managed OpenAI-compatible client for the local/ model route."""
+    global _policy_client_override
+    _policy_client_override = client
+
+
+def clear_policy_client() -> None:
+    global _policy_client_override
+    _policy_client_override = None
+
 
 def resolve_model(model_name: str):
     """Resolve a config model string to an Agents SDK model.
@@ -75,7 +91,7 @@ def resolve_model(model_name: str):
     if model_name.startswith("local/"):
         from openai import AsyncOpenAI
         from agents import OpenAIChatCompletionsModel
-        client = AsyncOpenAI(
+        client = _policy_client_override or AsyncOpenAI(
             base_url=os.environ.get("FEUDAL_POLICY_BASE_URL",
                                     "http://127.0.0.1:8000/v1"),
             api_key=os.environ.get("FEUDAL_POLICY_API_KEY", "EMPTY"),

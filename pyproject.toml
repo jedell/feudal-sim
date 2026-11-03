@@ -30,6 +30,7 @@ dev = [
 rl = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
+    "openpipe-art",
 ]
 
 [tool.hatch.build.targets.wheel]
