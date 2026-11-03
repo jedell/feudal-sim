@@ -26,12 +26,16 @@
     },
     "precognition": {
       "enabled": true,
+      "provider": "jev",
       "model": "typesafe-ai/jev",
       "base_url": "https://ai-gateway.vercel.sh/typesafe",
       "api_key_env": "AI_GATEWAY_API_KEY",
       "confidence_threshold": 0.8,
       "threat_threshold": 0.5,
-      "timeout_seconds": 3.0
+      "timeout_seconds": 3.0,
+      "llm_model": "",
+      "llm_base_url": "",
+      "llm_api_key_env": ""
     },
     "max_turns_house": 12,
     "max_turns_general": 10

@@ -33,12 +33,23 @@ log = get_logger(__name__)
 @dataclass
 class PrecognitionSettings:
     enabled: bool = False
+    # "jev" = TypeSafe System One via Vercel AI Gateway (fast, calibrated,
+    # cheap). "llm" = standard chat model as the router (any OpenAI-compatible
+    # endpoint — use a small/cheap model or you lose the latency win).
+    # "off" = skip pre-cognition entirely; every turn runs the full LLM loop.
+    provider: str = "jev"
     model: str = "typesafe-ai/jev"
     base_url: str = "https://ai-gateway.vercel.sh/typesafe"
     api_key_env: str = "AI_GATEWAY_API_KEY"
     confidence_threshold: float = 0.8
     threat_threshold: float = 0.5
     timeout_seconds: float = 3.0
+    # provider="llm" settings. Model prefixes: "fireworks/..." routes to
+    # Fireworks, "vercel/..." routes to the AI Gateway chat endpoint, plain
+    # names go to OpenAI. Empty model falls back to the general's model.
+    llm_model: str = ""
+    llm_base_url: str = ""
+    llm_api_key_env: str = ""
 
     @classmethod
     def from_config(cls) -> "PrecognitionSettings":
@@ -53,12 +64,16 @@ class PrecognitionSettings:
 
         return cls(
             enabled=_get("enabled", False),
+            provider=_get("provider", "jev"),
             model=_get("model", "typesafe-ai/jev"),
             base_url=_get("base_url", "https://ai-gateway.vercel.sh/typesafe"),
             api_key_env=_get("api_key_env", "AI_GATEWAY_API_KEY"),
             confidence_threshold=float(_get("confidence_threshold", 0.8)),
             threat_threshold=float(_get("threat_threshold", 0.5)),
             timeout_seconds=float(_get("timeout_seconds", 3.0)),
+            llm_model=_get("llm_model", ""),
+            llm_base_url=_get("llm_base_url", ""),
+            llm_api_key_env=_get("llm_api_key_env", ""),
         )
 
 
@@ -186,7 +201,128 @@ def parse_general_result(raw: Dict[str, Any]) -> Optional[PrecognitionResult]:
         return None
 
 
-# ── State snapshot ───────────────────────────────────────────────────────────
+# ── Standard LLM router (provider="llm") ────────────────────────────────────
+
+_LLM_ROUTER_PROMPT = """\
+You are a fast tactical router for a feudal wargame. Given a general's state,
+decide their next action. Respond with ONLY a JSON object, no prose:
+
+{
+  "next_action": one of [
+    "continue_route",      // valid active route exists; keep marching
+    "build_outpost",       // arrived at the intended site; build now
+    "observe",             // no route; scan surroundings first
+    "hold_position",       // stay: pending construction, hold orders, waiting
+    "retreat",             // morale/supplies critical; return home
+    "needs_deliberation"   // ambiguous/dangerous/strategic; escalate
+  ],
+  "threat": 0.0-1.0,       // probability of immediate military threat ~2 tiles
+  "confidence": 0.0-1.0    // your confidence in next_action
+}
+
+Be conservative: when in doubt, lower confidence rather than guessing."""
+
+
+def _resolve_chat_endpoint(settings: PrecognitionSettings,
+                           agent_type_value: str) -> Tuple[str, str, str]:
+    """Resolve (model_id, base_url, api_key_env) for the LLM router.
+
+    Explicit precognition.llm_* config wins; otherwise the agent type's own
+    model string is reused. Prefixes: "fireworks/" → Fireworks endpoint,
+    "vercel/" → AI Gateway, plain → OpenAI.
+    """
+    model = settings.llm_model
+    if not model:
+        try:
+            model = config.get(f"simulation.ai.models.{agent_type_value}") or \
+                    config.get("simulation.ai.model", "")
+        except KeyError:
+            model = ""
+
+    if model.startswith("fireworks/"):
+        return (model.removeprefix("fireworks/"),
+                settings.llm_base_url or os.environ.get(
+                    "FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1"),
+                settings.llm_api_key_env or "FIREWORKS_API_KEY")
+    if model.startswith("vercel/"):
+        return (model.removeprefix("vercel/"),
+                settings.llm_base_url or "https://ai-gateway.vercel.sh/v1",
+                settings.llm_api_key_env or "AI_GATEWAY_API_KEY")
+    return (model,
+            settings.llm_base_url or "https://api.openai.com/v1",
+            settings.llm_api_key_env or "OPENAI_API_KEY")
+
+
+async def call_llm_router(
+    state: str,
+    settings: PrecognitionSettings,
+    agent_type_value: str,
+) -> Optional[Dict[str, Any]]:
+    """Route via a standard chat model. Returns a raw-answers-shaped dict so
+    parse_general_result can consume it unchanged."""
+    model_id, base_url, api_key_env = _resolve_chat_endpoint(settings, agent_type_value)
+    api_key = os.environ.get(api_key_env)
+    if not api_key or not model_id:
+        log.warning(f"⚡ LLM router unavailable ({api_key_env} not set or no model)")
+        return None
+
+    try:
+        import json as _json
+
+        async with httpx.AsyncClient(timeout=settings.timeout_seconds) as client:
+            resp = await client.post(
+                f"{base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}",
+                         "Content-Type": "application/json"},
+                json={
+                    "model": model_id,
+                    "messages": [
+                        {"role": "system", "content": _LLM_ROUTER_PROMPT},
+                        {"role": "user", "content": state},
+                    ],
+                    # reasoning models burn completion tokens on thinking
+                    # before the JSON answer — give it headroom
+                    "max_tokens": 2000,
+                    "temperature": 0.0,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        text = data["choices"][0]["message"].get("content") or ""
+        usage = data.get("usage", {})
+
+        # Robust JSON extraction — models sometimes wrap in ```json fences
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1:
+            log.warning(f"⚡ LLM router returned non-JSON: {text[:120]!r}")
+            return None
+        decision = _json.loads(text[start : end + 1])
+
+        # Shape it like the Jev response for parse_general_result
+        return {
+            "answers": {
+                "next_action": {
+                    "type": "choice",
+                    "choice": decision.get("next_action", "needs_deliberation"),
+                    "confidence": float(decision.get("confidence", 0.0)),
+                    "probabilities": {},
+                },
+                "threat_nearby": {
+                    "type": "noul",
+                    "noul": float(decision.get("threat", 0.0)),
+                },
+            },
+            "usage": usage,
+            "provider_metadata": {"gateway": {}},
+        }
+    except Exception as e:
+        log.warning(f"⚡ LLM router call failed ({e}); falling through to main loop")
+        return None
+
+
+
 
 
 def build_general_state(ai_component) -> Optional[str]:
@@ -446,8 +582,8 @@ async def try_precognition(ai_component) -> Optional[str]:
     turn was fully handled without the LLM, else None (fall through).
 
     Gating:
-      1. config disabled / not a general → None
-      2. Jev confidence below threshold → None
+      1. config disabled / provider "off" / not a general → None
+      2. router confidence below threshold → None
       3. threat probability above threshold → None
       4. action not in fast-path executors → None
       5. executor declines (preconditions unmet) → None
@@ -458,14 +594,17 @@ async def try_precognition(ai_component) -> Optional[str]:
         return None
 
     settings = PrecognitionSettings.from_config()
-    if not settings.enabled:
+    if not settings.enabled or settings.provider == "off":
         return None
 
     state = build_general_state(ai_component)
     if not state:
         return None
 
-    raw = await call_jev(state, settings)
+    if settings.provider == "llm":
+        raw = await call_llm_router(state, settings, ai_component.agent_type.value)
+    else:
+        raw = await call_jev(state, settings)
     if raw is None:
         return None
 
@@ -474,7 +613,7 @@ async def try_precognition(ai_component) -> Optional[str]:
         return None
 
     log.info(
-        f"⚡ [{ai_component.agent_name}] Jev: {result.action} "
+        f"⚡ [{ai_component.agent_name}] precog[{settings.provider}]: {result.action} "
         f"(p={result.confidence:.2f}, threat={result.threat:.2f}, "
         f"{result.latency_ms:.0f}ms, ${result.cost_usd:.6f})"
     )
