@@ -205,3 +205,5 @@ docs/time_management_system.md
 docs/sub_agent_population_delegation.md
 docs/simulation_realism_scope.md
 runs/
+harbor/tasks/*/environment/feudal-sim.tar.gz
+jobs/

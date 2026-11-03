@@ -1,4 +1,5 @@
 """Custom build hook for compiling C++ renderer with CMake."""
+import os
 import subprocess
 import shutil
 from pathlib import Path
@@ -9,7 +10,16 @@ class CustomBuildHook(BuildHookInterface):
     PLUGIN_NAME = "custom"
 
     def initialize(self, version, build_data):
-        """Build the C++ renderer during wheel build."""
+        """Build the C++ renderer during wheel build.
+
+        Skipped when FEUDAL_SIM_NO_RENDERER=1 — headless environments (RL
+        rollout workers, Harbor sandboxes, CI) never spawn the renderer
+        process, and skipping avoids the raylib/cmake toolchain dependency.
+        """
+        if os.environ.get("FEUDAL_SIM_NO_RENDERER") == "1":
+            print("FEUDAL_SIM_NO_RENDERER=1 — skipping C++ renderer build (headless)")
+            return
+
         print("Building C++ renderer...")
         
         project_root = Path(self.root)

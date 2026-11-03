@@ -36,6 +36,11 @@ class TaskConfig:
     simulation_config: str = "simulation"
     world_config: str = "world"
     model: Optional[str] = None  # overrides simulation.ai.model for this episode
+    # Eval ladder: per-house model overrides, e.g.
+    # {"Stark": "fireworks/accounts/fireworks/models/glm-5p3"} — lets one
+    # policy model face different opponent models. Applied post-construction
+    # to each house's agent.
+    house_models: Optional[Dict[str, str]] = None
     ai_enabled: bool = True
     # RL training rollouts must be pure policy-driven: the pre-cognition
     # fast-path would silently remove decisions from the trajectory. Off by
@@ -72,12 +77,28 @@ class FeudalEnv:
         from feudal_sim.core.simulation import Simulation
 
         self.simulation = Simulation(debug=True)  # headless: no renderer
+        self._apply_house_models()
         self.turns_taken = 0
         log.info(
             f"🌍 Episode reset: seed={self.task.seed} map={self.task.map_size} "
             f"houses={self.task.num_houses} max_turns={self.task.max_turns}"
         )
         return self.observe()
+
+    def _apply_house_models(self) -> None:
+        """Apply per-house policy model overrides (eval ladder support)."""
+        if not self.task.house_models or not self.simulation:
+            return
+        from feudal_sim.components.ai import AIComponent, resolve_model
+
+        for house in self.simulation.houses:
+            model_name = self.task.house_models.get(house.name)
+            if not model_name:
+                continue
+            ai = house.get_component(AIComponent)
+            if ai and ai.agent is not None:
+                ai.agent.model = resolve_model(model_name)
+                log.info(f"🎭 {house.name} policy model → {model_name}")
 
     @property
     def done(self) -> bool:

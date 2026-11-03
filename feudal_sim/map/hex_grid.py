@@ -1,7 +1,13 @@
 import random
 import numpy as np
 import math
-import feudal_sim.renderer as renderer
+try:
+    import feudal_sim.renderer as renderer
+except ModuleNotFoundError:
+    # Headless environments (FEUDAL_SIM_NO_RENDERER=1 builds) ship no renderer
+    # .so. Debug/RL paths never touch it; constructing a RendererWrapper
+    # without the module will raise a clear error at that point.
+    renderer = None
 from feudal_sim.map.hex_tile import HexTile
 from feudal_sim.map.types import (
     HexTileType,

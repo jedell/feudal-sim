@@ -1,9 +1,16 @@
 from enum import Enum
 from typing import Dict
-from feudal_sim.renderer import (
-    HexTileType as _HexTileType,
-    HexResourceType as _HexResourceType,
-)
+try:
+    from feudal_sim.renderer import (
+        HexTileType as _HexTileType,
+        HexResourceType as _HexResourceType,
+    )
+except ModuleNotFoundError:
+    # Headless build (FEUDAL_SIM_NO_RENDERER=1): the pybind enums are only
+    # needed by the render-bridge converters below, which headless RL/CI
+    # paths never call.
+    _HexTileType = None
+    _HexResourceType = None
 
 class Color:
     """An RGBA color."""
@@ -39,6 +46,8 @@ class HexResourceType(Enum):
     GOLD = "gold"
 
 def hex_tile_type_to_int(hex_tile_type: HexTileType):
+    if _HexTileType is None:
+        raise RuntimeError("renderer module unavailable (headless build)")
     return {
         HexTileType.GRASSLAND: _HexTileType.GRASSLAND,
         HexTileType.TUNDRA: _HexTileType.TUNDRA,
@@ -57,6 +66,8 @@ def hex_tile_type_to_int(hex_tile_type: HexTileType):
     }[hex_tile_type]
 
 def hex_resource_type_to_int(hex_resource_type: HexResourceType):
+    if _HexResourceType is None:
+        raise RuntimeError("renderer module unavailable (headless build)")
     return {
         HexResourceType.NONE: _HexResourceType.NONE,
         HexResourceType.FOOD: _HexResourceType.FOOD,
